@@ -6,8 +6,9 @@
 //   deny=1                    every setDoc fails with permission-denied (e.g. wrong code)
 //   legacy=1                  item i0 is old-format (text inside the item) -> migration
 //   nohist=1                  no history
-//   cfg=1                     game settings saved: extra player "סבתא", extra admin "עדי", a family code
-//   cfg=2                     game settings saved without the player "הדר"
+//   (no cfg)                  no game settings yet: the app seeds them from its LEGACY values
+//   cfg=1                     settings saved: title, extra player "סבתא", extra admin "עדי", a family code
+//   cfg=2                     settings saved without the player "הדר"
 //   sugg=1                    a wording suggestion from אמא waiting for מתן (on i0)
 // Writes are recorded for assertions: window.W (setDoc), window.B (batches),
 // sessionStorage.claims / .del (survive the reload after logout).
@@ -16,10 +17,17 @@ const q = new URLSearchParams(location.hash.slice(1));
 const base = ["עוד 5 דקות מגיעים", "מי רוצה במבה?", "תסגרו את החלון", "אני לא עייף", "איפה המטען שלי?", "בואו נעצור לקפה",
   "זה בדיוק כמו בפעם שעברה", "אני רעב", "מתי מגיעים?", "תורידו את המוזיקה", "עוד תמונה אחת", "שכחתי משהו באוטו"];
 const TX = Object.fromEntries(Array.from({ length: 36 }, (_, i) => ["i" + i, base[i % 12] + (i >= 12 ? " #" + i : "")]));
-// item i is about P[i%6], written by P[(i+2)%6]
-const items = Object.keys(TX).map((id, i) => ({ id, data: () => ({ about: P[i % 6], author: P[(i + 2) % 6], weight: 1, at: { seconds: i }, ...(i === 0 && q.get("legacy") ? { text: TX[id] } : {}) }) }));
+// i0..i35 use the old format (about = one name): item i is about P[i%6], written by P[(i+2)%6].
+// g1..g4 use the new format: about is a list, empty for a general event.
+const extra = [["g1", [], "אמא", "נתקעים בפקק"], ["g2", ["אבא", "עדי"], "אורי", "אבא ועדי שרים ברכב"], ["g3", [], "מתן", "מגיעים באיחור"], ["g4", ["אבא", "אמא"], "מתן", "אבא ואמא רבים על הניווט"]];
+extra.forEach(([id, , , t]) => TX[id] = t);
+const raw = [...Array.from({ length: 36 }, (_, i) => ({ id: "i" + i, about: P[i % 6], author: P[(i + 2) % 6], at: i, ...(i === 0 && q.get("legacy") ? { text: TX["i0"] } : {}) })),
+  ...extra.map(([id, about, author], k) => ({ id, about, author, at: 40 + k }))];
+const items = raw.map(({ id, at, ...d }) => ({ id, data: () => ({ weight: 1, at: { seconds: at }, ...d }) }));
+const aboutOf = d => Array.isArray(d.about) ? d.about : [d.about];
 const n = +(q.get("size") || 3), mode = q.get("m") || "entry";
-const cards = Object.fromEntries(P.map(p => [p, items.filter(i => i.data().about !== p).slice(0, n * n).map(i => i.id)]));
+// cards take the new-format items first, so they show up on every board size
+const cards = Object.fromEntries(P.map(p => [p, [...raw.slice(36), ...raw.slice(0, 36)].filter(i => !aboutOf(i).includes(p)).slice(0, n * n).map(i => i.id)]));
 const mine = cards["מתן"];
 const state = {
   entry: { status: "entry", cards: {} },
@@ -31,7 +39,7 @@ const state = {
 const diag = [...Array(n).keys()].map(k => mine[k * n + k]);
 const marks = P.map((p, k) => ({ id: p, data: () => p === "מתן" ? { marked: diag, bingo: true, blackout: false, bingoAt: { seconds: 50 } } : { marked: cards[p].slice(0, k), bingo: false, blackout: false } }));
 const ratings = [{ item: "i1", player: "מתן", stars: 3 }, { item: "i3", player: "מתן", stars: 0 }, { item: "i5", player: "אמא", stars: 2 }];
-const config = { 1: { players: [...P, "סבתא"], admins: ["עדי"], adminUids: [] }, 2: { players: P.filter(p => p !== "הדר"), admins: [], adminUids: [] } }[q.get("cfg")];
+const config = { 1: { title: "טיול צפון", players: [...P, "סבתא"], founders: ["מתן", "אורי"], admins: ["עדי"] }, 2: { title: "", players: P.filter(p => p !== "הדר"), founders: ["מתן", "אורי"], admins: [] } }[q.get("cfg")];
 const sugIn = q.get("sugg") ? [{ id: "s1", item: "i0", from: "אמא", fromUid: "OTHER", toUid: "U1", text: "הצעה משופרת", at: { seconds: 99 } }] : [];
 const history = [{ at: { seconds: 1790000000 }, size: 3, results: [{ p: "אורי", place: 1, n: 9, bingo: true, blackout: true }, { p: "מתן", place: 2, n: 7, bingo: true, blackout: false }, { p: "אמא", place: 3, n: 5, bingo: false, blackout: false }] }];
 
@@ -59,10 +67,14 @@ export const deleteDoc = async r => {
   if (c === "players") { delete PL[id]; emitPl(); await new Promise(z => setTimeout(z, 50)); }
 };
 export const addDoc = async (coll, d) => { const r = doc(coll); await setDoc(r, d); return r; };
-export const writeBatch = () => { const ops = []; return { set(r, d) { ops.push(["set", String(r), d]); }, delete(r) { ops.push(["del", String(r)]); }, commit: async () => { window.B = (window.B || []).concat([ops]); } }; };
+export const writeBatch = () => { const ops = []; return { set(r, d) { ops.push(["set", String(r), d]); }, delete(r) { ops.push(["del", String(r)]); }, commit: async () => {
+  window.B = (window.B || []).concat([ops]);
+  ops.forEach(([op, r, d]) => { const [c, id] = r.split("/"); if (c === "players" && op === "set") { PL[id] = d.uid; log("claims", id); } });
+  if (ops.some(([, r]) => r.startsWith("players/"))) emitPl();
+} }; };
 export const getDoc = async r => {
   r = String(r);
-  if (r.startsWith("members/")) return { exists: () => q.get("member") !== "0" && !sessionStorage.signedOut };
+  if (r.startsWith("members/")) return { exists: () => q.get("member") !== "0" && !sessionStorage.signedOut, data: () => ({ code: "x" }) };
   if (r.startsWith("texts/")) return { data: () => ({ text: TX[r.slice(6)] }) };
   if (r === "config/secret") return { exists: () => !!config, data: () => ({ code: "lavi" }) };
   return { exists: () => false, data: () => undefined };

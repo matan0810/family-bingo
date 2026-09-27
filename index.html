@@ -211,10 +211,13 @@ body.intro header{display:none}
   <textarea id="editText" maxlength="140"></textarea>
   <div class="row"><button id="editSave">שמירה</button><button class="ghost" data-close>ביטול</button></div></div></dialog>
 <dialog id="cfgDlg"><div class="dlg" id="cfgBox"><h2>👑 הגדרות משחק</h2>
+  <h3>🏷️ שם התחרות</h3>
+  <div class="row"><input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026"><button class="ghost" data-cfg="title">שמירה</button></div>
   <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
   <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
   <p class="muted" id="cfgPlayersNote"></p>
-  <h3>🛠️ מתכללים</h3><p class="muted">מתן ואורי מייסדים (👑) ותמיד מתכללים. מתכלל מנהל את המשחק, אבל לא את ההגדרות האלה.</p><div class="chips" id="cfgAdmins"></div>
+  <h3>👑 מייסדים</h3><p class="muted">מייסדים תמיד מתכללים, והם היחידים שרואים את ההגדרות האלה.</p><div class="chips" id="cfgFounders"></div>
+  <h3>🛠️ מתכללים</h3><p class="muted">מתכלל מנהל את המשחק (שלבים, כרטיסים, סיום), אבל לא את ההגדרות האלה.</p><div class="chips" id="cfgAdmins"></div>
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
   <div class="row"><input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש"><button class="ghost" data-cfg="code">שמירה</button></div>
   <h3>🧹 טיול חדש</h3><p class="muted">מוחק את כל הניחושים, הדירוגים וההצעות ומאפס את הסימונים. ההיסטוריה נשארת. רק בשלב הניחושים.</p>
@@ -237,10 +240,10 @@ const firebaseConfig = {
   appId: "1:564240750544:web:706f367543d2903c660bd5"
 };
 
-// players and extra admins come from config/settings (game settings); these are the defaults until a founder saves them.
-// Keep DEFAULT_PLAYERS and FOUNDERS in sync with defaultPlayers() and founders() in the rules.
-const DEFAULT_PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
-const FOUNDERS = ["מתן", "אורי"];
+// Title, players, founders and admins all come from config/settings (game settings).
+// LEGACY is only a one-time migration from the first version, where they were fixed in the code: if config/settings
+// doesn't exist yet, the app creates it from these values so the running game carries on unchanged.
+const LEGACY = { title: "", players: ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"], founders: ["מתן", "אורי"], admins: [] };
 // avatars a player can choose (looks/{player} = {e}); each emoji has a fixed color. Keep in sync with the rules.
 const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸","#22c55e"],["🐙","#8b5cf6"],["🐢","#14b8a6"],
   ["🦊","#f97316"],["🐼","#64748b"],["🐯","#eab308"],["🐨","#78716c"],["🐷","#f472b6"],["🐵","#a16207"],
@@ -248,7 +251,6 @@ const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸"
   ["🐳","#0284c7"],["🦩","#fb7185"],["🐱","#d97706"],["🐰","#d946ef"],["🦈","#0891b2"],["🌵","#65a30d"],
   ["🍕","#dc2626"],["🍉","#e11d48"],["🚀","#7c3aed"],["👽","#84cc16"],["🤖","#06b6d4"],["👻","#a78bfa"]];
 const COLOR = Object.fromEntries(EMOJIS);
-const DEFAULT = { "אבא": "🦁", "אמא": "🦄", "מתן": "🐬", "אורי": "🐸", "עדי": "🐙", "הדר": "🐢" };
 const SIZES = [2, 3, 4, 5];
 const MEDAL = ["🥇", "🥈", "🥉"];
 const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
@@ -257,24 +259,40 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app), auth = getAuth(app);
 // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
 let adminOpen = new URLSearchParams(location.search).has("admin") || (() => { try { return !!localStorage.getItem("bingo-admin"); } catch { return false; } })();
-const isAdminName = p => FOUNDERS.includes(p) || config.admins.includes(p);
+const isFounderName = p => config.founders.includes(p);
+const isAdminName = p => isFounderName(p) || config.admins.includes(p);
+const appTitle = () => config.title || "בינגו משפחתי";
 const isAdmin = () => adminOpen && isAdminName(me);
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const emo = p => COLOR[looks[p]] ? looks[p] : DEFAULT[p] ?? spareEmoji(p);
-// players added later start with the first emoji nobody has, in player order
-function spareEmoji(p) {
-  const own = x => COLOR[looks[x]] ? looks[x] : DEFAULT[x];
-  const used = new Set(PLAYERS.map(own).filter(Boolean));
-  return EMOJIS.map(([e]) => e).filter(e => !used.has(e))[PLAYERS.filter(x => !own(x)).indexOf(p)] ?? "🙂";
+const emo = p => COLOR[looks[p]] ? looks[p] : autoEmoji(p);
+// players without a chosen emoji get one by their place in the player list, skipping emojis already taken
+function autoEmoji(p) {
+  const chosen = new Set(PLAYERS.map(x => looks[x]).filter(e => COLOR[e])), taken = new Set();
+  for (const [k, x] of PLAYERS.entries()) {
+    if (COLOR[looks[x]]) continue;
+    const e = [...EMOJIS.slice(k), ...EMOJIS.slice(0, k)].map(([e]) => e).find(e => !chosen.has(e) && !taken.has(e)) ?? "🙂";
+    if (x === p) return e;
+    taken.add(e);
+  }
+  return "🙂";
 }
+// who a prediction is about: a list of names, empty for a general event (older predictions hold a single name)
+const aboutOf = i => Array.isArray(i.about) ? i.about : i.about ? [i.about] : [];
+const GENERAL = "#0ea5e9";
+const listFmt = new Intl.ListFormat("he", { type: "conjunction" });
+const whoName = i => aboutOf(i).length ? listFmt.format(aboutOf(i)) : "כללי";
+const whoEmo = i => aboutOf(i).length ? aboutOf(i).map(emo).join("") : "🌍";
+const whoCol = i => aboutOf(i).length ? col(aboutOf(i)[0]) : `--c:${GENERAL}`;
+const whoAv = i => aboutOf(i).length ? aboutOf(i).map(av).join("") : `<span class="av" style="--c:${GENERAL}">🌍</span>`;
 const colorOf = p => COLOR[emo(p)] ?? "#888";
 const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
-let config = { players: DEFAULT_PLAYERS, admins: [], adminUids: [] }, PLAYERS = DEFAULT_PLAYERS;
+let config = LEGACY, PLAYERS = LEGACY.players;
+let memberName = null; // the name this device has recorded in members/{uid} (the rules identify players by it)
 let sugIn = [], sugOut = []; // wording suggestions for my predictions / that I sent
 let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
@@ -310,7 +328,7 @@ onAuthStateChanged(auth, async u => {
   if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
   if (uid) return; // listeners already set up
   uid = u.uid;
-  try { member = (await getDoc(doc(db, "members", uid))).exists(); } catch (e) { return fatal(e); }
+  try { const m = await getDoc(doc(db, "members", uid)); member = m.exists(); memberName = m.data()?.name ?? null; } catch (e) { return fatal(e); }
   member ? listen() : render();
 });
 function fatal(e) { console.error(e); $("#app").innerHTML = `<p class="panel">⚠️ שגיאת חיבור (${esc(e.code || e.message)}). נסו לרענן.</p>`; }
@@ -344,9 +362,18 @@ onSnapshot(collection(db, "marks"), s => {
 onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
 onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
 onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
-// game settings: a missing doc (or rules that predate it) means the defaults
-const setConfig = c => { config = { players: c?.players?.length ? c.players : DEFAULT_PLAYERS, admins: c?.admins || [], adminUids: c?.adminUids || [] }; PLAYERS = config.players; ready("config"); };
-onSnapshot(doc(db, "config", "settings"), s => setConfig(s.data()), e => { console.warn("settings", e); setConfig(null); });
+// game settings; if they don't exist yet (first run after the upgrade), create them from LEGACY
+let seeded = false;
+const setConfig = c => {
+  const src = c?.players?.length ? c : LEGACY;
+  config = { title: src.title || "", players: src.players, founders: src.founders || [], admins: src.admins || [] };
+  PLAYERS = config.players;
+  ready("config");
+};
+onSnapshot(doc(db, "config", "settings"), s => {
+  if (!s.data() && !legacy && !seeded) { seeded = true; setDoc(doc(db, "config", "settings"), LEGACY).catch(e => console.warn("seed settings", e)); }
+  setConfig(s.data());
+}, e => { console.warn("settings", e); setConfig(null); });
 if (!legacy) {
   onSnapshot(query(collection(db, "suggestions"), where("toUid", "==", uid)), s => { sugIn = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
   onSnapshot(query(collection(db, "suggestions"), where("fromUid", "==", uid)), s => { sugOut = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
@@ -383,7 +410,7 @@ function migrate() {
   items.filter(i => i.author === me && i.text && !moved.has(i.id)).forEach(i => {
     moved.add(i.id);
     const ref = doc(collection(db, "items")), b = writeBatch(db);
-    b.set(ref, { about: i.about, author: me, weight: 1, at: serverTimestamp() });
+    b.set(ref, { about: aboutOf(i), author: me, weight: 1, at: serverTimestamp() });
     b.set(doc(db, "texts", ref.id), { text: i.text });
     b.delete(doc(db, "items", i.id));
     texts[ref.id] = i.text;
@@ -393,8 +420,8 @@ function migrate() {
 
 // ---- rating: ratings/{item}_{player} = {item, player, stars 0..3}; nobody rates what is about them or by them ----
 // predictions by or about a removed player stay stored but are left out of rating and cards
-const active = i => PLAYERS.includes(i.about) && PLAYERS.includes(i.author);
-const rateable = p => items.filter(i => active(i) && i.about !== p && i.author !== p);
+const active = i => PLAYERS.includes(i.author) && aboutOf(i).every(x => PLAYERS.includes(x));
+const rateable = p => items.filter(i => active(i) && !aboutOf(i).includes(p) && i.author !== p);
 const isRater = () => (game.raters || []).includes(me);
 const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).map(r => [r.item, r.stars]));
 const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
@@ -417,7 +444,7 @@ function pick(pool, k) {
   }
   return out;
 }
-const poolFor = p => items.filter(i => active(i) && i.about !== p);
+const poolFor = p => items.filter(i => active(i) && !aboutOf(i).includes(p));
 
 // ---- board geometry ----
 const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
@@ -451,38 +478,17 @@ async function generate() {
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
   const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
-  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, raters: game.raters || [], raterUids: game.raterUids || [], at: serverTimestamp() });
+  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, raters: liveRaters(), at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
 }
 function setRaters(status) {
   const raters = PLAYERS.filter(p => raterSel.has(p));
   if (!raters.length) return alert("צריך לבחור לפחות מדרג אחד");
-  return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() }));
+  return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, at: serverTimestamp() }));
 }
-// raters are matched by device in the rules (raterUids); refresh the list when a chosen rater joins later
-let syncing = false;
-function syncRaterUids() {
-  if (game.status !== "rate" || syncing) return;
-  const uids = (game.raters || []).map(p => players[p]).filter(Boolean);
-  if (uids.length === (game.raterUids || []).length && uids.every(u => game.raterUids.includes(u))) return;
-  syncing = true;
-  setDoc(doc(db, "game", "state"), { raterUids: uids }, { merge: true }).catch(e => console.warn("raterUids", e)).finally(() => syncing = false);
-}
-// extra admins are matched by device in the rules; founders' devices keep adminUids up to date
-let syncingAdmins = false;
-function syncAdminUids() {
-  if (syncingAdmins || !config.admins.length && !config.adminUids.length) return;
-  const uids = config.admins.map(p => players[p]).filter(Boolean);
-  if (uids.length === config.adminUids.length && uids.every(u => config.adminUids.includes(u))) return;
-  syncingAdmins = true;
-  saveConfig({}).finally(() => syncingAdmins = false);
-}
-const saveConfig = patch => {
-  const next = { ...config, ...patch };
-  next.adminUids = next.admins.map(p => players[p]).filter(Boolean);
-  return safe(setDoc(doc(db, "config", "settings"), next));
-};
+const liveRaters = () => (game.raters || []).filter(p => PLAYERS.includes(p));
+const saveConfig = patch => safe(setDoc(doc(db, "config", "settings"), { ...config, ...patch }));
 
 // ---- wording: the author edits until the rating phase ends; raters suggest, the author decides ----
 let editing = null;
@@ -492,7 +498,7 @@ function openEdit(mode, id) {
   if (mode === "suggest" && !players[i.author]) return toast("✋ הכותב/ת עוד לא מחובר/ת");
   editing = { mode, i };
   $("#editTitle").textContent = mode === "edit" ? "✏️ עריכת ניחוש" : "✏️ הצעת ניסוח";
-  $("#editSub").innerHTML = mode === "edit" ? `על ${emo(i.about)} ${esc(i.about)}` : `על ${emo(i.about)} ${esc(i.about)}. ההצעה תגיע ל${esc(i.author)}, שיחליט/תחליט אם לאשר.`;
+  $("#editSub").innerHTML = mode === "edit" ? `על ${whoEmo(i)} ${esc(whoName(i))}` : `על ${whoEmo(i)} ${esc(whoName(i))}. ההצעה תגיע ל${esc(i.author)}, שיחליט/תחליט אם לאשר.`;
   $("#editText").value = textOf(i) ?? "";
   $("#editDlg").showModal();
 }
@@ -530,12 +536,15 @@ async function openCfg() {
 }
 function fillCfg() {
   const entry = game.status === "entry";
-  $("#cfgPlayers").innerHTML = PLAYERS.map(p => FOUNDERS.includes(p)
+  $("#cfgTitle").value ||= config.title;
+  $("#cfgPlayers").innerHTML = PLAYERS.map(p => isFounderName(p)
     ? `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)} 👑</span>`
     : `<button class="ghost" data-cfg="del" data-p="${esc(p)}"${entry ? "" : " disabled"}>${emo(p)} ${esc(p)} ✕</button>`).join("");
   $("#cfgPlayersNote").textContent = entry ? `${PLAYERS.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
   $("#cfgNew").disabled = $("[data-cfg=add]").disabled = !entry;
-  $("#cfgAdmins").innerHTML = PLAYERS.filter(p => !FOUNDERS.includes(p)).map(p => { const on = config.admins.includes(p);
+  const toggle = (kind, p, on) => `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="${kind}" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`;
+  $("#cfgFounders").innerHTML = PLAYERS.map(p => toggle("founder", p, isFounderName(p))).join("");
+  $("#cfgAdmins").innerHTML = PLAYERS.filter(p => !isFounderName(p)).map(p => { const on = config.admins.includes(p);
     return `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="admin" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`; }).join("");
 }
 $("#cfgBox").onclick = async e => {
@@ -550,7 +559,15 @@ $("#cfgBox").onclick = async e => {
     if (await saveConfig({ players: [...PLAYERS, name] })) { $("#cfgNew").value = ""; toast(`👋 ${name} הצטרף/ה`); }
   } else if (b.dataset.cfg === "del") {
     if (!confirm(`להסיר את ${p} מהמשחק?\nהניחושים שלו/ה ועליו/ה נשמרים, אבל לא ייכנסו לדירוג ולכרטיסים. אפשר להחזיר אחר כך.`)) return;
-    if (await saveConfig({ players: PLAYERS.filter(x => x !== p), admins: config.admins.filter(x => x !== p) }) && players[p]) safe(deleteDoc(doc(db, "players", p)));
+    if (await saveConfig({ players: PLAYERS.filter(x => x !== p), founders: config.founders.filter(x => x !== p), admins: config.admins.filter(x => x !== p) }) && players[p]) safe(deleteDoc(doc(db, "players", p)));
+  } else if (b.dataset.cfg === "title") {
+    const title = $("#cfgTitle").value.trim();
+    if (await saveConfig({ title })) toast(title ? `🏷️ ${title}` : "🏷️ השם הוסר");
+  } else if (b.dataset.cfg === "founder") {
+    const on = isFounderName(p);
+    if (on && config.founders.length === 1) return alert("צריך לפחות מייסד אחד");
+    if (on && p === me && !confirm("להסיר את עצמך מהמייסדים? לא תוכל/י לחזור להגדרות האלה.")) return;
+    saveConfig({ founders: on ? config.founders.filter(x => x !== p) : [...config.founders, p], admins: config.admins.filter(x => x !== p) });
   } else if (b.dataset.cfg === "admin") {
     saveConfig({ admins: config.admins.includes(p) ? config.admins.filter(x => x !== p) : [...config.admins, p] });
   } else if (b.dataset.cfg === "code") {
@@ -581,19 +598,19 @@ function startRating() {
 }
 function backToEntry() {
   if (!confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.")) return;
-  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {}, raters: game.raters || [], raterUids: game.raterUids || [] }));
+  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {}, raters: liveRaters() }));
 }
 async function backToRating() {
   if (!confirm("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו! הדירוגים נשמרים.")) return;
-  const raters = game.raters?.length ? game.raters : PLAYERS, b = writeBatch(db);
-  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() });
+  const raters = liveRaters().length ? liveRaters() : PLAYERS, b = writeBatch(db);
+  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, raters, at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
 }
 async function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
   const n = size(), b = writeBatch(db);
-  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: n, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
+  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: n, title: config.title, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
   b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: n, at: serverTimestamp() });
   await safe(b.commit());
 }
@@ -611,8 +628,11 @@ async function claim(p) {
   if (claiming) return;
   claiming = true;
   try {
-    if (players[p] !== uid) await setDoc(doc(db, "players", p), { uid });
-    players[p] = uid; me = p; localStorage.setItem("bingo-me", p);
+    const b = writeBatch(db);
+    b.set(doc(db, "players", p), { uid });
+    b.set(doc(db, "members", uid), { name: p }, { merge: true });
+    await b.commit();
+    players[p] = uid; memberName = p; me = p; localStorage.setItem("bingo-me", p);
   } catch { toast("⚠️ השם תפוס"); me = null; localStorage.removeItem("bingo-me"); }
   claiming = false; render();
 }
@@ -625,6 +645,14 @@ async function logout() {
   if (!legacy && players[name] === uid) await deleteDoc(doc(db, "players", name)).catch(() => {});
   if (!legacy) await signOut(auth).catch(() => {});
   location.reload();
+}
+// devices from before the upgrade hold a name but haven't recorded it yet
+let naming = false;
+function recordName() {
+  if (naming) return;
+  naming = true;
+  // once per load: on failure (e.g. rules not updated yet) don't retry on every render
+  setDoc(doc(db, "members", uid), { name: me }, { merge: true }).then(() => { memberName = me; naming = false; }, e => console.warn("record name", e));
 }
 function release() {
   const name = me;
@@ -643,22 +671,22 @@ function render() {
   }
   who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} ⚙️` : "";
   who.onclick = openSettings;
-  if (live && !legacy && isAdminName(me)) syncRaterUids();
-  if (live && !legacy && FOUNDERS.includes(me)) syncAdminUids();
+  if (live && !legacy && me && players[me] === uid && memberName !== me) recordName();
   if (live && !legacy) cleanSuggestions();
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = PHASE[game.status] ?? "";
+  $("#logo .word").textContent = document.title = appTitle();
 
   const stage = !uid ? "load" : !member ? "code" : !welcomed ? "welcome" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
   const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
-    const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
+    const draft = $("#text")?.value, chosen = [...document.querySelectorAll("#add input:checked")].map(i => i.name + ":" + i.value);
     document.body.classList.toggle("intro", stage === "welcome");
     if (stage === "welcome") setTimeout(() => view.startsWith(`${me}|welcome`) && confetti(90), 2400);
     $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
     if (draft && $("#text")) $("#text").value = draft;
-    if (about) $(`input[name=about][value="${about}"]`)?.click();
+    document.querySelectorAll("#add input").forEach(i => i.checked = chosen.includes(i.name + ":" + i.value));
     bind();
   }
   if (stage === "welcome") return;
@@ -708,7 +736,7 @@ const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", 
 const welcomeView = () => `<section class="welcome">
   <div class="fam">${PLAYERS.map((p, k) => `<span style="--k:${k}">${emo(p)}</span>`).join("")}</div>
   <div class="mini" aria-hidden="true">${MINI.map((e, k) => `<span${k % 4 ? "" : ` class="hit" style="--d:${k / 4}"`}>${e}</span>`).join("")}<b class="yay">בינגו!</b></div>
-  <h2 class="wtitle">בינגו משפחתי</h2>
+  <h2 class="wtitle">${esc(appTitle())}</h2>
   <p class="wsub">מנחשים מה יקרה בטיול 🔮<br>ומסמנים כשזה קורה ✅</p>
   <button class="go" data-act="start">יאללה! 🚀</button>
 </section>`;
@@ -719,9 +747,10 @@ const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי
 const entryView = () => `${hello()}
   <h2>✍️ ניחוש חדש</h2>
   <form id="add" class="panel">
-    <div class="muted">על מי?</div>
+    <div class="muted">על מי? (אפשר כמה, או אירוע כללי)</div>
     <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
-      `<label class="chip" style="${col(p)}"><input type="radio" name="about" value="${esc(p)}" required>${av(p)}${esc(p)}</label>`).join("")}</div>
+      `<label class="chip" style="${col(p)}"><input type="checkbox" name="about" value="${esc(p)}">${av(p)}${esc(p)}</label>`).join("")}
+      <label class="chip" style="--c:${GENERAL}"><input type="checkbox" name="general"><span class="av" style="--c:${GENERAL}">🌍</span>כללי</label></div>
     <textarea id="text" required maxlength="140" placeholder="למשל: &quot;עוד 5 דקות מגיעים&quot;"></textarea>
     <div class="row"><button>הוסף ניחוש ✨</button></div>
   </form>
@@ -755,7 +784,8 @@ const endedView = () => `
   ${tail()}`;
 
 function fillEntry() {
-  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
+  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => aboutOf(i).includes(p)).length}</b></span>`).join("")
+    + `<span style="--c:${GENERAL}"><span class="av" style="--c:${GENERAL}">🌍</span>כללי <b>${items.filter(i => !aboutOf(i).length).length}</b></span>`;
   if (!legacy) migrate();
   fillMine(true);
 }
@@ -763,7 +793,7 @@ function fillEntry() {
 // my predictions: editable until the rating phase ends, deletable only while writing
 function fillMine(canDelete) {
   const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}</span><button class="ghost" data-edit="${esc(i.id)}" aria-label="עריכה">✏️</button>${canDelete ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${esc(whoName(i))}</span> · ${esc(shownText(i))}</span><button class="ghost" data-edit="${esc(i.id)}" aria-label="עריכה">✏️</button>${canDelete ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
   need(vis.filter(i => !i.text).map(i => i.id));
 }
 
@@ -774,7 +804,7 @@ function fillRate() {
     $("#rateCnt").textContent = `(${list.filter(i => i.id in my).length}/${list.length})`;
     $("#rate").innerHTML = list.map(i => {
       const s = my[i.id];
-      return `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}
+      return `<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${esc(whoName(i))}</span> · ${esc(shownText(i))}
         <span class="stars">${[0, 1, 2, 3].map(k => `<button class="star${k ? (s >= k ? " on" : "") : (s === 0 ? " on" : "")}" data-rate="${esc(i.id)}" data-k="${k}" aria-label="${k} כוכבים">${k ? "★" : "🥱"}</button>`).join("")}
         ${sent.has(i.id) ? `<span class="sent">💬 נשלחה הצעה</span>` : `<button class="star" data-suggest="${esc(i.id)}" aria-label="הצעת ניסוח">✏️</button>`}</span></span></li>`;
     }).join("") || `<li class="empty">אין ניחושים לדרג</li>`;
@@ -785,8 +815,8 @@ function fillRate() {
   }).join("");
   const byId = Object.fromEntries(items.map(i => [i.id, i])), mine = sugIn.filter(x => byId[x.item]?.author === me); // by device, so also check it is my prediction
   $("#sugBox").hidden = !mine.length;
-  $("#sugList").innerHTML = mine.map(x => `<li class="pred sugg" style="${col(byId[x.item].about)}">
-    <span>${av(byId[x.item].about)} <span class="who">${esc(byId[x.item].about)}</span> · <span class="old">${esc(shownText(byId[x.item]))}</span></span>
+  $("#sugList").innerHTML = mine.map(x => `<li class="pred sugg" style="${whoCol(byId[x.item])}">
+    <span>${whoAv(byId[x.item])} <span class="who">${esc(whoName(byId[x.item]))}</span> · <span class="old">${esc(shownText(byId[x.item]))}</span></span>
     <span class="new">✏️ ${esc(x.text)}</span><span class="muted">הצעה של ${emo(x.from)} ${esc(x.from)}</span>
     <span class="row"><button data-accept="${esc(x.id)}">✅ אישור</button><button class="ghost" data-reject="${esc(x.id)}">✖️ לא, תודה</button></span></li>`).join("");
   need(mine.map(x => x.item));
@@ -803,9 +833,9 @@ function fillCard(interactive) {
   card.dataset.n = n; card.style.gridTemplateColumns = `repeat(${n},1fr)`;
   card.classList.toggle("full", !!full);
   card.innerHTML = ids.map((id, k) => {
-    const i = byId[id] || { text: "(נמחק)", about: "" };
+    const i = byId[id] || { text: "(נמחק)", gone: true };
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && shown && !shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
-    return `<div class="cell${cls}"${interactive ? ` role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}"` : ""} data-stamp="${emo(me)}"><span class="txt">${esc(shownText(i))}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i><b>${esc(i.about)}</b></span>` : ""}</div>`;
+    return `<div class="cell${cls}"${interactive ? ` role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}"` : ""} data-stamp="${emo(me)}"><span class="txt">${esc(shownText(i))}</span>${i.gone ? "" : `<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${esc(whoName(i))}</b></span>`}</div>`;
   }).join("");
   shown = on;
   need(ids.filter(id => byId[id] && !byId[id].text));
@@ -836,7 +866,7 @@ function fillEnded() {
 
 function fillHistory() {
   $("#histBox").hidden = !pastGames.length;
-  $("#hist").innerHTML = pastGames.map(h => `<li class="hist"><div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
+  $("#hist").innerHTML = pastGames.map(h => `<li class="hist">${h.title ? `<b>${esc(h.title)}</b>` : ""}<div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
     <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
 }
 
@@ -916,16 +946,16 @@ function bind() {
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
   $("#add")?.addEventListener("submit", async e => {
     e.preventDefault();
-    const text = $("#text").value.trim(), about = $("input[name=about]:checked")?.value;
-    if (!text || !about) return;
+    const text = $("#text").value.trim(), about = [...document.querySelectorAll("input[name=about]:checked")].map(i => i.value);
+    if (!text) return;
+    if (!about.length && !$("input[name=general]").checked) return toast("✋ בוחרים על מי, או \"כללי\"");
     $("#text").value = "";
     if (!await safe(addItem(about, text))) $("#text").value = text;
   });
-  // radio chips: tapping the chosen one again clears it (the label's own click, before it re-selects the radio)
-  $("#add")?.addEventListener("click", e => {
-    const chip = e.target.closest("label.chip"), i = chip?.querySelector("input");
-    if (!i || e.target === i || !i.checked) return;
-    e.preventDefault(); i.checked = false;
+  // "כללי" and people exclude each other
+  $("#add")?.addEventListener("change", e => {
+    if (e.target.name === "general" && e.target.checked) document.querySelectorAll("input[name=about]").forEach(i => i.checked = false);
+    if (e.target.name === "about" && e.target.checked) $("input[name=general]").checked = false;
   });
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
 }
@@ -969,7 +999,7 @@ function openSettings() {
   $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
   const ai = $("#adminItem");
   ai.hidden = !isAdminName(me);
-  $("#cfgItem").hidden = legacy || !FOUNDERS.includes(me);
+  $("#cfgItem").hidden = legacy || !isFounderName(me);
   ai.textContent = adminOpen ? "🛠️ מצב מתכלל: פועל ✓ (לכיבוי)" : "🛠️ הפעלת מצב מתכלל";
   showInstall();
   $("#setDlg").showModal();

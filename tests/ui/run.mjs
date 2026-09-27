@@ -48,6 +48,9 @@ async function open(hash = "", { me = "מתן", admin = false, welcome = false, 
   return page;
 }
 const writes = p => p.evaluate(() => window.W || []);
+const batchOps = p => p.evaluate(() => (window.B || []).flat());
+// picking a name = one batch: players/{name} = {uid} and members/{uid}.name
+const picked = async (p, name) => { const ops = await batchOps(p); return ops.some(([op, r, d]) => op === "set" && r === `players/${name}` && d.uid === "U1") && ops.some(([op, r, d]) => op === "set" && r === "members/U1" && d.name === name); };
 const lastBatch = p => p.evaluate(() => (window.B || []).at(-1));
 const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 0);
 // a scenario that throws (e.g. an element never shows up) counts as one failure; the run goes on
@@ -65,7 +68,7 @@ await scenario(async () => {
   check("then name picker", await p.isVisible(".names"));
   check("taken name is marked", (await p.textContent('[data-me="אמא"]')).includes("תפוס"));
   await p.click('[data-me="אורי"]'); await p.waitForTimeout(300);
-  check("claim writes players/{name}", (await writes(p)).some(([r, d]) => r === "players/אורי" && d.uid === "U1"));
+  check("picking a name claims it and records it on the device", await picked(p, "אורי"));
   check("entry form after picking", await p.isVisible("#add"));
   await done(p);
 });
@@ -73,7 +76,7 @@ await scenario(async () => {
   const p = await open("", { me: null });
   await p.click('[data-me="אמא"]'); await p.waitForTimeout(300);
   check("taking a taken name asks 'זה אתם?' first", p.dialogs.some(m => m.includes("זה אתם?")));
-  check("…then moves the name to this device", (await writes(p)).some(([r, d]) => r === "players/אמא" && d.uid === "U1") && await p.isVisible("#add"));
+  check("…then moves the name to this device", await picked(p, "אמא") && await p.isVisible("#add"));
   await done(p);
 });
 await scenario(async () => {
@@ -170,6 +173,49 @@ await scenario(async () => {
   await done(p);
 });
 
+console.log("— upgrade from the first version");
+await scenario(async () => {
+  const p = await open("m=entry");
+  const seed = (await writes(p)).find(([r]) => r === "config/settings");
+  check("missing game settings are seeded from the existing game", seed && seed[1].players.length === 6 && seed[1].founders.join() === "מתן,אורי" && seed[1].title === "", seed);
+  check("a device holding a name records it (members/{uid}.name)", (await writes(p)).some(([r, d]) => r === "members/U1" && d.name === "מתן"));
+  check("existing predictions (old format) still show", (await p.locator("#list li").count()) > 0);
+  check("existing emojis stay the same", JSON.stringify(await Promise.all(["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"].map(n => p.textContent(`#counts span:has-text("${n}") .av`)))) === JSON.stringify(["🦁", "🦄", "🐬", "🐸", "🐙", "🐢"]));
+  check("without a title the app is called בינגו משפחתי", (await p.textContent("#logo .word")) === "בינגו משפחתי");
+  await done(p);
+});
+
+console.log("— groups and general events");
+await scenario(async () => {
+  const p = await open("m=entry");
+  await p.click('label.chip:has-text("אבא")'); await p.click('label.chip:has-text("אורי")');
+  check("several people can be chosen", await p.locator("input[name=about]:checked").count() === 2);
+  await p.fill("#text", "אבא ואורי שרים"); await p.click("#add button"); await p.waitForTimeout(200);
+  let add = await lastBatch(p);
+  check("group prediction: about is a list", JSON.stringify(add[0][2].about) === JSON.stringify(["אבא", "אורי"]));
+  await p.click('label.chip:has-text("אמא")'); await p.click('label.chip:has-text("כללי")');
+  check("'כללי' clears the chosen people", await p.locator("input[name=about]:checked").count() === 0 && await p.locator("input[name=general]").isChecked());
+  await p.click('label.chip:has-text("אבא")');
+  check("choosing a person clears 'כללי'", !(await p.locator("input[name=general]").isChecked()));
+  await p.click('label.chip:has-text("אבא")'); await p.click('label.chip:has-text("כללי")');
+  await p.fill("#text", "נתקעים בפקק"); await p.click("#add button"); await p.waitForTimeout(200);
+  add = await lastBatch(p);
+  check("general event: about is empty", JSON.stringify(add[0][2].about) === "[]");
+  await p.click('label.chip:has-text("כללי")'); // the choice stays between predictions; clear it
+  await p.fill("#text", "בלי לבחור"); await p.click("#add button"); await p.waitForTimeout(200);
+  check("must choose someone or 'כללי'", (await p.textContent("#toast")).includes("כללי") && (await p.inputValue("#text")) === "בלי לבחור");
+  const mine = await p.locator("#list li .who").allTextContents();
+  check("my list shows 'כללי' and group names", mine.includes("כללי") && mine.includes("אבא ואמא"), mine);
+  check("counts include general events", (await p.textContent("#counts")).includes("כללי"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=play&size=5");
+  const tags = await p.locator(".cell .tag i").allTextContents();
+  check("card tags: 🌍 for general, several emojis for a group", tags.includes("🌍") && tags.some(t => [...t].length >= 2), tags);
+  await done(p);
+});
+
 console.log("— editing wording and suggestions");
 await scenario(async () => {
   const p = await open("m=entry");
@@ -223,6 +269,7 @@ await scenario(async () => {
 console.log("— game settings (founders)");
 await scenario(async () => {
   const p = await open("m=entry&cfg=1");
+  check("title from settings in the header and tab", (await p.textContent("#logo .word")) === "טיול צפון" && (await p.title()) === "טיול צפון");
   check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes("סבתא")));
   await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
   check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
@@ -230,13 +277,19 @@ await scenario(async () => {
   check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes("lavi"));
   await p.fill("#cfgNew", "סבא"); await p.click("[data-cfg=add]"); await p.waitForTimeout(200);
   let [r, d] = (await writes(p)).at(-1);
-  check("add player saves config/settings", r === "config/settings" && d.players.includes("סבא") && d.admins.join() === "עדי");
+  check("add player saves config/settings", r === "config/settings" && d.players.includes("סבא") && d.admins.join() === "עדי" && d.founders.join() === "מתן,אורי");
   await p.click('[data-cfg=del][data-p="סבתא"]'); await p.waitForTimeout(200);
   [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
   check("remove player asks and saves", p.dialogs.some(m => m.includes("להסיר את סבתא")) && !d.players.includes("סבתא"));
   await p.click('[data-cfg=admin][data-p="אבא"]'); await p.waitForTimeout(200);
   [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
   check("toggle an admin", d.admins.includes("אבא"));
+  await p.fill("#cfgTitle", "טיול דרום"); await p.click("[data-cfg=title]"); await p.waitForTimeout(200);
+  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
+  check("set the competition title", d.title === "טיול דרום");
+  await p.click('[data-cfg=founder][data-p="אמא"]'); await p.waitForTimeout(200);
+  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
+  check("make someone a founder", d.founders.includes("אמא"));
   await p.fill("#cfgCode", "new-code"); await p.click("[data-cfg=code]"); await p.waitForTimeout(200);
   check("change family code writes config/secret", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === "new-code"));
   await p.click("[data-cfg=wipe]"); await p.waitForTimeout(300);
@@ -295,7 +348,8 @@ console.log("— rating phase");
 await scenario(async () => {
   const p = await open("m=rate");
   const whos = await p.locator("#rate li .who").allTextContents();
-  check("rater never sees predictions about or by themselves", whos.length === 24 && !whos.includes("מתן"), whos.length);
+  check("rater never sees predictions about or by themselves", whos.length === 26 && !whos.some(w => w.includes("מתן")), whos.length);
+  check("rating list shows general events and groups", whos.includes("כללי") && whos.includes("אבא ועדי"), whos);
   await p.click('[data-rate="i1"][data-k="3"]'); await p.waitForTimeout(100);
   check("tapping the current star lowers it by one", JSON.stringify((await writes(p)).at(-1)) === JSON.stringify(["ratings/i1_מתן", { item: "i1", player: "מתן", stars: 2 }]));
   check("raters' progress", (await p.locator("#raters li").count()) === 2);
@@ -308,14 +362,15 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=rate", { admin: true });
-  check("admin device syncs raterUids", (await writes(p)).some(([r, d]) => r === "game/state" && d.raterUids?.join() === "U1,OTHER"));
+  check("no device lists are written any more", !(await writes(p)).some(([r, d]) => r === "game/state" && "raterUids" in d));
   check("save-raters button only after a change", !(await p.locator('[data-act="raters"]').count()));
   await p.click('[data-rater="עדי"]');
   check("…and appears after one", await p.locator('[data-act="raters"]').count() === 1);
   await p.click('[data-size="4"]'); await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
   const g = await lastBatch(p);
   check("generate 4×4: 16 cells per card, marks reset", g[0][2].status === "play" && g[0][2].size === 4 && g[0][2].cards["מתן"].length === 16 && g.length === 7);
-  check("cards never contain predictions about their owner", Object.entries(g[0][2].cards).every(([pl, ids]) => ids.every(id => +id.slice(1) % 6 !== ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"].indexOf(pl))));
+  const groupOf = { g1: [], g2: ["אבא", "עדי"], g3: [], g4: ["אבא", "אמא"] }, P6 = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
+  check("cards never contain predictions about their owner", Object.entries(g[0][2].cards).every(([pl, ids]) => ids.every(id => !(groupOf[id] ?? [P6[+id.slice(1) % 6]]).includes(pl))));
   await p.click('[data-act="back"]'); await p.waitForTimeout(100);
   check("back to entry keeps raters", (await writes(p)).filter(([r, d]) => d.status).at(-1)[1].status === "entry");
   await done(p);
@@ -335,7 +390,7 @@ await scenario(async () => {
   check("marking keeps the original bingoAt", r === "marks/מתן" && d.bingo && d.bingoAt?.seconds === 50 && d.marked.length === 4);
   await p.click('[data-act="end"]'); await p.waitForTimeout(200);
   const e = await lastBatch(p);
-  check("end game: history + ended state", e[0][1].startsWith("history/") && e[0][2].results.length === 6 && e[1][2].status === "ended");
+  check("end game: history (with title) + ended state", e[0][1].startsWith("history/") && e[0][2].results.length === 6 && "title" in e[0][2] && e[1][2].status === "ended");
   await p.click('[data-act="backRate"]'); await p.waitForTimeout(200);
   const b = await lastBatch(p);
   check("play → rate wipes cards and marks", b[0][2].status === "rate" && JSON.stringify(b[0][2].cards) === "{}" && b.length === 7);

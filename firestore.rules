@@ -2,64 +2,72 @@
 // Deploy: paste into Firebase Console -> Firestore -> Rules -> Publish.
 // Replace FAMILY_CODE with the real family code before publishing (the code is kept out of this public repo).
 // FAMILY_CODE is only the fallback: once a founder sets a code in the app (config/secret), that one is used.
+// No player names here: players, founders and admins live in config/settings.
 // Trust model: anyone who entered the family code is a trusted family member.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
-    // ---- game settings (config/settings), with defaults until a founder saves them ----
-    function defaultPlayers() { return ['אבא', 'אמא', 'מתן', 'אורי', 'עדי', 'הדר']; }
-    function founders() { return ['מתן', 'אורי']; }
+    // ---- game settings ----
     function settingsDoc() { return /databases/$(db)/documents/config/settings; }
     function settings() { return get(settingsDoc()).data; }
-    function players() { return exists(settingsDoc()) ? settings().players : defaultPlayers(); }
+    function players() { return exists(settingsDoc()) ? settings().players : []; }
     function secretDoc() { return /databases/$(db)/documents/config/secret; }
     function familyCode() { return exists(secretDoc()) ? get(secretDoc()).data.code : 'FAMILY_CODE'; }
-
-    // ---- who is asking ----
-    function signedIn() { return request.auth != null; }
-    function isMember() {
-      return signedIn() && exists(/databases/$(db)/documents/members/$(request.auth.uid));
+    function d() { return request.resource.data; }
+    function settingsOk() {
+      return d().keys().hasOnly(['title', 'players', 'founders', 'admins'])
+        && d().title is string && d().title.size() <= 40
+        && d().players is list && d().players.size() >= 2 && d().players.size() <= 12
+        && d().founders is list && d().founders.size() >= 1 && d().players.hasAll(d().founders)
+        && d().admins is list && d().players.hasAll(d().admins);
     }
+
+    // ---- who is asking: a device (members/{uid}) that holds a name (players/{name}.uid) ----
+    function signedIn() { return request.auth != null; }
+    function memberDoc() { return /databases/$(db)/documents/members/$(request.auth.uid); }
+    function isMember() { return signedIn() && exists(memberDoc()); }
     function owns(name) {
       let p = /databases/$(db)/documents/players/$(name);
-      return isMember() && exists(p) && get(p).data.uid == request.auth.uid;
+      return isMember() && name is string && name.size() > 0 && exists(p) && get(p).data.uid == request.auth.uid;
     }
-    function isFounder() { return owns('מתן') || owns('אורי'); }
-    // extra admins are matched by device (adminUids), kept in sync by the founders' devices
-    function isAdmin() {
-      return isFounder() || (isMember() && exists(settingsDoc()) && request.auth.uid in settings().adminUids);
-    }
+    // the name this device holds (recorded in members/{uid}.name when it picks a name, verified by owns)
+    function myName() { return get(memberDoc()).data.get('name', ''); }
+    function iAm() { return isMember() && owns(myName()); }
+    function isFounder() { return iAm() && exists(settingsDoc()) && myName() in settings().founders; }
+    function isAdmin() { return isFounder() || (iAm() && exists(settingsDoc()) && myName() in settings().admins); }
 
     // ---- game phase: entry -> rate -> play -> ended ----
     function stateDoc() { return /databases/$(db)/documents/game/state; }
     function state() { return get(stateDoc()).data; }
     function status() { return exists(stateDoc()) ? state().status : 'entry'; }
     function isEntry() { return status() == 'entry'; }
-    function d() { return request.resource.data; }
+    function isRater() { return iAm() && myName() in state().get('raters', []); }
     function textOk(t) { return t is string && t.size() > 0 && t.size() <= 140; }
+    // who a prediction is about: a list (empty = a general event); older predictions hold a single name
+    function aboutOf(a) { return a is list ? a : [a]; }
     // a timestamp field may be missing, null, set now, or left unchanged
     function tsOk(f) {
       return !(f in d()) || d()[f] == null || d()[f] == request.time
         || (resource != null && f in resource.data && d()[f] == resource.data[f]);
     }
 
-    // one doc per device; created only with the right family code
+    // one doc per device; created with the right family code; later records the name it holds
     match /members/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
       allow create: if signedIn() && request.auth.uid == uid
-        && d().keys().hasOnly(['code'])
-        && d().code == familyCode();
+        && d().keys().hasOnly(['code']) && d().code == familyCode();
+      allow update: if signedIn() && request.auth.uid == uid
+        && d().diff(resource.data).affectedKeys().hasOnly(['name'])
+        && d().name is string
+        && getAfter(/databases/$(db)/documents/players/$(d().name)).data.uid == request.auth.uid;
     }
 
-    // players, extra admins and their devices; only founders change them
+    // title, players, founders, extra admins. Any member may create it once (the app seeds it
+    // from the existing game); after that only founders change it.
     match /config/settings {
       allow read: if isMember();
-      allow write: if isFounder()
-        && d().keys().hasOnly(['players', 'admins', 'adminUids'])
-        && d().players is list && d().players.size() >= 2 && d().players.size() <= 12
-        && d().players.hasAll(founders())
-        && d().admins is list && d().players.hasAll(d().admins)
-        && d().adminUids is list && d().adminUids.size() <= 12;
+      allow create: if isMember() && !exists(settingsDoc()) && settingsOk();
+      allow update: if isFounder() && settingsOk();
     }
 
     // the family code; only founders read or change it
@@ -69,39 +77,36 @@ service cloud.firestore {
         && d().code is string && d().code.size() >= 3 && d().code.size() <= 40;
     }
 
-    // players/{name} = {uid}: which device owns each name.
+    // players/{name} = {uid}: which device holds each name.
     // Any member may take a name over (the app asks "is this you?" first).
     match /players/{name} {
       allow read: if isMember();
       allow create, update: if isMember() && name in players()
-        && d().keys().hasOnly(['uid'])
-        && d().uid == request.auth.uid;
+        && d().keys().hasOnly(['uid']) && d().uid == request.auth.uid;
       allow delete: if owns(name) || isAdmin();
     }
 
-    // items/{id}: who a prediction is about and who wrote it (no text), readable by all members
+    // items/{id}: who a prediction is about and who wrote it (no text), readable by all members.
+    // about = [] for a general event, or several names; never the author.
     match /items/{id} {
       allow read: if isMember();
       allow create: if isEntry()
         && id.matches('^[A-Za-z0-9]{20}$')
         && existsAfter(/databases/$(db)/documents/texts/$(id))
         && d().keys().hasOnly(['about', 'author', 'weight', 'at'])
-        && d().about in players()
-        && owns(d().author)
-        && d().about != d().author
+        && d().about is list && d().about.size() <= 12 && players().hasAll(d().about)
+        && owns(d().author) && !(d().author in d().about)
         && d().weight == 1
         && d().at == request.time;
       allow delete: if isEntry() && (isAdmin() || owns(resource.data.author));
     }
 
-    // texts/{id} = {text}: the author always; raters during the rating phase;
-    // everyone during and after the game; never the person it is about.
-    // The author may edit it until the rating phase ends.
+    // texts/{id} = {text}: the author always; raters during the rating phase; everyone during
+    // and after the game; never anyone it is about. The author may edit it until rating ends.
     match /texts/{id} {
       function meta() { return get(/databases/$(db)/documents/items/$(id)).data; }
-      allow get: if isMember() && (owns(meta().author) || (!owns(meta().about) && (
-        status() in ['play', 'ended']
-        || (status() == 'rate' && request.auth.uid in state().raterUids))));
+      allow get: if isMember() && (owns(meta().author) || (iAm() && !(myName() in aboutOf(meta().about)) && (
+        status() in ['play', 'ended'] || (status() == 'rate' && isRater()))));
       allow create: if isEntry()
         && d().keys().hasOnly(['text']) && textOk(d().text)
         && owns(getAfter(/databases/$(db)/documents/items/$(id)).data.author);
@@ -110,15 +115,15 @@ service cloud.firestore {
       allow delete: if isEntry() && (isAdmin() || owns(meta().author));
     }
 
-    // suggestions/{id}: a rater proposes better wording; only the author (toUid) and the
-    // rater (fromUid) can see it, never the person it is about. The author accepts by editing the text.
+    // suggestions/{id}: a rater proposes better wording; only the author's device (toUid) and the
+    // rater's (fromUid) can see it, never anyone it is about. The author accepts by editing the text.
     match /suggestions/{id} {
       function it() { return get(/databases/$(db)/documents/items/$(d().item)).data; }
       allow create: if status() == 'rate'
         && d().keys().hasOnly(['item', 'from', 'fromUid', 'toUid', 'text', 'at'])
         && d().item is string && textOk(d().text) && d().at == request.time
-        && d().fromUid == request.auth.uid && owns(d().from) && d().from in state().raters
-        && it().about != d().from && it().author != d().from
+        && d().fromUid == request.auth.uid && d().from == myName() && isRater()
+        && !(d().from in aboutOf(it().about)) && it().author != d().from
         && d().toUid == get(/databases/$(db)/documents/players/$(it().author)).data.uid;
       allow read, delete: if isMember()
         && (resource.data.toUid == request.auth.uid || resource.data.fromUid == request.auth.uid);
@@ -131,8 +136,7 @@ service cloud.firestore {
         && d().status in ['entry', 'rate', 'play', 'ended']
         && d().cards is map && d().cards.keys().hasOnly(players())
         && (!('size' in d()) || d().size in [2, 3, 4, 5])
-        && (!('raters' in d()) || (d().raters is list && d().raters.hasOnly(players())))
-        && (!('raterUids' in d()) || (d().raterUids is list && d().raterUids.size() <= 12));
+        && (!('raters' in d()) || (d().raters is list && d().raters.hasOnly(players())));
     }
 
     match /marks/{p} {
@@ -155,16 +159,16 @@ service cloud.firestore {
     }
 
     // ratings/{item}_{player} = {item, player, stars}: only chosen raters, only in the rating phase,
-    // never on a prediction about themselves or written by themselves
+    // never on a prediction they are in or wrote
     match /ratings/{rid} {
       function item() { return get(/databases/$(db)/documents/items/$(d().item)).data; }
       allow read: if isMember();
       allow create, update: if status() == 'rate'
         && d().keys().hasOnly(['item', 'player', 'stars'])
         && d().item is string && rid == d().item + '_' + d().player
-        && owns(d().player) && d().player in state().raters
+        && d().player == myName() && isRater()
         && d().stars in [0, 1, 2, 3]
-        && item().about != d().player && item().author != d().player;
+        && !(d().player in aboutOf(item().about)) && item().author != d().player;
       allow delete: if isAdmin();
     }
 
@@ -172,8 +176,9 @@ service cloud.firestore {
     match /history/{id} {
       allow read: if isMember();
       allow create: if isAdmin()
-        && d().keys().hasOnly(['at', 'size', 'results'])
+        && d().keys().hasOnly(['at', 'size', 'title', 'results'])
         && d().at == request.time && d().size in [2, 3, 4, 5]
+        && (!('title' in d()) || (d().title is string && d().title.size() <= 40))
         && d().results is list && d().results.size() <= 12;
       allow delete: if isAdmin();
     }
