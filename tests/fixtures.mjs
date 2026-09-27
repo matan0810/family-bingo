@@ -25,7 +25,7 @@ export const BULK = 40; // predictions deleted in one admin batch (rules read li
 // game settings (config/settings) variants the mock can serve
 export const SETTINGS = {
   base: { title: "", players: PLAYERS, founders: FOUNDERS, admins: [] },
-  full: { title: TITLE, players: [...PLAYERS, EXTRA_PLAYER], founders: FOUNDERS, admins: [ROLE.admin] },
+  full: { title: TITLE, players: [...PLAYERS, EXTRA_PLAYER], founders: FOUNDERS, admins: [ROLE.admin, ROLE.other] }, // admins not in player order, on purpose
   removed: { title: "", players: PLAYERS.filter(p => p !== ROLE.removed), founders: FOUNDERS, admins: [] },
 };
 

@@ -160,6 +160,10 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 .danger[open] summary{color:var(--hot);font-weight:700}
 button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
 .row.save{position:sticky;bottom:-16px;background:var(--card);padding:10px 0;margin-top:18px}
+.row.save button{flex:1}
+.dlg-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);margin:-16px -16px 0;padding:12px 16px 8px}
+.dlg-head h2{margin:0}
+.dlg-head .x{min-width:44px;min-height:44px;padding:0;font-size:18px;border-radius:50%}
 .fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
 .menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .menu button{text-align:start;font-size:17px;padding:12px 14px}
@@ -220,7 +224,7 @@ body.intro header{display:none}
 <dialog id="editDlg"><div class="dlg"><h2 id="editTitle"></h2><p class="muted" id="editSub"></p>
   <textarea id="editText" maxlength="140"></textarea>
   <div class="row"><button id="editSave">שמירה</button><button class="ghost" data-close>ביטול</button></div></div></dialog>
-<dialog id="cfgDlg"><div class="dlg" id="cfgBox"><h2>👑 הגדרות משחק</h2>
+<dialog id="cfgDlg"><div class="dlg" id="cfgBox"><div class="dlg-head"><h2>👑 הגדרות משחק</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
   <p class="muted">שינויים נשמרים רק בלחיצה על "💾 שמירת שינויים" למטה.</p>
   <h3>🏷️ שם התחרות</h3>
   <input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026">
@@ -231,7 +235,7 @@ body.intro header{display:none}
   <h3>🛠️ מתכללים ומדרגים</h3><p class="muted">מתכללים מנהלים את המשחק (שלבים, כרטיסים, סיום) ומדרגים את הניחושים בשלב הדירוג. המייסדים תמיד בפנים.</p><div class="chips" id="cfgAdmins"></div>
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
   <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)">
-  <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button><button class="ghost" data-close>סגירה</button></div>
+  <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button></div>
   <details class="danger"><summary>⚠️ אזור מסוכן</summary>
     <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
     <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>
@@ -584,7 +588,8 @@ function cleanSuggestions() {
 // ---- game settings (founders): players, admins, family code, new trip ----
 // changes are collected in a draft and written only by "💾 שמירת שינויים"
 let draft = null;
-const draftOf = () => ({ title: config.title, players: [...PLAYERS], founders: [...config.founders], admins: [...config.admins] });
+// admins are kept in player order, so turning one off and on again is not a change
+const draftOf = () => ({ title: config.title, players: [...PLAYERS], founders: [...config.founders], admins: PLAYERS.filter(p => config.admins.includes(p)) });
 const cfgDirty = () => !!draft && (JSON.stringify(draft) !== JSON.stringify(draftOf()) || !!$("#cfgCode").value.trim());
 async function openCfg() {
   draft = draftOf();
@@ -631,7 +636,7 @@ $("#cfgBox").onclick = async e => {
       if (d.players.length >= 12) return alert("אפשר עד 12 שחקנים");
       d.players.push(p); break;
     case "del": return removePlayer($("#cfgDel").value);
-    case "admin": d.admins = d.admins.includes(p) ? without(d.admins, p) : [...d.admins, p]; break;
+    case "admin": d.admins = d.players.filter(x => x === p ? !d.admins.includes(p) : d.admins.includes(x)); break;
     case "save": return saveCfg();
     case "backup": return downloadBackup();
     case "restore": return $("#cfgFile").click();

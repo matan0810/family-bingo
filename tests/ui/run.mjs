@@ -297,6 +297,13 @@ await scenario(async () => {
   check("the player list has no quick remove buttons", !(await p.locator("#cfgPlayers button").count()));
   check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes(CODE));
   check("save is disabled until something changes", await p.locator("#cfgSave").isDisabled());
+  for (const x of [ROLE.admin, ROLE.player]) { await p.click(`[data-cfg=admin][data-p="${x}"]`); await p.click(`[data-cfg=admin][data-p="${x}"]`); }
+  check("turning an admin off and on again (or on and off) is not a change", await p.locator("#cfgSave").isDisabled());
+  const closeTop = async () => { const [x, d] = await Promise.all([p.locator("#cfgDlg .dlg-head [data-close]").boundingBox(), p.locator("#cfgDlg").boundingBox()]); return x && x.y - d.y < 60; };
+  check("close (✕) is at the top of the dialog", await closeTop());
+  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = d.scrollHeight); await p.waitForTimeout(100);
+  check("…and stays there while scrolling", await closeTop() && await p.isVisible("#cfgSave"));
+  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = 0);
   await p.fill("#cfgTitle", TITLE2);
   await p.fill("#cfgNew", NEW_PLAYER); await p.click("[data-cfg=add]");
   await p.click(`[data-cfg=admin][data-p="${ROLE.player}"]`);
