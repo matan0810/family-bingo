@@ -93,6 +93,26 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .score .name{width:3.4em;font-weight:700}
 .win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
 
+.place{width:1.8em;text-align:center;font-weight:800}
+.stars{display:flex;gap:4px;margin-top:6px}
+.star{background:var(--card);color:var(--line);border:2px solid var(--line);box-shadow:none;padding:2px 9px;font-size:18px;border-radius:10px;line-height:1.3}
+.star.on{color:var(--sun);border-color:var(--sun);background:color-mix(in srgb,var(--sun) 15%,var(--card))}
+.star:first-child:not(.on){filter:grayscale(1);opacity:.45}
+button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background:color-mix(in srgb,var(--c,var(--me)) 18%,var(--card))}
+.admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
+.admin .row{flex-wrap:wrap}
+.hist{flex-direction:column;gap:4px}
+.res{display:inline-block;margin-inline-end:12px;white-space:nowrap}
+.res small{color:var(--muted)}
+.grid.done .cell{cursor:default}
+.grid[data-n="2"] .cell{font-size:clamp(15px,4.6vw,19px)}
+.grid[data-n="4"] .cell{font-size:clamp(10px,2.8vw,13px);padding:4px;gap:3px;border-radius:12px}
+.grid[data-n="4"] .cell .txt{-webkit-line-clamp:4}
+.grid[data-n="5"]{gap:5px;padding:7px}
+.grid[data-n="5"] .cell{font-size:clamp(8.5px,2.3vw,11.5px);padding:3px;gap:2px;border-radius:9px;line-height:1.15}
+.grid[data-n="4"] .cell .tag b,.grid[data-n="5"] .cell .tag b{display:none}
+.grid[data-n="4"] .cell.on::before,.grid[data-n="5"] .cell.on::before{font-size:clamp(30px,9vw,48px)}
+.grid[data-n="4"] .cell.on::after,.grid[data-n="5"] .cell.on::after{width:14px;height:14px;font-size:9px;top:3px;left:3px}
 .admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
 .admin h2{margin-top:14px}
 
@@ -151,8 +171,9 @@ const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸"
 const COLOR = Object.fromEntries(EMOJIS);
 const DEFAULT = { "אבא": "🦁", "אמא": "🦄", "מתן": "🐬", "אורי": "🐸", "עדי": "🐙", "הדר": "🐢" };
 const ADMINS = ["מתן", "אורי"]; // must match isAdmin() in the Firestore rules
-const N = 9;
-const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const SIZES = [2, 3, 4, 5];
+const MEDAL = ["🥇", "🥈", "🥉"];
+const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app), auth = getAuth(app);
@@ -166,7 +187,7 @@ const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
-let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, view = "";
+let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], history = [], view = "";
 let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
@@ -175,7 +196,9 @@ const texts = {}; // item id -> text, fetched one by one (undefined = loading, n
 const moved = new Set(); // old-format items (text inside the item) already migrated
 const got = new Set(); // snapshot sources that have delivered at least once
 const prev = {};
+let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
+let sizeSel = null, raterSel = null; // admin's choices before starting a phase
 
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 onAuthStateChanged(auth, async u => {
@@ -195,7 +218,12 @@ const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "
 
 function listen() {
 onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready("items"); }, fatal);
-onSnapshot(doc(db, "game", "state"), s => { game = s.data() || { status: "entry", cards: {} }; ready("game"); }, fatal);
+onSnapshot(doc(db, "game", "state"), s => {
+  game = s.data() || { status: "entry", cards: {} };
+  if (prevStatus === "play" && game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
+  prevStatus = game.status;
+  ready("game");
+}, fatal);
 if (legacy) got.add("players");
 else onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
 onSnapshot(collection(db, "marks"), s => {
@@ -209,12 +237,15 @@ onSnapshot(collection(db, "marks"), s => {
   ready("marks");
 }, fatal);
 onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
+onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
+onSnapshot(collection(db, "history"), s => { history = s.docs.map(d => d.data()).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
 }
-const SOURCES = 5;
+const SOURCES = 7;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
+const secs = t => t?.seconds ?? Infinity; // pending server timestamps sort last
 
-// ---- texts: items/{id} holds only who/about; the text is in texts/{id}, readable by its author
-// before the game and by everyone it is not about during the game (enforced by the rules) ----
+// ---- texts: items/{id} holds only who/about; the text is in texts/{id}. The rules let the author read it
+// always, raters during the rating phase and everyone during the game, except the person it is about ----
 function need(ids) {
   const miss = ids.filter(id => !(id in texts));
   if (!miss.length) return;
@@ -222,6 +253,7 @@ function need(ids) {
   Promise.all(miss.map(id => getDoc(doc(db, "texts", id)).then(s => texts[id] = s.data()?.text ?? null, () => texts[id] = null))).then(render);
 }
 const textOf = i => i.text ?? texts[i.id];
+const shownText = i => { const t = textOf(i); return t === undefined ? "…" : t ?? "🔒"; };
 function addItem(about, text) {
   const ref = doc(collection(db, "items")), b = writeBatch(db);
   b.set(ref, { about, author: me, weight: 1, at: serverTimestamp() });
@@ -247,9 +279,21 @@ function migrate() {
   });
 }
 
-// ---- selection: weighted sample without replacement (weight defaults to 1) ----
+// ---- rating: ratings/{item}_{player} = {item, player, stars 0..3}; nobody rates what is about them or by them ----
+const rateable = p => items.filter(i => i.about !== p && i.author !== p);
+const isRater = () => (game.raters || []).includes(me);
+const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).map(r => [r.item, r.stars]));
+const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
+
+// ---- selection: weighted sample without replacement ----
+// weight = item.weight (default 1, hook for manual priority) × rating factor (avg stars; unrated counts as 1.5)
+function weightOf(i) {
+  const rs = ratings.filter(r => r.item === i.id).map(r => Math.min(3, Math.max(0, +r.stars || 0)));
+  const avg = rs.length ? rs.reduce((s, x) => s + x, 0) / rs.length : 1.5;
+  return (i.weight ?? 1) * (avg + .5) ** 2;
+}
 function pick(pool, k) {
-  pool = pool.map(i => ({ id: i.id, w: i.weight ?? 1 }));
+  pool = pool.map(i => ({ id: i.id, w: weightOf(i) }));
   const out = [];
   while (out.length < k) {
     let r = Math.random() * pool.reduce((s, p) => s + p.w, 0);
@@ -261,21 +305,63 @@ function pick(pool, k) {
 }
 const poolFor = p => items.filter(i => i.about !== p);
 
+// ---- board geometry ----
+const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
+function lines(n) {
+  const r = [...Array(n).keys()], L = [];
+  r.forEach(i => { L.push(r.map(j => i * n + j)); L.push(r.map(j => j * n + i)); });
+  L.push(r.map(i => i * n + i), r.map(i => i * n + n - 1 - i));
+  return L;
+}
+
+// ---- places: full card first (earliest wins), then more marks, then bingo (earliest first) ----
+function ranking() {
+  const rows = PLAYERS.filter(p => game.cards?.[p]).map(p => {
+    const m = marks[p] || {};
+    return { p, n: (m.marked || []).length, bingo: !!m.bingo, blackout: !!m.blackout, bt: secs(m.bingoAt), ft: secs(m.blackoutAt) };
+  });
+  const cmp = (a, b) => (b.blackout - a.blackout) || (a.blackout && a.ft - b.ft) || (b.n - a.n) || (b.bingo - a.bingo) || (a.bingo && a.bt - b.bt) || 0;
+  rows.sort(cmp);
+  rows.forEach((r, k) => r.place = k && !cmp(rows[k - 1], r) ? rows[k - 1].place : k + 1);
+  return rows;
+}
+const medal = place => MEDAL[place - 1] ?? `${place}.`;
+
+// ---- admin actions ----
+const clearMarks = b => PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null }));
 async function generate() {
+  const n = sizeSel || size(), N = n * n;
   const short = PLAYERS.filter(p => poolFor(p).length < N);
-  if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד)`);
-  if (!confirm("ליצור כרטיסים ולנעול את ההזנה?")) return;
+  if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
+  if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
   const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
-  b.set(doc(db, "game", "state"), { status: "play", cards, at: serverTimestamp() });
-  PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false }));
+  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, at: serverTimestamp() });
+  clearMarks(b);
   await safe(b.commit());
 }
-async function reset() {
-  if (!confirm("למחוק את הכרטיסים ולחזור להזנה? המשפטים נשמרים.")) return;
+function setRaters(status) {
+  const raters = PLAYERS.filter(p => raterSel.has(p));
+  if (!raters.length) return alert("צריך לבחור לפחות מדרג אחד");
+  return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() }));
+}
+function startRating() { if (confirm("לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate"); }
+function backToEntry() {
+  if (!confirm("לחזור לשלב הניחושים? הדירוגים נשמרים.")) return;
+  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {} }));
+}
+async function endGame() {
+  if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
+  const n = size(), b = writeBatch(db);
+  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: n, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
+  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: n, at: serverTimestamp() });
+  await safe(b.commit());
+}
+async function reset(ask) {
+  if (!confirm(ask)) return;
   const b = writeBatch(db);
   b.set(doc(db, "game", "state"), { status: "entry", cards: {} });
-  PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false }));
+  clearMarks(b);
   await safe(b.commit());
 }
 
@@ -309,21 +395,22 @@ function render() {
   ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
   ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
-  $("#phase").textContent = game.status === "play" ? "🚗 המשחק רץ!" : "🔮 שלב הניחושים";
+  $("#phase").textContent = PHASE[game.status] ?? "";
 
-  const stage = !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status;
-  const key = `${me}|${stage}|${JSON.stringify(looks)}`;
+  const stage = !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
+  const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
     const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
-    $("#app").innerHTML = { load: `<p class="muted">טוען…</p>`, code: codeView(), pick: "" , play: playView() }[stage] ?? entryView();
+    $("#app").innerHTML = { load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
     if (draft && $("#text")) $("#text").value = draft;
     if (about) $(`input[name=about][value="${about}"]`)?.click();
     bind();
   }
   if (stage === "pick") $("#app").innerHTML = pickView();
   if (!me || !live) return;
-  if (game.status === "play") fillPlay(); else fillEntry();
+  ({ entry: fillEntry, rate: fillRate, play: fillPlay, ended: fillEnded })[stage]();
+  fillHistory();
   if (isAdmin()) fillAdmin();
 }
 
@@ -338,6 +425,8 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 }).join("")}</div>`;
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
+const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
+const tail = () => histBox() + adminBox();
 
 const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
 const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-look>🎨 אימוג׳י</button></div>`;
@@ -353,79 +442,158 @@ const entryView = () => `${hello()}
   </form>
   <h2>🎯 כמה ניחושים על כל אחד</h2><div class="counts" id="counts"></div>
   <h2>📜 הניחושים שלי</h2><p class="muted">🤫 כל אחד רואה רק את הניחושים שהוא כתב. כולם יתגלו בטיול!</p><ul id="list"></ul>
-  ${adminBox()}`;
+  ${tail()}`;
+
+const rateView = () => `${hello()}
+  ${isRater()
+    ? `<h2>⭐ דרגו את הניחושים <span class="muted" id="rateCnt"></span></h2>
+       <p class="muted">כמה כיף יהיה לראות את זה בכרטיס? 🥱 = לא מעניין, ⭐⭐⭐ = חובה! ניחושים עליכם או שלכם לא מופיעים כאן.</p><ul id="rate"></ul>`
+    : `<div class="panel" style="margin-top:16px">⏳ עכשיו שלב הדירוג. המדרגים בוחרים את הניחושים הכי טובים, ואחר כך מתחילים!</div>`}
+  <h2>📊 התקדמות המדרגים</h2><ul class="score" id="raters"></ul>
+  ${tail()}`;
 
 const playView = () => `
   <div class="panel status"><div class="ring" id="ring"><span id="cnt"></span></div>
     <div><div class="display" style="font-size:22px">הכרטיס של ${esc(me)} ${lookBtn()}</div>
-    <div class="muted">שורה, עמודה או אלכסון = בינגו. כל 9 = ניצחון 🏆</div></div></div>
+    <div class="muted">שורה, עמודה או אלכסון = בינגו. כרטיס מלא = ניצחון 🏆</div></div></div>
   <div id="banner"></div>
   <div class="grid" id="card"></div>
   <h2>🏁 טבלת המשחק</h2><ul class="score" id="score"></ul>
-  ${adminBox()}`;
+  ${tail()}`;
+
+const endedView = () => `
+  <div class="banner" id="winner"></div>
+  <h2>🏆 התוצאות</h2><ul class="score" id="score"></ul>
+  <h2>🃏 הכרטיס שלי</h2><div class="grid done" id="card"></div>
+  ${tail()}`;
 
 function fillEntry() {
   $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
   if (!legacy) migrate();
   const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(textOf(i) ?? "…")}</span><button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button></li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}</span><button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button></li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
   need(vis.filter(i => !i.text).map(i => i.id));
 }
 
-function fillPlay() {
-  const ids = game.cards?.[me] || [];
+function fillRate() {
+  if (isRater()) {
+    const list = rateable(me).sort((a, b) => secs(a.at) - secs(b.at)), my = myStars();
+    need(list.filter(i => !i.text).map(i => i.id));
+    $("#rateCnt").textContent = `(${list.filter(i => i.id in my).length}/${list.length})`;
+    $("#rate").innerHTML = list.map(i => {
+      const s = my[i.id];
+      return `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}
+        <span class="stars">${[0, 1, 2, 3].map(k => `<button class="star${k ? (s >= k ? " on" : "") : (s === 0 ? " on" : "")}" data-rate="${esc(i.id)}" data-k="${k}" aria-label="${k} כוכבים">${k ? "★" : "🥱"}</button>`).join("")}</span></span></li>`;
+    }).join("") || `<li class="empty">אין ניחושים לדרג</li>`;
+  }
+  $("#raters").innerHTML = (game.raters || []).map(p => {
+    const total = rateable(p).length, done = ratings.filter(r => r.player === p).length;
+    return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
+  }).join("");
+}
+
+function fillCard(interactive) {
+  const ids = game.cards?.[me] || [], n = size();
   const byId = Object.fromEntries(items.map(i => [i.id, i]));
   const on = new Set(marks[me]?.marked || []);
-  const hot = new Set(LINES.filter(l => l.every(k => on.has(ids[k]))).flat());
-  const full = ids.length && on.size === ids.length;
-  $("#card").classList.toggle("full", !!full);
-  $("#card").innerHTML = ids.map((id, k) => {
-    const i = byId[id] || { text: "(נמחק)", about: "" }, txt = textOf(i);
+  const hot = new Set(lines(n).filter(l => l.every(k => on.has(ids[k]))).flat());
+  const full = ids.length && ids.every(id => on.has(id));
+  const card = $("#card");
+  card.dataset.n = n; card.style.gridTemplateColumns = `repeat(${n},1fr)`;
+  card.classList.toggle("full", !!full);
+  card.innerHTML = ids.map((id, k) => {
+    const i = byId[id] || { text: "(נמחק)", about: "" };
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && shown && !shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
-    return `<div class="cell${cls}" role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}" data-stamp="${emo(me)}"><span class="txt">${esc(txt === undefined ? "…" : txt ?? "🔒")}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i>${esc(i.about)}</span>` : ""}</div>`;
+    return `<div class="cell${cls}"${interactive ? ` role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}"` : ""} data-stamp="${emo(me)}"><span class="txt">${esc(shownText(i))}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i><b>${esc(i.about)}</b></span>` : ""}</div>`;
   }).join("");
   shown = on;
-  $("#ring").style.setProperty("--p", on.size / N * 100);
+  need(ids.filter(id => byId[id] && !byId[id].text));
+  return { on, hot, full, N: ids.length };
+}
+
+function fillScore() {
+  $("#score").innerHTML = ranking().map(r => {
+    const N = game.cards[r.p].length;
+    return `<li style="${col(r.p)}"><span class="place">${medal(r.place)}</span>${av(r.p)}<span class="name">${esc(r.p)}</span><span class="bar"><i style="width:${r.n / N * 100}%"></i></span><span class="n">${r.n}/${N}</span>${r.blackout ? `<span class="win">🏆 מלא</span>` : r.bingo ? `<span class="win">🎉 בינגו</span>` : ""}</li>`;
+  }).join("");
+}
+
+function fillPlay() {
+  const { on, hot, full, N } = fillCard(true);
+  $("#ring").style.setProperty("--p", N ? on.size / N * 100 : 0);
   $("#cnt").textContent = `${on.size}/${N}`;
   $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופ/ה! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
-  need(ids.filter(id => byId[id] && !byId[id].text));
-  $("#score").innerHTML = PLAYERS.map(p => [p, marks[p] || {}]).sort((a, b) => (b[1].marked?.length || 0) - (a[1].marked?.length || 0)).map(([p, m]) => {
-    const n = (m.marked || []).length;
-    return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${n / N * 100}%"></i></span><span class="n">${n}/${N}</span>${m.blackout ? `<span class="win">🏆 מלא</span>` : m.bingo ? `<span class="win">🎉 בינגו</span>` : ""}</li>`;
-  }).join("");
+  fillScore();
+}
+
+function fillEnded() {
+  fillCard(false);
+  fillScore();
+  const winners = ranking().filter(r => r.place === 1).map(r => `${emo(r.p)} ${esc(r.p)}`);
+  $("#winner").innerHTML = winners.length ? `🏆 ${winners.length > 1 ? "המנצחים" : "המנצח/ת"}: ${winners.join(", ")} 🏆` : "🏁 המשחק נגמר";
+}
+
+function fillHistory() {
+  $("#histBox").hidden = !history.length;
+  $("#hist").innerHTML = history.map(h => `<li class="hist"><div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
+    <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
 }
 
 function fillAdmin() {
+  const st = game.status;
+  sizeSel ??= game.size || 3;
+  raterSel ??= new Set(game.raters || PLAYERS);
   const claims = legacy ? "" : `<p class="muted">שמות תפוסים (שחרור מאפשר לבחור את השם ממכשיר אחר):</p>
     <div class="counts">${PLAYERS.filter(p => players[p]).map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <button class="ghost" data-free="${esc(p)}">שחרר</button></span>`).join("") || `<span>אין</span>`}</div>`;
-  $("#adm").innerHTML = claims + (game.status === "play"
-    ? `<p class="muted">המשחק רץ.</p><button class="ghost" id="reset">אפס כרטיסים</button>`
-    : `<p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
-       <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>
-       <div class="row"><button id="gen">🎲 צור כרטיסים והתחל</button></div>`);
-  $("#gen")?.addEventListener("click", generate);
-  $("#reset")?.addEventListener("click", reset);
+  const N = sizeSel * sizeSel;
+  const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
+    <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
+    <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>`;
+  const noDevice = legacy ? [] : PLAYERS.filter(p => raterSel.has(p) && !players[p]);
+  const raters = `<p class="muted">מי מדרג?</p><div class="chips">${PLAYERS.map(p => `<button class="ghost pick${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}">${emo(p)} ${esc(p)}</button>`).join("")}</div>
+    ${noDevice.length ? `<p class="muted">⚠️ עוד לא נכנסו לאתר: ${noDevice.map(esc).join(", ")}. אחרי שייכנסו, לחצו "עדכן מדרגים".</p>` : ""}`;
+  $("#adm").innerHTML = claims + ({
+    entry: `${raters}<div class="row"><button data-act="rate">⭐ לשלב הדירוג</button></div>
+      <hr>${sizes}<div class="row"><button class="ghost" data-act="gen">🎲 צור כרטיסים בלי דירוג</button></div>`,
+    rate: `${raters}<div class="row"><button class="ghost" data-act="raters">💾 עדכן מדרגים</button><button class="ghost" data-act="back">↩️ חזרה לניחושים</button></div>
+      <hr>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+    play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
+      <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
+    ended: `<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
+  })[st] ?? "";
 }
 
 async function toggle(id) {
-  const ids = game.cards[me];
-  const on = new Set(marks[me]?.marked || []);
+  if (game.status !== "play") return;
+  const ids = game.cards[me], m = marks[me] || {};
+  const on = new Set(m.marked || []);
   on.has(id) ? on.delete(id) : on.add(id);
   navigator.vibrate?.(25);
-  const bingo = LINES.some(l => l.every(k => on.has(ids[k])));
-  await safe(setDoc(doc(db, "marks", me), { marked: [...on], bingo, blackout: on.size === N }));
+  const bingo = lines(size()).some(l => l.every(k => on.has(ids[k]))), blackout = ids.every(x => on.has(x));
+  await safe(setDoc(doc(db, "marks", me), {
+    marked: [...on], bingo, blackout,
+    bingoAt: bingo ? (m.bingo ? m.bingoAt ?? null : serverTimestamp()) : null,
+    blackoutAt: blackout ? (m.blackout ? m.blackoutAt ?? null : serverTimestamp()) : null
+  }));
 }
 
 function bind() {
   const app = $("#app");
+  const act = { rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
+    reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look]");
+    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
     if (!t) return;
+    const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
-    else if (t.dataset.me) claim(t.dataset.me);
-    else if (t.dataset.free) { if (confirm(`לשחרר את ${t.dataset.free}?`)) safe(deleteDoc(doc(db, "players", t.dataset.free))); }
-    else if (t.dataset.del) { if (confirm("למחוק?")) safe(delItem(t.dataset.del)); }
-    else if (t.dataset.cell) toggle(t.dataset.cell);
+    else if (d.me) claim(d.me);
+    else if (d.free) { if (confirm(`לשחרר את ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))); }
+    else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
+    else if (d.cell) toggle(d.cell);
+    else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
+    else if (d.size) { sizeSel = +d.size; render(); }
+    else if (d.rater) { raterSel.has(d.rater) ? raterSel.delete(d.rater) : raterSel.add(d.rater); render(); }
+    else if (d.act) act[d.act]?.();
   };
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
   $("#add")?.addEventListener("submit", async e => {
