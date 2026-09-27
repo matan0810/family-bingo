@@ -6,7 +6,7 @@ import { execSync } from "child_process";
 import { extname, join, normalize } from "path";
 import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, ME_UID, OTHER_UID, SETTINGS, SIZE, BINGO_AT,
   ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor, poolFor } from "../fixtures.mjs";
-import { LEGACY, EMOJIS, DEFAULT_TITLE } from "../source.mjs";
+import { LEGACY, EMOJIS, DEFAULT_TITLE, SIZES } from "../source.mjs";
 
 const { chromium, devices } = await import("playwright").catch(() =>
   import(join(execSync("npm root -g").toString().trim(), "playwright/index.mjs")));
@@ -422,6 +422,9 @@ console.log("— admin: entry → rate");
 await scenario(async () => {
   const p = await open("m=entry", { admin: true });
   check("phase bar", JSON.stringify(await p.locator(".stepper span").allTextContents()) === JSON.stringify(["ניחושים", "דירוג", "משחק", "סיום"]));
+  const least = Math.min(...P.map(x => poolFor(x).length)), mark = n => least >= Math.ceil(2.5 * n * n) ? "✅" : least >= n * n ? "👌" : "❌";
+  const enough = await p.textContent("#enough");
+  check("how many predictions: a mark per board size", enough.includes(`${ITEMS.length} ניחושים`) && SIZES.every(n => enough.includes(`${n}×${n} ${mark(n)}`)), enough);
   check("no board size / generate in entry", await p.locator('[data-size],[data-act="gen"]').count() === 0);
   const adm = await p.textContent("#adm");
   check("no rater picker: the raters are the admins", !(await p.locator("[data-rater]").count()) && adm.includes("המדרגים הם המתכללים") && FOUNDERS.every(f => adm.includes(f)), adm);

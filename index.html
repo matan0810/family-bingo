@@ -1026,16 +1026,19 @@ function fillAdmin() {
     <details class="tune"${tuneOpen ? " open" : ""}><summary>🎛️ כוונון הכרטיסים</summary>
       ${Object.entries(TUNE).map(([k, [label, opts]]) => `<p class="muted">${label}:</p><div class="chips">${opts.map(([name], x) => `<button class="ghost pick${x === tune[k] ? " on" : ""}" data-tune="${k}:${x}">${name}</button>`).join("")}</div>`).join("")}
       <p class="muted" id="tuneStats">${tuneStats(N)}</p></details>`;
+  // enough predictions for each board size? good = every card can choose from 2.5× its cells (varied, different cards)
+  const least = Math.min(...PLAYERS.map(p => poolFor(p).length));
+  const enough = `<p class="muted" id="enough">📊 יש ${items.filter(active).length} ניחושים. ${SIZES.map(n => `${n}×${n} ${least >= Math.ceil(2.5 * n * n) ? "✅" : least >= n * n ? "👌" : "❌"}`).join(" · ")}<br>✅ מספיק לחוויה טובה · 👌 אפשר, אבל הכרטיסים יהיו דומים · ❌ חסרים ניחושים</p>`;
   const who = `<p class="muted">המדרגים הם המתכללים: ${raters().map(p => `${emo(p)} ${esc(p)}`).join(", ")}. (מוסיפים מתכללים בהגדרות המשחק.)</p>`;
   const order = ["entry", "rate", "play", "ended"], at = order.indexOf(st);
   const stepper = `<div class="stepper">${order.map((k, i) => `<span class="${i < at ? "done" : i === at ? "now" : ""}">${i < at ? "✓ " : ""}${{ entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" }[k]}</span>`).join("")}</div>`;
   if ($("#freeList")) $("#freeList").innerHTML = PLAYERS.filter(p => players[p] && p !== me).map(p => `<button class="ghost" data-free="${esc(p)}">${emo(p)} ${esc(p)} ✕</button>`).join("") || `<span class="muted">אין שמות תפוסים</span>`;
   $("#adm").innerHTML = stepper + ({
     entry: `<div class="step">כשכולם סיימו לכתוב</div>
-      <p class="muted">הניחושים ננעלים והמתכללים מדרגים אותם. גודל הלוח בוחרים בשלב הבא.</p>${who}
+      <p class="muted">הניחושים ננעלים והמתכללים מדרגים אותם. גודל הלוח בוחרים בשלב הבא.</p>${enough}${who}
       <div class="row"><button data-act="rate">${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
     rate: `${who}<div class="row"><button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
-      <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+      <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${enough}${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
       <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button></div>
       <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
