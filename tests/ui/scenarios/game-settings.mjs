@@ -1,0 +1,72 @@
+// UI checks: game settings (founders)
+import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, SETTINGS, ITEMS, RATINGS, HISTORY } from "../../fixtures.mjs";
+import { check, open, writes, batchOps, lastBatch, scenario, done } from "../harness.mjs";
+
+console.log("— game settings (founders)");
+await scenario(async () => {
+  const p = await open("m=entry&cfg=full");
+  const cfgWrites = async () => (await writes(p)).filter(w => w[0] === "config/settings");
+  check("title from settings in the header and tab", (await p.textContent("#logo .word")) === TITLE && (await p.title()) === TITLE);
+  check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes(EXTRA_PLAYER)));
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
+  check("the player list has no quick remove buttons", !(await p.locator("#cfgPlayers button").count()));
+  check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes(CODE));
+  check("save is disabled until something changes", await p.locator("#cfgSave").isDisabled());
+  for (const x of [ROLE.admin, ROLE.player]) { await p.click(`[data-cfg=admin][data-p="${x}"]`); await p.click(`[data-cfg=admin][data-p="${x}"]`); }
+  check("turning an admin off and on again (or on and off) is not a change", await p.locator("#cfgSave").isDisabled());
+  const closeTop = async () => { const [x, d] = await Promise.all([p.locator("#cfgDlg .dlg-head [data-close]").boundingBox(), p.locator("#cfgDlg").boundingBox()]); return x && x.y - d.y < 60; };
+  check("close (✕) is at the top of the dialog", await closeTop());
+  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = d.scrollHeight); await p.waitForTimeout(100);
+  check("…and stays there while scrolling", await closeTop() && await p.isVisible("#cfgSave"));
+  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = 0);
+  await p.fill("#cfgTitle", TITLE2);
+  await p.fill("#cfgNew", NEW_PLAYER); await p.click("[data-cfg=add]");
+  await p.click(`[data-cfg=admin][data-p="${ROLE.player}"]`);
+  const shown = await p.textContent("#cfgFounders");
+  check("founders are fixed: shown, no toggles", FOUNDERS.every(f => shown.includes(f)) && !(await p.locator("[data-cfg=founder]").count()) && !(await p.locator(FOUNDERS.map(f => `#cfgAdmins [data-p="${f}"]`).join()).count()));
+  await p.fill("#cfgCode", NEW_CODE);
+  check("changes are only a draft until saved", !(await cfgWrites()).length && !(await writes(p)).some(([r]) => r === "config/secret"));
+  check("save button lights up", !(await p.locator("#cfgSave").isDisabled()));
+  await p.click("#cfgSave"); await p.waitForTimeout(300);
+  const [, d] = (await cfgWrites()).at(-1);
+  check("one save writes all the settings", d.title === TITLE2 && JSON.stringify(d.players) === JSON.stringify([...SETTINGS.full.players, NEW_PLAYER]) && d.admins.includes(ROLE.player) && JSON.stringify(d.founders) === JSON.stringify(FOUNDERS), d);
+  check("save confirms the new code", p.dialogs.some(m => m.includes(NEW_CODE)));
+  check("the new family code is saved", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === NEW_CODE));
+  await p.click(`[data-cfg=admin][data-p="${ROLE.admin}"]`);
+  const before = p.dialogs.length;
+  await p.click("#cfgDlg [data-close]"); await p.waitForTimeout(200);
+  check("closing with unsaved changes asks first", p.dialogs.length === before + 1 && p.dialogs.at(-1).includes("בלי לשמור"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=full");
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("danger zone is collapsed", !(await p.isVisible("[data-cfg=wipe]")));
+  await p.click(".danger summary");
+  p.promptAnswer = "לא";
+  await p.click("[data-cfg=wipe]"); await p.waitForTimeout(300);
+  check("wipe without typing 'מחיקה' deletes nothing", !(await batchOps(p)).some(([op]) => op === "del"));
+  p.promptAnswer = "מחיקה";
+  const dl = p.waitForEvent("download", { timeout: 5000 });
+  await p.click("[data-cfg=wipe]");
+  const file = await dl; await p.waitForTimeout(300);
+  check("a backup downloads before wiping", /bingo-backup-.*\.json/.test(file.suggestedFilename()));
+  const all = await batchOps(p);
+  check("new trip deletes items, texts, ratings and resets marks", ITEMS.every(({ id }) => all.some(([op, r]) => op === "del" && r === `items/${id}`) && all.some(([op, r]) => op === "del" && r === `texts/${id}`)) && all.some(([op, r]) => op === "del" && r.startsWith("ratings/")) && all.some(([op, r, d]) => op === "set" && r.startsWith("marks/") && d.marked.length === 0));
+  const bk = JSON.parse(await (await import("fs")).promises.readFile(await file.path(), "utf8"));
+  check("backup holds settings, items with texts, ratings, marks, history", bk.app === "family-bingo" && bk.settings.title === TITLE && bk.items.length === ITEMS.length && ITEMS.every(i => bk.items.some(b => b.id === i.id && b.text === i.text)) && bk.ratings.length === RATINGS.length && Object.keys(bk.marks).length === P.length && bk.history.length === HISTORY.length);
+  await p.click("[data-cfg=wipeHist]"); await p.waitForTimeout(400);
+  check("delete history needs the word too", (await lastBatch(p)).some(([op, r]) => op === "del" && r === `history/${HISTORY[0].id}`));
+  // restore from the downloaded backup
+  const bk2 = { ...bk, settings: { ...bk.settings, title: TITLE3 } };
+  await p.setInputFiles("#cfgFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(bk2)) });
+  await p.waitForTimeout(400);
+  const r = await lastBatch(p);
+  check("restore writes settings, code, game state, marks", r.some(([op, k, d]) => k === "config/settings" && d.title === TITLE3) && r.some(([, k]) => k === "config/secret") && r.some(([, k]) => k === "game/state") && r.filter(([, k]) => k.startsWith("marks/")).length === Object.keys(bk.marks).length, r.map(x => x[1]));
+  check("restore asks first and explains the limits", p.dialogs.some(m => m.includes("לשחזר") && m.includes("ניחושים ודירוגים לא ניתן")));
+  await p.setInputFiles("#cfgFile", { name: "x.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+  await p.waitForTimeout(200);
+  check("a non-backup file is refused", p.dialogs.at(-1).includes("לא קובץ גיבוי"));
+  await done(p);
+});

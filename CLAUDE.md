@@ -16,7 +16,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, service worker (own files network-first; Firebase modules and fonts cache-first, precached from the URLs in `index.html` and `js/`), icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
-| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `unit/*.test.mjs` (unit suite), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
+| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `unit/*.test.mjs` (unit suite), `ui/` (UI suite: `run.mjs`, `harness.mjs`, `scenarios/*.mjs`, `mock.js`), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
 ## Stack and hard constraints
 
@@ -166,14 +166,14 @@ Tests live in `tests/` (run from there, after `npm install`):
 | Command | What |
 |---|---|
 | `npm run test:unit` | `unit/*.test.mjs`: `node:test` over the pure modules: `js/logic.js` (cards, caps, crossings, places, bingo, weights, end-of-game stats, auto emojis) with a seeded random, `js/html.js` (escaping), and a check that `sw.js` lists every module. Fast, no browser. |
-| `npm run test:ui` | `ui/run.mjs`: serves the repo, and again under `/mock/` with the gstatic imports in `js/firebase.js` swapped for `ui/mock.js`, and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode, and an offline reload through the service worker (real files, stand-in CDNs). |
+| `npm run test:ui` | `ui/run.mjs` runs `ui/scenarios/*.mjs` (one file per area; `node ui/run.mjs rating play` runs some) on `ui/harness.mjs`, which serves the repo, and again under `/mock/` with the gstatic imports in `js/firebase.js` swapped for `ui/mock.js`, and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode, and an offline reload through the service worker (real files, stand-in CDNs). |
 | `npm run test:rules` | `rules/test.mjs`: allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | All three. |
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
 - **No hardcoded test data.** Names, roles, titles, codes, predictions, ratings and history live only in `tests/fixtures.mjs` (made-up names, not the family), which the browser mock and both suites import. Values the app owns (`LEGACY`, `EMOJIS`, `SIZES`, `APP_NAME` from `js/config.js`, the fallback code and the limits in the rules) are read from the source by `tests/source.mjs`. Every expectation (counts, who sees what) is computed from these, never typed in. Don't write test counts in the docs either.
 - `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `cfg=base|full|removed|none`, `claim=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`, `sugg=1`, `pending=1`, `nudge=1`). In play/ended, marks and journal entries come from `marksFor`/`eventsFor`. With `cfg=none` the app seeds settings from `LEGACY`. `OLD_ITEMS` use the old single-name format, and `NEW_ITEMS` the list format (general and group). Extend the fixtures and the mock when the app reads or writes something new.
-- **Add or adjust checks for every behavior you change**: unit tests for logic in `unit/`, UI checks in `run.mjs`, and allow and deny cases in `rules/test.mjs` for every rule you touch.
+- **Add or adjust checks for every behavior you change**: unit tests for logic in `unit/`, UI checks in the matching `ui/scenarios/` file (a new area gets a new file, listed in `run.mjs`), and allow and deny cases in `rules/test.mjs` for every rule you touch.
 
 Before pushing:
 1. Syntax: `for f in js/*.js sw.js; do node --check $f; done`
