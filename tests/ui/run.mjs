@@ -29,11 +29,12 @@ const URL_ = `http://localhost:${server.address().port}/tests/ui/app.html`;
 const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
 let pass = 0, fail = 0;
 const ME = ROLE.founder; // the device under test
-// how the app names the people of a prediction
-const whoName = i => aboutOf(i).length ? new Intl.ListFormat("he", { type: "conjunction" }).format(aboutOf(i)) : "כללי";
+// how the app names the people of a prediction: the subject, then who else is involved
+const whoName = i => { const [s, ...w] = aboutOf(i); return s ? s + (w.length ? ` (עם ${new Intl.ListFormat("he", { type: "conjunction" }).format(w)})` : "") : "כללי"; };
 const general = NEW_ITEMS.find(i => !aboutOf(i).length), group = NEW_ITEMS.find(i => aboutOf(i).length > 1 && !aboutOf(i).includes(ME));
 const typed = "typed prediction";
 const without = (list, x) => list.filter(y => y !== x);
+const chip = (value, name = "about") => `label.chip:has(input[name=${name}]${name === "general" ? "" : `[value="${value}"]`})`;
 const check = (name, ok, got) => { ok ? pass++ : fail++; console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : `  (got: ${JSON.stringify(got)})`}`); };
 
 // opens the app; `me` = stored player (null = none), welcome skipped unless welcome:true
@@ -106,9 +107,9 @@ await scenario(async () => {
   check("only my own predictions are listed", await p.locator("#list li").count() === ITEMS.filter(i => i.author === ME).length);
   check("old-format item migrated by its author", (await batchOps(p)).some(([op, r]) => op === "del" && r === `items/${MIGRATED.id}`));
   const chosen = () => p.locator("input[name=about]:checked").count();
-  await p.click(`label.chip:has-text("${ROLE.founder2}")`); await p.click(`label.chip:has-text("${ROLE.founder2}")`);
+  await p.click(chip(ROLE.founder2)); await p.click(chip(ROLE.founder2));
   check("tapping the chosen name again clears it", await chosen() === 0);
-  await p.click(`label.chip:has-text("${ROLE.player}")`); await p.fill("#text", typed); await p.click("#add button"); await p.waitForTimeout(200);
+  await p.click(chip(ROLE.player)); await p.fill("#text", typed); await p.click("#add button"); await p.waitForTimeout(200);
   const add = await lastBatch(p);
   check("add = one batch: items (no text) + texts", add.length === 2 && add[0][1].startsWith("items/") && !("text" in add[0][2]) && add[1][1].startsWith("texts/") && add[1][2].text === typed);
   await p.click("[data-del] >> nth=0"); await p.waitForTimeout(200);
@@ -118,7 +119,7 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=entry", { ctx: devices["Pixel 7"] });
-  await p.tap(`label.chip:has-text("${ROLE.founder2}")`); await p.tap(`label.chip:has-text("${ROLE.founder2}")`);
+  await p.tap(chip(ROLE.founder2)); await p.tap(chip(ROLE.founder2));
   check("touch: tap again clears the chosen name", await p.locator("input[name=about]:checked").count() === 0);
   await done(p);
 });
@@ -196,30 +197,36 @@ await scenario(async () => {
   await done(p);
 });
 
-console.log("— groups and general events");
+console.log("— subject, involved people and general events");
 await scenario(async () => {
   const p = await open("m=entry");
-  const pair = [ROLE.player, ROLE.founder2];
-  for (const x of pair) await p.click(`label.chip:has-text("${x}")`);
-  check("several people can be chosen", await p.locator("input[name=about]:checked").count() === pair.length);
+  const withRow = () => p.isVisible("#add .with");
+  check("no involved row before a subject is chosen", !(await withRow()));
+  await p.click(chip(ROLE.player)); await p.click(chip(ROLE.founder2));
+  check("one subject: choosing another name moves the choice", JSON.stringify(await p.locator("input[name=about]:checked").evaluateAll(x => x.map(i => i.value))) === JSON.stringify([ROLE.founder2]));
+  check("involved row shows, without the subject", await withRow() && !(await p.isVisible(chip(ROLE.founder2, "with"))));
+  const involved = [ROLE.player, ROLE.other];
+  for (const x of involved) await p.click(chip(x, "with"));
   await p.fill("#text", typed); await p.click("#add button"); await p.waitForTimeout(200);
   let add = await lastBatch(p);
-  check("group prediction: about is a list", JSON.stringify(add[0][2].about) === JSON.stringify(pair), add[0][2].about);
-  await p.click(`label.chip:has-text("${ROLE.other}")`); await p.click('label.chip:has-text("כללי")');
-  check("'כללי' clears the chosen people", await p.locator("input[name=about]:checked").count() === 0 && await p.locator("input[name=general]").isChecked());
-  await p.click(`label.chip:has-text("${ROLE.player}")`);
+  check("about = [subject, ...involved]", JSON.stringify(add[0][2].about) === JSON.stringify([ROLE.founder2, ...involved]), add[0][2].about);
+  await p.click(chip("כללי", "general"));
+  check("'כללי' clears the subject and the involved", !(await p.locator("input[name=about]:checked,input[name=with]:checked").count()) && await p.locator("input[name=general]").isChecked() && !(await withRow()));
+  await p.click(chip(ROLE.player));
   check("choosing a person clears 'כללי'", !(await p.locator("input[name=general]").isChecked()));
-  await p.click(`label.chip:has-text("${ROLE.player}")`); await p.click('label.chip:has-text("כללי")');
+  await p.click(chip("כללי", "general"));
   await p.fill("#text", typed); await p.click("#add button"); await p.waitForTimeout(200);
   add = await lastBatch(p);
   check("general event: about is empty", JSON.stringify(add[0][2].about) === "[]");
-  await p.click('label.chip:has-text("כללי")'); // the choice stays between predictions; clear it
+  await p.click(chip("כללי", "general")); // the choice stays between predictions; clear it
   await p.fill("#text", typed); await p.click("#add button"); await p.waitForTimeout(200);
   check("must choose someone or 'כללי'", (await p.textContent("#toast")).includes("כללי") && (await p.inputValue("#text")) === typed);
   const mine = await p.locator("#list li .who").allTextContents();
   const myNew = NEW_ITEMS.filter(i => i.author === ME).map(whoName);
-  check("my list shows 'כללי' and group names", myNew.includes("כללי") && myNew.some(w => w !== "כללי") && myNew.every(w => mine.includes(w)), mine);
-  check("counts include general events", (await p.textContent("#counts")).includes("כללי"));
+  check("my list shows 'כללי' and 'subject (with …)'", myNew.includes("כללי") && myNew.some(w => w.includes("(עם ")) && myNew.every(w => mine.includes(w)), mine);
+  const counts = await p.locator("#counts > span").evaluateAll(x => x.map(s => [s.textContent.replace(s.querySelector(".av").textContent, "").replace(s.querySelector("b").textContent, "").trim(), +s.querySelector("b").textContent]));
+  const want = [...P.map(x => [x, ITEMS.filter(i => aboutOf(i)[0] === x).length]), ["כללי", ITEMS.filter(i => !aboutOf(i).length).length]];
+  check("counts go by the subject only (involved don't count)", JSON.stringify(counts) === JSON.stringify(want), counts);
   await done(p);
 });
 await scenario(async () => {

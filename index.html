@@ -62,6 +62,7 @@ textarea:focus{border-color:var(--me);outline:0}
 
 /* entry */
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.chip[hidden],.with[hidden]{display:none}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 6px;border-radius:99px;border:2px solid var(--line);background:var(--card);cursor:pointer;font-weight:500;transition:transform .1s,background .15s}
 .chip input{position:absolute;opacity:0;pointer-events:none}
 .chip:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 20%,var(--card));transform:scale(1.05)}
@@ -232,7 +233,7 @@ body.intro header{display:none}
   <details class="danger"><summary>⚠️ אזור מסוכן</summary>
     <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
     <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>
-    <p class="muted"><b>🚪 הסרת שחקן</b> (רק בשלב הניחושים) מוציאה מהמשחק את כל הניחושים שהשחקן כתב ואת כל הניחושים עליו, כולל ניחושים קבוצתיים, והטלפון שלו מתנתק מהשם. שום דבר לא נמחק, ומחזירים שחקן ב"↩️" שליד השחקנים. צריך להקליד את שם השחקן כדי לאשר.</p>
+    <p class="muted"><b>🚪 הסרת שחקן</b> (רק בשלב הניחושים) מוציאה מהמשחק את כל הניחושים שהשחקן כתב ואת כל הניחושים עליו או שהוא מעורב בהם, והטלפון שלו מתנתק מהשם. שום דבר לא נמחק, ומחזירים שחקן ב"↩️" שליד השחקנים. צריך להקליד את שם השחקן כדי לאשר.</p>
     <div class="row"><select class="field" id="cfgDel"></select><button class="ghost warn" data-cfg="del">🚪 הסרת שחקן</button></div>
     <p class="muted"><b>🧹 טיול חדש</b> מוחק את כל הניחושים, הדירוגים וההצעות ומאפס סימונים (רק בשלב הניחושים). לפני המחיקה יורד גיבוי אוטומטית. צריך להקליד "מחיקה" כדי לאשר.</p>
     <div class="row"><button class="ghost warn" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost warn" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
@@ -291,11 +292,14 @@ function autoEmoji(p) {
   }
   return "🙂";
 }
-// who a prediction is about: a list of names, empty for a general event (older predictions hold a single name)
+// who a prediction is about: a list of names, empty for a general event (older predictions hold a single name).
+// The first name is the subject (the one it counts for); the others are involved: like the subject, they never see it,
+// rate it or get it on their card.
 const aboutOf = i => Array.isArray(i.about) ? i.about : i.about ? [i.about] : [];
+const subjectOf = i => aboutOf(i)[0];
 const GENERAL = "#0ea5e9";
 const listFmt = new Intl.ListFormat("he", { type: "conjunction" });
-const whoName = i => aboutOf(i).length ? listFmt.format(aboutOf(i)) : "כללי";
+const whoName = i => { const [s, ...w] = aboutOf(i); return s ? s + (w.length ? ` (עם ${listFmt.format(w)})` : "") : "כללי"; };
 const whoEmo = i => aboutOf(i).length ? aboutOf(i).map(emo).join("") : "🌍";
 const whoCol = i => aboutOf(i).length ? col(aboutOf(i)[0]) : `--c:${GENERAL}`;
 const whoAv = i => aboutOf(i).length ? aboutOf(i).map(av).join("") : `<span class="av" style="--c:${GENERAL}">🌍</span>`;
@@ -613,7 +617,7 @@ async function removePlayer(p) {
   if (cfgDirty()) return alert("יש שינויים שלא נשמרו. שומרים אותם קודם (או סוגרים בלי לשמור), ואז מסירים.");
   if (PLAYERS.length <= 2) return alert("צריך לפחות 2 שחקנים");
   const wrote = items.filter(i => i.author === p).length, about = items.filter(i => aboutOf(i).includes(p)).length;
-  const lines = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} (כולל קבוצתיים) יצאו מהדירוג ומהכרטיסים`,
+  const lines = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} או שהוא מעורב בהם יצאו מהדירוג ומהכרטיסים`,
     config.admins.includes(p) && `${p} כבר לא בין המתכללים`, players[p] && `הטלפון של ${p} יתנתק מהשם`].filter(Boolean);
   const typed = prompt(`🚪 הסרת ${p}\n\n• ${lines.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
   if (typed === null) return;
@@ -778,6 +782,7 @@ function render() {
     $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
     if (draft && $("#text")) $("#text").value = draft;
     document.querySelectorAll("#add input").forEach(i => i.checked = chosen.includes(i.name + ":" + i.value));
+    syncWith();
     bind();
   }
   if (stage === "welcome") return;
@@ -838,10 +843,13 @@ const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי
 const entryView = () => `${hello()}
   <h2>✍️ ניחוש חדש</h2>
   <form id="add" class="panel">
-    <div class="muted">על מי? (אפשר כמה, או אירוע כללי)</div>
+    <div class="muted">על מי? (אחד, או אירוע כללי)</div>
     <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
       `<label class="chip" style="${col(p)}"><input type="checkbox" name="about" value="${esc(p)}">${av(p)}${esc(p)}</label>`).join("")}
       <label class="chip" style="--c:${GENERAL}"><input type="checkbox" name="general"><span class="av" style="--c:${GENERAL}">🌍</span>כללי</label></div>
+    <div class="with"><div class="muted">🙈 עוד מעורבים? (גם הם לא יראו את הניחוש ולא יקבלו אותו בכרטיס)</div>
+    <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
+      `<label class="chip" style="${col(p)}"><input type="checkbox" name="with" value="${esc(p)}">${av(p)}${esc(p)}</label>`).join("")}</div></div>
     <textarea id="text" required maxlength="140" placeholder="למשל: &quot;עוד 5 דקות מגיעים&quot;"></textarea>
     <div class="row"><button>הוסף ניחוש ✨</button></div>
   </form>
@@ -875,7 +883,7 @@ const endedView = () => `
   ${tail()}`;
 
 function fillEntry() {
-  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => aboutOf(i).includes(p)).length}</b></span>`).join("")
+  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => subjectOf(i) === p).length}</b></span>`).join("")
     + `<span style="--c:${GENERAL}"><span class="av" style="--c:${GENERAL}">🌍</span>כללי <b>${items.filter(i => !aboutOf(i).length).length}</b></span>`;
   if (!legacy) migrate();
   fillMine(true);
@@ -1026,18 +1034,31 @@ function bind() {
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
   $("#add")?.addEventListener("submit", async e => {
     e.preventDefault();
-    const text = $("#text").value.trim(), about = [...document.querySelectorAll("input[name=about]:checked")].map(i => i.value);
+    const text = $("#text").value.trim(), subject = $("input[name=about]:checked")?.value;
     if (!text) return;
-    if (!about.length && !$("input[name=general]").checked) return toast("✋ בוחרים על מי, או \"כללי\"");
+    if (!subject && !$("input[name=general]").checked) return toast("✋ בוחרים על מי, או \"כללי\"");
+    const about = subject ? [subject, ...[...document.querySelectorAll("input[name=with]:checked")].map(i => i.value).filter(p => p !== subject)] : [];
     $("#text").value = "";
     if (!await safe(addItem(about, text))) $("#text").value = text;
   });
-  // "כללי" and people exclude each other
+  // one subject or "כללי"; tapping another name moves the choice
   $("#add")?.addEventListener("change", e => {
-    if (e.target.name === "general" && e.target.checked) document.querySelectorAll("input[name=about]").forEach(i => i.checked = false);
-    if (e.target.name === "about" && e.target.checked) $("input[name=general]").checked = false;
+    if (e.target.checked && ["general", "about"].includes(e.target.name)) document.querySelectorAll("input[name=about],input[name=general]").forEach(i => i.checked = i === e.target);
+    syncWith();
   });
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
+}
+
+// the involved row shows once there is a subject, without the subject's own chip
+function syncWith() {
+  const subject = $("#add input[name=about]:checked")?.value, box = $("#add .with");
+  if (!box) return;
+  box.hidden = !subject;
+  document.querySelectorAll("#add input[name=with]").forEach(i => {
+    const own = i.value === subject;
+    i.closest("label").hidden = own;
+    if (own || !subject) i.checked = false;
+  });
 }
 
 // ---- emoji picker ----

@@ -47,7 +47,8 @@ service cloud.firestore {
     // the admins (founders included) are the raters; game/state.raters from older versions is ignored
     function isRater() { return isAdmin(); }
     function textOk(t) { return t is string && t.size() > 0 && t.size() <= 140; }
-    // who a prediction is about: a list (empty = a general event); older predictions hold a single name
+    // who a prediction is about: a list (empty = a general event); older predictions hold a single name.
+    // The first name is the subject, the rest are involved; the rules treat them all the same.
     function aboutOf(a) { return a is list ? a : [a]; }
     // a timestamp field may be missing, null, set now, or left unchanged
     function tsOk(f) {
@@ -91,7 +92,7 @@ service cloud.firestore {
     }
 
     // items/{id}: who a prediction is about and who wrote it (no text), readable by all members.
-    // about = [] for a general event, or several names; never the author.
+    // about = [] for a general event, or [subject, ...involved]; never the author.
     match /items/{id} {
       allow read: if isMember();
       allow create: if isEntry()

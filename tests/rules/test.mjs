@@ -93,11 +93,11 @@ await t('a device whose founder name was taken over loses founder rights', no(st
 await t('…and the device that took it has them (trust model)', ok(state(ad)));
 await pick(f2, uid.f2, F2); await pick(ad, uid.ad, AD);
 
-section('predictions: one person, a group, a general event');
+section('predictions: one person, a subject with involved people, a general event');
 await t('about one person', ok(add(ad, AD, [PL])));
-await t('about a group', ok(add(ad, AD, [PL, OT])));
+await t('subject with an involved person', ok(add(ad, AD, [PL, OT])));
 await t('general event (about nobody)', ok(add(ad, AD, [])));
-await t('group that includes the author', no(add(ad, AD, [PL, AD])));
+await t('author among the involved', no(add(ad, AD, [PL, AD])));
 await t('unknown name in the group', no(add(ad, AD, [PL, UNKNOWN])));
 await t('old single-name format for new items', no(add(ad, AD, PL)));
 await t('impersonate the author', no(add(ad, OT, [PL])));
@@ -108,7 +108,7 @@ await t('custom id (xss)', no(add(ad, AD, [PL], { id: '"><img src=x onerror=aler
 await t('item without text', no(addDoc(collection(ad, 'items'), { about: [], author: AD, weight: 1, at: serverTimestamp() })));
 await t('text without item', no(setDoc(doc(ad, 'texts', 'abcdefghijklmnopqrst'), { text: 'x' })));
 const byAdmin = await add(ad, AD, [PL]);         // by the admin about the player
-const group = await add(ad, AD, [OT, F1]);       // by the admin about other + founder
+const group = await add(ad, AD, [OT, F1]);       // by the admin about other, the founder involved
 const general = await add(ot, OT, []);           // by other, general
 const aboutAdmin = await add(f1, F1, [AD]);      // by the founder about the admin
 // an item in the old format (about is a single name), as already stored in production
@@ -139,14 +139,14 @@ await t('an old raters list in the game state is still accepted (ignored)', ok(s
 await t('rater reads a text not about them', ok(getDoc(doc(f1, 'texts', byAdmin.id))));
 await t('rater reads a general event', ok(getDoc(doc(f1, 'texts', general.id))));
 await t('admin from the admins list reads it too', ok(getDoc(doc(ad, 'texts', general.id))));
-await t('rater in a group cannot read it', no(getDoc(doc(f1, 'texts', group.id))));
+await t('an involved rater cannot read it', no(getDoc(doc(f1, 'texts', group.id))));
 await t('rater cannot read a text about them', no(getDoc(doc(ad, 'texts', aboutAdmin.id))));
 await t('non-admin cannot read (even if listed in old raters)', no(getDoc(doc(ot, 'texts', byAdmin.id))));
 await t('author still reads own', ok(getDoc(doc(ot, 'texts', general.id))));
 await t('rate', ok(rt(ad, general.id, AD, MAX.stars)));
 await t('change rating', ok(rt(ad, general.id, AD, 0)));
 await t('rate an old-format item', ok(rt(ad, oldItem, AD, 1)));
-await t('rate a group item I am in', no(rt(f1, group.id, F1, MAX.stars)));
+await t('rate an item I am involved in', no(rt(f1, group.id, F1, MAX.stars)));
 await t('rate about myself', no(rt(ad, aboutAdmin.id, AD, MAX.stars)));
 await t('rate my own', no(rt(ad, byAdmin.id, AD, MAX.stars)));
 await t('too many stars', no(rt(ad, general.id, AD, MAX.stars + 1)));
@@ -164,7 +164,7 @@ await t('members read ratings', ok(getDocs(collection(ot, 'ratings'))));
 section('wording suggestions');
 const sg = (d, item, from, fromUid, toUid, extra = {}) => addDoc(collection(d, 'suggestions'), { item, from, fromUid, toUid, text: 'suggestion', at: serverTimestamp(), ...extra });
 await t('rater suggests on a general event', ok(sg(ad, general.id, AD, uid.ad, uid.ot)));
-await t('rater in the group cannot suggest', no(sg(f1, group.id, F1, uid.f1, uid.ad)));
+await t('an involved rater cannot suggest', no(sg(f1, group.id, F1, uid.f1, uid.ad)));
 await t('about myself', no(sg(ad, aboutAdmin.id, AD, uid.ad, uid.f1)));
 await t('on my own prediction', no(sg(ad, byAdmin.id, AD, uid.ad, uid.ad)));
 await t('wrong author device', no(sg(ad, general.id, AD, uid.ad, uid.f1)));
@@ -194,7 +194,7 @@ await t('forged bingoAt', no(setDoc(doc(ad, 'marks', AD), { marked: ['a'], bingo
 await t('too many marks', no(setDoc(doc(ad, 'marks', AD), { ...noMarks, marked: Array(MAX.marks + 1).fill('x') })));
 await t('mark someone else', no(setDoc(doc(ot, 'marks', F1), { marked: [], bingo: true, blackout: true })));
 await t('everyone reads a general event', ok(getDoc(doc(ad, 'texts', general.id))));
-await t('group members cannot read it', no(getDoc(doc(f1, 'texts', group.id))));
+await t('the involved cannot read it', no(getDoc(doc(f1, 'texts', group.id))));
 await t('others read it', ok(getDoc(doc(f2, 'texts', group.id))));
 await t('old-format item: its person cannot read', no(getDoc(doc(f2, 'texts', oldItem))));
 await t('old-format item: others read', ok(getDoc(doc(ad, 'texts', oldItem))));
