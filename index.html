@@ -223,8 +223,8 @@ body.intro header{display:none}
   <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
   <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
   <p class="muted" id="cfgPlayersNote"></p>
-  <h3>👑 מייסדים</h3><p class="muted">מייסדים תמיד מתכללים, והם היחידים שרואים את ההגדרות האלה.</p><div class="chips" id="cfgFounders"></div>
-  <h3>🛠️ מתכללים</h3><p class="muted">מתכלל מנהל את המשחק (שלבים, כרטיסים, סיום), אבל לא את ההגדרות האלה.</p><div class="chips" id="cfgAdmins"></div>
+  <h3>👑 מייסדים</h3><p class="muted"><span id="cfgFounders"></span>. המייסדים קבועים: הם תמיד מתכללים והיחידים שרואים את ההגדרות האלה.</p>
+  <h3>🛠️ מתכללים ומדרגים</h3><p class="muted">מתכללים מנהלים את המשחק (שלבים, כרטיסים, סיום) ומדרגים את הניחושים בשלב הדירוג. המייסדים תמיד בפנים.</p><div class="chips" id="cfgAdmins"></div>
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
   <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)">
   <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button><button class="ghost" data-close>סגירה</button></div>
@@ -315,7 +315,7 @@ const got = new Set(); // snapshot sources that have delivered at least once
 const prev = {};
 let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
-let sizeSel = null, raterSel = null; // admin's choices before starting a phase
+let sizeSel = null; // admin's board size choice before generating cards
 
 queueMicrotask(() => render());
 
@@ -433,7 +433,9 @@ function migrate() {
 // predictions by or about a removed player stay stored but are left out of rating and cards
 const active = i => PLAYERS.includes(i.author) && aboutOf(i).every(x => PLAYERS.includes(x));
 const rateable = p => items.filter(i => active(i) && !aboutOf(i).includes(p) && i.author !== p);
-const isRater = () => (game.raters || []).includes(me);
+// the admins (founders included) are the raters
+const raters = () => PLAYERS.filter(isAdminName);
+const isRater = () => isAdminName(me);
 const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).map(r => [r.item, r.stars]));
 const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
 
@@ -489,16 +491,10 @@ async function generate() {
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
   const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
-  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, raters: liveRaters(), at: serverTimestamp() });
+  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
 }
-function setRaters(status) {
-  const raters = PLAYERS.filter(p => raterSel.has(p));
-  if (!raters.length) return alert("צריך לבחור לפחות מדרג אחד");
-  return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, at: serverTimestamp() }));
-}
-const liveRaters = () => (game.raters || []).filter(p => PLAYERS.includes(p));
 const saveConfig = patch => safe(setDoc(doc(db, "config", "settings"), { ...config, ...patch }));
 
 // ---- wording: the author edits until the rating phase ends; raters suggest, the author decides ----
@@ -559,9 +555,9 @@ function fillCfg() {
   $("#cfgPlayers").innerHTML = d.players.map(p => d.founders.includes(p)
     ? `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)} 👑</span>`
     : `<button class="ghost" data-cfg="del" data-p="${esc(p)}"${entry ? "" : " disabled"}>${emo(p)} ${esc(p)} ✕</button>`).join("");
-  $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם. מייסד (👑) מסירים קודם מהמייסדים.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
+  $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם. מייסדים (👑) אי אפשר להסיר.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
   $("#cfgNew").disabled = $("[data-cfg=add]").disabled = !entry;
-  $("#cfgFounders").innerHTML = d.players.map(p => toggle("founder", p, d.founders.includes(p))).join("");
+  $("#cfgFounders").textContent = d.founders.map(p => `${emo(p)} ${p}`).join(", ");
   $("#cfgAdmins").innerHTML = d.players.filter(p => !d.founders.includes(p)).map(p => toggle("admin", p, d.admins.includes(p))).join("");
   $("#cfgSave").disabled = !cfgDirty();
 }
@@ -581,12 +577,6 @@ $("#cfgBox").onclick = async e => {
       d.players.push(name); $("#cfgNew").value = ""; break;
     }
     case "del": d.players = without(d.players, p); d.admins = without(d.admins, p); break;
-    case "founder":
-      if (d.founders.includes(p)) {
-        if (d.founders.length === 1) return alert("צריך לפחות מייסד אחד");
-        d.founders = without(d.founders, p);
-      } else { d.founders.push(p); d.admins = without(d.admins, p); }
-      break;
     case "admin": d.admins = d.admins.includes(p) ? without(d.admins, p) : [...d.admins, p]; break;
     case "save": return saveCfg();
     case "backup": return downloadBackup();
@@ -600,7 +590,7 @@ async function saveCfg() {
   const d = draft, code = $("#cfgCode").value.trim(), removed = PLAYERS.filter(p => !d.players.includes(p));
   if (d.players.length < 2) return alert("צריך לפחות 2 שחקנים");
   if (code && code.length < 3) return alert("הקוד צריך לפחות 3 תווים");
-  const notes = [removed.length && `יוסרו: ${removed.join(", ")} (הניחושים שלהם נשמרים)`, !d.founders.includes(me) && "את/ה לא ברשימת המייסדים, ולא תוכל/י לחזור להגדרות האלה", code && `הקוד המשפחתי יוחלף ל־"${code}"`].filter(Boolean);
+  const notes = [removed.length && `יוסרו: ${removed.join(", ")} (הניחושים שלהם נשמרים)`, code && `הקוד המשפחתי יוחלף ל־"${code}"`].filter(Boolean);
   if (notes.length && !confirm(`לשמור?\n• ${notes.join("\n• ")}`)) return;
   if (!await saveConfig(d)) return;
   if (code && await safe(setDoc(doc(db, "config", "secret"), { code }))) $("#cfgCode").value = "";
@@ -636,9 +626,9 @@ $("#cfgFile").onchange = async e => {
   if (!confirm(`לשחזר מהגיבוי של ${new Date(bk.at).toLocaleString("he-IL")}?\nיוחזרו: הגדרות המשחק, הקוד, שלב המשחק והכרטיסים, הסימונים והאימוג׳ים${pastGames.length ? "" : ", וההיסטוריה (עם תאריך של היום)"}.\nניחושים ודירוגים לא ניתן לשחזר מכאן (החוקים לא מאפשרים לכתוב בשם אחרים), אבל הם שמורים בקובץ.`)) return;
   const s = bk.settings, pl = s.players;
   const writes = [
-    ["config", "settings", { title: s.title || "", players: pl, founders: s.founders?.length ? s.founders : [me], admins: s.admins || [] }],
+    ["config", "settings", { title: s.title || "", players: [...new Set([...pl, ...config.founders])], founders: config.founders, admins: (s.admins || []).filter(p => pl.includes(p)) }],
     ...(bk.secret?.code ? [["config", "secret", { code: bk.secret.code }]] : []),
-    ...(bk.game?.status ? [["game", "state", { status: bk.game.status, cards: bk.game.cards || {}, ...(bk.game.size ? { size: bk.game.size } : {}), raters: (bk.game.raters || []).filter(p => pl.includes(p)) }]] : []),
+    ...(bk.game?.status ? [["game", "state", { status: bk.game.status, cards: bk.game.cards || {}, ...(bk.game.size ? { size: bk.game.size } : {}) }]] : []),
     ...Object.entries(bk.marks || {}).filter(([p]) => pl.includes(p)).map(([p, m]) => ["marks", p, { marked: m.marked || [], bingo: !!m.bingo, blackout: !!m.blackout, bingoAt: m.bingo ? serverTimestamp() : null, blackoutAt: m.blackout ? serverTimestamp() : null }]),
     ...Object.entries(bk.looks || {}).filter(([p, e]) => pl.includes(p) && COLOR[e]).map(([p, e]) => ["looks", p, { e }])
   ];
@@ -670,16 +660,16 @@ async function wipeHistory() {
 // ---- moving between phases (every step asks first) ----
 function startRating() {
   const again = ratings.length > 0;
-  if (confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate");
+  if (confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?")) safe(setDoc(doc(db, "game", "state"), { status: "rate", cards: {}, at: serverTimestamp() }));
 }
 function backToEntry() {
   if (!confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.")) return;
-  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {}, raters: liveRaters() }));
+  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {} }));
 }
 async function backToRating() {
   if (!confirm("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו! הדירוגים נשמרים.")) return;
-  const raters = liveRaters().length ? liveRaters() : PLAYERS, b = writeBatch(db);
-  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, raters, at: serverTimestamp() });
+  const b = writeBatch(db);
+  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
 }
@@ -838,7 +828,7 @@ const rateView = () => `${hello()}
   ${isRater()
     ? `<h2>⭐ דרגו את הניחושים <span class="muted" id="rateCnt"></span></h2>
        <p class="muted">כמה כיף יהיה לראות את זה בכרטיס? 🥱 = לא מעניין, ⭐⭐⭐ = חובה! ניחושים עליכם או שלכם לא מופיעים כאן.</p><ul id="rate"></ul>`
-    : `<div class="panel" style="margin-top:16px">⏳ עכשיו שלב הדירוג. המדרגים בוחרים את הניחושים הכי טובים, ואחר כך מתחילים!</div>`}
+    : `<div class="panel" style="margin-top:16px">⏳ עכשיו שלב הדירוג. המתכללים בוחרים את הניחושים הכי טובים, ואחר כך מתחילים!</div>`}
   <section id="sugBox" hidden><h2>💬 הצעות ניסוח לניחושים שלך</h2><ul id="sugList"></ul></section>
   <h2>📊 התקדמות המדרגים</h2><ul class="score" id="raters"></ul>
   <details class="mine"><summary>📜 הניחושים שלי (אפשר לערוך עד סוף הדירוג)</summary><ul id="list"></ul></details>
@@ -885,7 +875,7 @@ function fillRate() {
         ${sent.has(i.id) ? `<span class="sent">💬 נשלחה הצעה</span>` : `<button class="star" data-suggest="${esc(i.id)}" aria-label="הצעת ניסוח">✏️</button>`}</span></span></li>`;
     }).join("") || `<li class="empty">אין ניחושים לדרג</li>`;
   }
-  $("#raters").innerHTML = (game.raters || []).map(p => {
+  $("#raters").innerHTML = raters().map(p => {
     const total = rateable(p).length, done = ratings.filter(r => r.player === p).length;
     return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
   }).join("");
@@ -949,28 +939,20 @@ function fillHistory() {
 function fillAdmin() {
   const st = game.status;
   sizeSel ??= game.size || 3;
-  raterSel ??= new Set(game.raters || PLAYERS);
   const N = sizeSel * sizeSel;
   const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
     <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>`;
-  const chosen = PLAYERS.filter(p => raterSel.has(p));
-  const noDevice = legacy ? [] : chosen.filter(p => !players[p]);
-  const dirty = st === "rate" && PLAYERS.some(p => raterSel.has(p) !== (game.raters || []).includes(p));
-  const raters = `<div class="step">${st === "rate" ? "מי מדרג?" : "1. מי ידרג את הניחושים?"} <span class="muted">לחיצה על שם מסמנת ✓ או מבטלת</span></div>
-    <div class="chips">${PLAYERS.map(p => `<button class="ghost pick toggle${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}" aria-pressed="${raterSel.has(p)}"><span class="box">${raterSel.has(p) ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`).join("")}</div>
-    <div class="row"><button class="ghost" data-act="allRaters">כולם</button><button class="ghost" data-act="noRaters">אף אחד</button>
-      <span class="muted">${chosen.length ? `ידרגו ${chosen.length}: ${chosen.map(esc).join(", ")}` : "⚠️ לא נבחרו מדרגים"}</span></div>
-    ${noDevice.length ? `<p class="muted">⚠️ ${noDevice.map(esc).join(", ")} עוד לא נכנסו לאתר. אחרי שייכנסו הם יוכלו לדרג.</p>` : ""}`;
+  const who = `<p class="muted">המדרגים הם המתכללים: ${raters().map(p => `${emo(p)} ${esc(p)}`).join(", ")}. (מוסיפים מתכללים בהגדרות המשחק.)</p>`;
   const order = ["entry", "rate", "play", "ended"], at = order.indexOf(st);
   const stepper = `<div class="stepper">${order.map((k, i) => `<span class="${i < at ? "done" : i === at ? "now" : ""}">${i < at ? "✓ " : ""}${{ entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" }[k]}</span>`).join("")}</div>`;
   if ($("#freeList")) $("#freeList").innerHTML = PLAYERS.filter(p => players[p] && p !== me).map(p => `<button class="ghost" data-free="${esc(p)}">${emo(p)} ${esc(p)} ✕</button>`).join("") || `<span class="muted">אין שמות תפוסים</span>`;
   $("#adm").innerHTML = stepper + ({
-    entry: `${raters}<hr><div class="step">2. כשכולם סיימו לכתוב</div>
-      <p class="muted">הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
-      <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
-    rate: `${raters}<div class="row">${dirty ? `<button data-act="raters">💾 שמירת השינוי במדרגים</button>` : ""}<button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
-      <hr><div class="step">כשהמדרגים סיימו: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+    entry: `<div class="step">כשכולם סיימו לכתוב</div>
+      <p class="muted">הניחושים ננעלים והמתכללים מדרגים אותם. גודל הלוח בוחרים בשלב הבא.</p>${who}
+      <div class="row"><button data-act="rate">${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
+    rate: `${who}<div class="row"><button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
+      <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
       <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button></div>
       <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
@@ -997,12 +979,10 @@ function bind() {
   const act = {
     start: leaveWelcome,
     howto: openHow,
-    allRaters: () => { raterSel = new Set(PLAYERS); render(); },
-    noRaters: () => { raterSel.clear(); render(); },
-    rate: startRating, raters: () => setRaters("rate"), back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
+    rate: startRating, back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-edit],[data-suggest],[data-accept],[data-reject],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
+    const t = e.target.closest("[data-me],[data-del],[data-edit],[data-suggest],[data-accept],[data-reject],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-act]");
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
@@ -1016,7 +996,6 @@ function bind() {
     else if (d.cell) toggle(d.cell);
     else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
     else if (d.size) { sizeSel = +d.size; render(); }
-    else if (d.rater) { raterSel.has(d.rater) ? raterSel.delete(d.rater) : raterSel.add(d.rater); render(); }
     else if (d.act) act[d.act]?.();
   };
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
@@ -1055,7 +1034,7 @@ $("#emojis").onclick = e => {
 // ---- settings and how-to dialogs ----
 const STEPS = [
   ["🔮", "כותבים ניחושים", "מה כל אחד יגיד או יעשה בטיול? כל אחד רואה רק את מה שהוא כתב 🤫"],
-  ["⭐", "מדרגים", "המדרגים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
+  ["⭐", "מדרגים", "המתכללים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
   ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, בלי ניחושים עליו עצמו"],
   ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת. שורה, עמודה או אלכסון = בינגו 🎉"],
   ["🏆", "מנצחים", "כרטיס מלא = ניצחון! המתכלל מסיים את המשחק, והתוצאות נשמרות בהיסטוריה"]

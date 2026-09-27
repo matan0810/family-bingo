@@ -2,7 +2,7 @@
 // Deploy: paste into Firebase Console -> Firestore -> Rules -> Publish.
 // Replace FAMILY_CODE with the real family code before publishing (the code is kept out of this public repo).
 // FAMILY_CODE is only the fallback: once a founder sets a code in the app (config/secret), that one is used.
-// No player names here: players, founders and admins live in config/settings.
+// No player names here: players, founders (fixed) and admins live in config/settings. Admins are also the raters.
 // Trust model: anyone who entered the family code is a trusted family member.
 rules_version = '2';
 service cloud.firestore {
@@ -26,22 +26,26 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function memberDoc() { return /databases/$(db)/documents/members/$(request.auth.uid); }
     function isMember() { return signedIn() && exists(memberDoc()); }
+    // one get() and no exists(): a missing doc just fails the check. Rules allow only 10 document
+    // reads per request and exists()/get() on the same doc count separately, so keep these lean.
     function owns(name) {
-      let p = /databases/$(db)/documents/players/$(name);
-      return isMember() && name is string && name.size() > 0 && exists(p) && get(p).data.uid == request.auth.uid;
+      return isMember() && name is string && name.size() > 0
+        && get(/databases/$(db)/documents/players/$(name)).data.uid == request.auth.uid;
     }
     // the name this device holds (recorded in members/{uid}.name when it picks a name, verified by owns)
     function myName() { return get(memberDoc()).data.get('name', ''); }
     function iAm() { return isMember() && owns(myName()); }
-    function isFounder() { return iAm() && exists(settingsDoc()) && myName() in settings().founders; }
-    function isAdmin() { return isFounder() || (iAm() && exists(settingsDoc()) && myName() in settings().admins); }
+    // settings always exist once seeded; without them there are no founders or admins anyway
+    function isFounder() { return iAm() && myName() in settings().founders; }
+    function isAdmin() { return isFounder() || (iAm() && myName() in settings().admins); }
 
     // ---- game phase: entry -> rate -> play -> ended ----
     function stateDoc() { return /databases/$(db)/documents/game/state; }
     function state() { return get(stateDoc()).data; }
     function status() { return exists(stateDoc()) ? state().status : 'entry'; }
     function isEntry() { return status() == 'entry'; }
-    function isRater() { return iAm() && myName() in state().get('raters', []); }
+    // the admins (founders included) are the raters; game/state.raters from older versions is ignored
+    function isRater() { return isAdmin(); }
     function textOk(t) { return t is string && t.size() > 0 && t.size() <= 140; }
     // who a prediction is about: a list (empty = a general event); older predictions hold a single name
     function aboutOf(a) { return a is list ? a : [a]; }
@@ -62,12 +66,12 @@ service cloud.firestore {
         && getAfter(/databases/$(db)/documents/players/$(d().name)).data.uid == request.auth.uid;
     }
 
-    // title, players, founders, extra admins. Any member may create it once (the app seeds it
-    // from the existing game); after that only founders change it.
+    // title, players, founders, admins. Any member may create it once (the app seeds it from the
+    // existing game); after that only founders change it, and the founders themselves never change.
     match /config/settings {
       allow read: if isMember();
       allow create: if isMember() && !exists(settingsDoc()) && settingsOk();
-      allow update: if isFounder() && settingsOk();
+      allow update: if isFounder() && settingsOk() && d().founders == resource.data.founders;
     }
 
     // the family code; only founders read or change it

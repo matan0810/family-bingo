@@ -1,6 +1,6 @@
 # CLAUDE.md: family-bingo
 
-A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, players write predictions about each other ("Dad will say '5 more minutes'"). Chosen raters give them stars. Each player then gets a personal bingo card built from predictions that are not about them, and marks cells as things happen on the trip.
+A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, players write predictions about each other ("Dad will say '5 more minutes'"). The admins rate them with stars. Each player then gets a personal bingo card built from predictions that are not about them, and marks cells as things happen on the trip.
 
 - Live: https://matan0810.github.io/family-bingo/ (GitHub Pages, `master` branch, repo root)
 - Owner: Matan (מתן), a developer. Replies to him in **Hebrew**, short and direct.
@@ -27,7 +27,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 ## The game (phases in `game/state.status`)
 
 1. **entry**: each player adds predictions `{about, text}`: about one person, a group, or a general event, never about themselves. **Secrecy:** a player sees only the predictions they wrote. The rules enforce this, not just the UI. Authors can edit (✏️) and delete (🗑️) their own predictions.
-2. **rate** (fixed phase): the admin picks raters. Each rater gives 0–3 stars (🥱 = 0) to predictions that are neither about them nor written by them. No adding or deleting, but authors can still edit their text, and raters can send the author a wording suggestion (✏️) that the author accepts or declines. Pending suggestions are dropped when the phase ends. From `play` on, texts are locked.
+2. **rate** (fixed phase): **the admins (founders included) are the raters**; there is no rater picker. Each rater gives 0–3 stars (🥱 = 0) to predictions that are neither about them nor written by them. No adding or deleting, but authors can still edit their text, and raters can send the author a wording suggestion (✏️) that the author accepts or declines. Pending suggestions are dropped when the phase ends. From `play` on, texts are locked.
 3. **play**: the admin picks the board size (2×2, 3×3, 4×4 or 5×5) and generates the cards. Each card samples predictions not about its owner, weighted, without replacement. A row, column or diagonal is a bingo, and a full card is a blackout (the main win). Toasts and confetti show for everyone, and a live scoreboard shows places 🥇🥈🥉.
 4. **ended**: only the admin ends the game (a blackout does not end it). Results are written to `history`, and everyone sees the winner, the final table and their own card, read-only. "New game" goes back to entry, and predictions and ratings are kept.
 
@@ -44,7 +44,8 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 - **Players** are managed in the app by founders (max 12, only in entry).
   - Removing a player keeps their data; `active(i)` leaves predictions by or about removed players out of rating and cards.
   - Names are document IDs everywhere, so renaming isn't supported (remove and add instead).
-- **Founders** (`config/settings.founders`, at least one) are always admins, and they alone open "👑 הגדרות משחק" (`#cfgDlg`): title, players, founders, extra admins and family code (`config/secret`).
+- **Founders** (`config/settings.founders`) are **fixed**: seeded from `LEGACY` and never changed afterwards (the rules reject any change to `founders`, and the settings dialog only shows them). They are always admins, can't be removed as players, and alone open "👑 הגדרות משחק" (`#cfgDlg`): title, players, extra admins and family code (`config/secret`).
+- **Admins are the raters:** `raters()` = `PLAYERS.filter(isAdminName)` on the client and `isRater() = isAdmin()` in the rules. `game/state.raters` from older versions is ignored (still accepted, never written).
   - Edits go into a `draft` and are written only by "💾 שמירת שינויים" (`saveCfg`). Leaving with unsaved changes asks first (`leaveCfg`, also on Esc and backdrop).
   - Destructive tools live in a collapsed "⚠️ אזור מסוכן" `<details>`: backup download (`downloadBackup`, everything this device may read), restore from a backup file (settings, code, game state, marks, looks, and history if empty; predictions and ratings can't be restored under the rules), new-trip wipe and history wipe. Wipes need the typed word "מחיקה" and download a backup first. **Extra admins** (`config/settings.admins`) run the game. The client helpers are `isFounderName(p)` and `isAdminName(p)`.
 - **Identity in the rules:** a device records the name it holds in `members/{uid}.name`, in the same batch as claiming `players/{name}` (the rules check it with `getAfter`). The rules trust `myName()` only together with `owns(myName())`. `iAm()`, `isFounder()`, `isAdmin()` and `isRater()` all build on that, so there are no per-device uid lists to sync. Devices from before the upgrade record their name on load (`recordName`).
@@ -57,15 +58,15 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 | Path | Fields | Notes |
 |---|---|---|
 | `members/{uid}` | `{code, name}` | Created once per device with the family code. The rules compare it to `config/secret.code`, or to `FAMILY_CODE` in the rules when there's no secret yet. |
-| `config/settings` | `{title, players, founders, admins}` | Game settings. Any member may create it once (the `LEGACY` seed); after that only founders update it. Members read it. |
+| `config/settings` | `{title, players, founders, admins}` | Game settings. Any member may create it once (the `LEGACY` seed); after that only founders update it, and `founders` must stay unchanged. Members read it. |
 | `config/secret` | `{code}` | The family code. Only founders read or write it. |
 | `players/{name}` | `{uid}` | Which device owns a name. Any member may take a name over (the app asks "זה אתם?"; trust model). "Switch player" and logout delete it, and admins can release a stuck name. |
 | `items/{id}` | `{about, author, weight: 1, at}` | Prediction metadata only, readable by all members. `id` is a 20-char auto ID. `about` is a list of names: one person, a group, or `[]` for a general event. It never includes the author. Items from the first version hold a single name string; `aboutOf(i)` on the client and `aboutOf()` in the rules normalize both. |
 | `texts/{id}` | `{text}` (≤140) | Created in the same batch as the item. Readable by the author always, by raters in `rate` and by everyone in `play` and `ended`, but never by anyone it is about. The author may update it in `entry` and `rate`. The client fetches texts one at a time with `getDoc` (no list queries). |
 | `suggestions/{autoId}` | `{item, from, fromUid, toUid, text, at}` | Wording suggestions from raters, created only in `rate`. Only `toUid` (the author's device) and `fromUid` can read or delete them, and the client queries by those fields. Accepting means one batch: set the text and delete the suggestion. `cleanSuggestions()` drops them outside `rate` or when the item is gone. |
-| `game/state` | `{status, cards: {player: [ids]}, size, raters: [names], at}` | Only admins write it. `raterUids` from older versions is still allowed but no longer used. |
+| `game/state` | `{status, cards: {player: [ids]}, size, at}` | Only admins write it. `raters`/`raterUids` from older versions are still accepted but ignored. |
 | `marks/{player}` | `{marked: [ids], bingo, blackout, bingoAt, blackoutAt}` | The owner writes only during `play`; admins write to reset. Timestamps are server time, and the rules reject forged ones. |
-| `ratings/{item}_{player}` | `{item, player, stars 0..3}` | Only in `rate`, only chosen raters, never on items about or by the rater. |
+| `ratings/{item}_{player}` | `{item, player, stars 0..3}` | Only in `rate`, only admins, never on items about or by the rater. Ratings by former raters are kept and still count. |
 | `history/{autoId}` | `{at, size, title, results: [{p, place, n, bingo, blackout}]}` | Written by an admin when the game ends. Admins can delete it ("🗑️ מחיקת היסטוריה"). |
 | `looks/{player}` | `{e}` | The chosen emoji, which must be in `EMOJIS`. |
 
@@ -76,7 +77,7 @@ Old-format items that still have `text` in the item are migrated by their author
 - Anonymous Auth plus a family code. The code lives in `config/secret` (set by founders in the app) and, as a fallback, in the published console rules. It is never in the repo. When you give Matan rules to paste, remind him to replace `FAMILY_CODE`. He knows the code; ask him if needed.
 - **Trust model:** anyone who entered the code is a trusted family member. That's why any member can take over any name, including founders' names (accepted by Matan); whoever holds a founder's name has founder rights.
 - **Groups and general events:** a prediction is hidden from, never rated by, never suggested on and never put on the card of anyone in its `about` list. A general event (`[]`) can go on everyone's card.
-- **Rules `get()` limits:** admin checks come first in `||` chains (`isAdmin() || owns(...)`) so bulk admin batches (new trip) don't do one `get()` per document. Keep it that way; the rules suite has a 40-item bulk-delete case.
+- **Rules `get()` limits:** at most 10 document reads per request (20 for batches), and `exists()` and `get()` on the same document count separately. `owns()` therefore uses a single `get()` (a missing doc just fails), and `isFounder()`/`isAdmin()` read `settings()` without `exists()`. The texts-in-rating path is the tightest; the rules suite covers it. Admin checks also come first in `||` chains (`isAdmin() || owns(...)`) so bulk admin batches (new trip) don't do one `get()` per document. Keep it that way; the rules suite has a 40-item bulk-delete case.
 - Any change to what the client writes or reads must be checked against `firestore.rules`. If the rules must change:
   1. Update `firestore.rules`.
   2. Test it on the emulator (see below).
@@ -104,7 +105,7 @@ Matan chose the simple trust model for now. When it's time to harden it, ideas i
   - It rebuilds the view HTML only when `view` (the key of me, stage, rater flag and looks) changes, keeping the textarea draft and the chosen chip.
   - Otherwise it calls `fill*()` functions that update lists in place.
   - Set `view = ""` to force a rebuild.
-- **Events:** one delegated `#app.onclick` on `data-*` attributes (`data-act`, `data-cell`, `data-rate`, `data-rater`, `data-size`, `data-free`, `data-del`, `data-edit`, `data-suggest`, `data-accept`, `data-reject`, `data-me`, `data-look`). Admin actions live in the `act` map in `bind()`. Game settings use `data-cfg` inside `#cfgBox`.
+- **Events:** one delegated `#app.onclick` on `data-*` attributes (`data-act`, `data-cell`, `data-rate`, `data-size`, `data-free`, `data-del`, `data-edit`, `data-suggest`, `data-accept`, `data-reject`, `data-me`, `data-look`). Admin actions live in the `act` map in `bind()`. Game settings use `data-cfg` inside `#cfgBox`.
 - **Dialogs:** native `<dialog>` with an inner `.dlg`. Tapping the backdrop or `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, admin mode for admins, game settings for founders, how to play, switch player, logout), edit or suggest wording (`#editDlg`), game settings (`#cfgDlg`), how to play (`#howDlg`).
 - **Welcome screen:** shown right after the family code, and again from the header logo. The back button or "יאללה" returns via `history.pushState`/`popstate`.
 - **Writes:** wrap them in `safe(promise)`, which shows a toast on failure and resolves true or false. Use `writeBatch` for multi-document changes.
@@ -130,7 +131,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 | Command | What |
 |---|---|
 | `npm run test:ui` | `ui/run.mjs`: 159 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
-| `npm run test:rules` | `rules/test.mjs`: 151 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
+| `npm run test:rules` | `rules/test.mjs`: 156 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.

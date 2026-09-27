@@ -70,6 +70,8 @@ await t('title max 40', no(cfg(A, { title: 'x'.repeat(41) })));
 await t('max 12 players', no(cfg(A, { players: [...P6, ...'abcdefg'.split('')] })));
 await t('admins must be players', no(cfg(A, { admins: ['hacker'] })));
 await t('extra field', no(cfg(A, { x: 1 })));
+await t('founders are fixed: cannot remove one', no(cfg(A, { founders: ['מתן'] })));
+await t('founders are fixed: cannot add one', no(cfg(A, { founders: ['מתן', 'אורי', 'אמא'] })));
 await t('non-admin cannot write the game', no(state(K)));
 await t('founder writes the game', ok(state(A)));
 await t('second founder writes the game', ok(state(U)));
@@ -117,17 +119,20 @@ await t('others cannot edit', no(setDoc(doc(A, 'texts', kid1.id), { text: 'hack'
 await t('items cannot be updated', no(setDoc(doc(K, 'items', kid1.id), { about: ['אמא'], author: 'עדי', weight: 1, at: serverTimestamp() })));
 await t('marks locked while writing', no(setDoc(doc(K, 'marks', 'עדי'), { marked: [], bingo: false, blackout: false })));
 
-section('rating phase');
+section('rating phase (the admins are the raters)');
+await cfg(A, { admins: ['עדי'] }); // raters: founders מתן + אורי, admin עדי
 const rt = (d, item, player, stars, id) => setDoc(doc(d, 'ratings', id ?? `${item}_${player}`), { item, player, stars });
 await t('cannot rate while writing', no(rt(K, byMatan.id, 'עדי', 3)));
-await t('non-admin cannot start rating', no(state(K, { status: 'rate', raters: ['עדי'] })));
+await t('non-admin cannot start rating', no(state(M, { status: 'rate' })));
 await t('bad rater name', no(state(A, { status: 'rate', raters: ['hacker'] })));
-await t('admin starts rating (raters עדי, מתן)', ok(state(A, { status: 'rate', raters: ['עדי', 'מתן'], at: serverTimestamp() })));
+await t('admin starts rating', ok(state(A, { status: 'rate', at: serverTimestamp() })));
+await t('an old raters list in the game state is still accepted (ignored)', ok(state(A, { status: 'rate', raters: ['אמא'], at: serverTimestamp() })));
 await t('rater reads a text not about them', ok(getDoc(doc(A, 'texts', kid1.id))));
 await t('rater reads a general event', ok(getDoc(doc(A, 'texts', general.id))));
+await t('admin from the admins list reads it too', ok(getDoc(doc(K, 'texts', general.id))));
 await t('rater in a group cannot read it', no(getDoc(doc(A, 'texts', group.id))));
 await t('rater cannot read a text about them', no(getDoc(doc(K, 'texts', byMatan.id))));
-await t('non-rater cannot read', no(getDoc(doc(M, 'texts', kid1.id))));
+await t('non-admin cannot read (even if listed in old raters)', no(getDoc(doc(M, 'texts', kid1.id))));
 await t('author still reads own', ok(getDoc(doc(M, 'texts', general.id))));
 await t('rate', ok(rt(K, general.id, 'עדי', 3)));
 await t('change rating', ok(rt(K, general.id, 'עדי', 0)));
@@ -138,7 +143,8 @@ await t('rate my own', no(rt(K, kid1.id, 'עדי', 3)));
 await t('4 stars', no(rt(K, general.id, 'עדי', 4)));
 await t('rate as someone else', no(rt(K, general.id, 'מתן', 3)));
 await t('id mismatch', no(rt(K, general.id, 'עדי', 3, 'whatever')));
-await t('non-rater', no(rt(M, kid1.id, 'אמא', 3)));
+await t('non-admin cannot rate', no(rt(M, kid1.id, 'אמא', 3)));
+await t('another admin (founder) rates', ok(rt(U, general.id, 'אורי', 2)));
 await t('extra field', no(setDoc(doc(K, 'ratings', `${general.id}_עדי`), { item: general.id, player: 'עדי', stars: 1, x: 1 })));
 await t('no adding items', no(add(K, 'עדי', ['אבא'])));
 await t('no deleting items', no(del(K, kid1.id)));
@@ -176,7 +182,7 @@ await t('mark own card', ok(setDoc(doc(K, 'marks', 'עדי'), { marked: ['a'], b
 await t('keep the same bingoAt', ok(getDoc(doc(K, 'marks', 'עדי')).then(s => setDoc(doc(K, 'marks', 'עדי'), { ...s.data(), marked: ['a', 'b'] }))));
 await t('forged bingoAt', no(setDoc(doc(K, 'marks', 'עדי'), { marked: ['a'], bingo: true, blackout: false, bingoAt: Timestamp.fromDate(new Date(2000, 1, 1)), blackoutAt: null })));
 await t('too many marks', no(setDoc(doc(K, 'marks', 'עדי'), { marked: Array(26).fill('x'), bingo: false, blackout: false })));
-await t('mark someone else', no(setDoc(doc(K, 'marks', 'מתן'), { marked: [], bingo: true, blackout: true })));
+await t('mark someone else', no(setDoc(doc(M, 'marks', 'מתן'), { marked: [], bingo: true, blackout: true })));
 await t('everyone reads a general event', ok(getDoc(doc(K, 'texts', general.id))));
 await t('group members cannot read it', no(getDoc(doc(A, 'texts', group.id))));
 await t('others read it', ok(getDoc(doc(U, 'texts', group.id))));
@@ -185,11 +191,11 @@ await t('old-format item: others read', ok(getDoc(doc(K, 'texts', 'legacyItem000
 await t('texts locked', no(setDoc(doc(M, 'texts', general.id), { text: 'late' })));
 await t('suggestions locked', no(sg(K, general.id, 'עדי', 'adiU', 'momU')));
 await t('ratings locked', no(rt(K, general.id, 'עדי', 2)));
-await t('non-admin cannot write history', no(addDoc(collection(K, 'history'), { at: serverTimestamp(), size: 3, results: [] })));
+await t('non-admin cannot write history', no(addDoc(collection(M, 'history'), { at: serverTimestamp(), size: 3, results: [] })));
 await t('history extra field', no(addDoc(collection(A, 'history'), { at: serverTimestamp(), size: 3, results: [], x: 1 })));
 await t('end game: history with title + ended', ok((() => { const b = writeBatch(A); b.set(doc(collection(A, 'history')), { at: serverTimestamp(), size: 3, title: 'טיול צפון', results: [{ p: 'עדי', place: 1, n: 3, bingo: true, blackout: false }] }); b.set(doc(A, 'game', 'state'), { status: 'ended', cards: { 'עדי': [general.id] }, size: 3, at: serverTimestamp() }); return b.commit(); })()));
 await t('members read history', ok(getDocs(collection(M, 'history'))));
-await t('marks locked after the game', no(setDoc(doc(K, 'marks', 'עדי'), { marked: [], bingo: false, blackout: false })));
+await t('marks locked after the game', no(setDoc(doc(M, 'marks', 'אמא'), { marked: [], bingo: false, blackout: false })));
 await t('new game', ok(state(A)));
 
 section('game settings: players, family code, new trip');

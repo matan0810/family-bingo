@@ -281,13 +281,13 @@ await scenario(async () => {
   await p.fill("#cfgNew", "סבא"); await p.click("[data-cfg=add]");
   await p.click('[data-cfg=del][data-p="סבתא"]');
   await p.click('[data-cfg=admin][data-p="אבא"]');
-  await p.click('[data-cfg=founder][data-p="אמא"]');
+  check("founders are fixed: shown, no toggles", (await p.textContent("#cfgFounders")).includes("מתן") && !(await p.locator("[data-cfg=founder]").count()) && !(await p.locator('#cfgAdmins [data-p="מתן"]').count()));
   await p.fill("#cfgCode", "new-code");
   check("changes are only a draft until saved", !(await cfgWrites()).length && !(await writes(p)).some(([r]) => r === "config/secret"));
   check("save button lights up", !(await p.locator("#cfgSave").isDisabled()));
   await p.click("#cfgSave"); await p.waitForTimeout(300);
   const [, d] = (await cfgWrites()).at(-1);
-  check("one save writes all the settings", d.title === "טיול דרום" && d.players.includes("סבא") && !d.players.includes("סבתא") && d.admins.includes("אבא") && d.founders.includes("אמא"), d);
+  check("one save writes all the settings", d.title === "טיול דרום" && d.players.includes("סבא") && !d.players.includes("סבתא") && d.admins.includes("אבא") && d.founders.join() === "מתן,אורי", d);
   check("save confirms removals and the new code", p.dialogs.some(m => m.includes("יוסרו: סבתא") && m.includes("new-code")));
   check("the new family code is saved", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === "new-code"));
   await p.click('[data-cfg=admin][data-p="עדי"]');
@@ -357,13 +357,10 @@ await scenario(async () => {
   const p = await open("m=entry", { admin: true });
   check("phase bar", JSON.stringify(await p.locator(".stepper span").allTextContents()) === JSON.stringify(["ניחושים", "דירוג", "משחק", "סיום"]));
   check("no board size / generate in entry", await p.locator('[data-size],[data-act="gen"]').count() === 0);
-  await p.click('[data-act="noRaters"]');
-  check("no raters -> rating button disabled", await p.locator('[data-act="rate"]').isDisabled());
-  await p.click('[data-rater="אמא"]'); await p.click('[data-rater="עדי"]');
-  check("chosen raters summary", (await p.locator("#adm .row .muted").first().textContent()).includes("אמא, עדי"));
+  check("no rater picker: the raters are the admins", !(await p.locator("[data-rater]").count()) && (await p.textContent("#adm")).includes("המדרגים הם המתכללים") && (await p.textContent("#adm")).includes("אורי"));
   await p.click('[data-act="rate"]'); await p.waitForTimeout(100);
   const w = (await writes(p)).at(-1);
-  check("start rating writes status, raters, raterUids", w[0] === "game/state" && w[1].status === "rate" && w[1].raters.join() === "אמא,עדי");
+  check("start rating writes only the phase", w[0] === "game/state" && w[1].status === "rate" && !("raters" in w[1]), w);
   check("asks before changing phase", p.dialogs.length > 0);
   check("stuck-name release is collapsed", !(await p.isVisible("#freeList")));
   await p.click(".free summary"); await p.click('[data-free="אמא"]'); await p.waitForTimeout(200);
@@ -383,23 +380,25 @@ await scenario(async () => {
   await done(p);
 });
 await scenario(async () => {
-  const p = await open("m=rate", { me: "אורי" });
-  check("non-rater sees a waiting message, no list", !(await p.locator("#rate").count()));
+  const p = await open("m=rate", { me: "אבא" });
+  check("non-admin sees a waiting message, no rating list", !(await p.locator("#rate").count()));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&cfg=1", { me: "עדי" });
+  check("an extra admin (not a founder) is a rater", await p.locator("#rate li").count() > 0 && (await p.locator("#raters li").allTextContents()).some(t => t.includes("עדי")));
   await done(p);
 });
 await scenario(async () => {
   const p = await open("m=rate", { admin: true });
-  check("no device lists are written any more", !(await writes(p)).some(([r, d]) => r === "game/state" && "raterUids" in d));
-  check("save-raters button only after a change", !(await p.locator('[data-act="raters"]').count()));
-  await p.click('[data-rater="עדי"]');
-  check("…and appears after one", await p.locator('[data-act="raters"]').count() === 1);
+  check("no rater lists are written", !(await writes(p)).some(([r, d]) => r === "game/state" && ("raterUids" in d || "raters" in d)));
   await p.click('[data-size="4"]'); await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
   const g = await lastBatch(p);
   check("generate 4×4: 16 cells per card, marks reset", g[0][2].status === "play" && g[0][2].size === 4 && g[0][2].cards["מתן"].length === 16 && g.length === 7);
   const groupOf = { g1: [], g2: ["אבא", "עדי"], g3: [], g4: ["אבא", "אמא"] }, P6 = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
   check("cards never contain predictions about their owner", Object.entries(g[0][2].cards).every(([pl, ids]) => ids.every(id => !(groupOf[id] ?? [P6[+id.slice(1) % 6]]).includes(pl))));
   await p.click('[data-act="back"]'); await p.waitForTimeout(100);
-  check("back to entry keeps raters", (await writes(p)).filter(([r, d]) => d.status).at(-1)[1].status === "entry");
+  check("back to entry", (await writes(p)).filter(([r, d]) => d.status).at(-1)[1].status === "entry");
   await done(p);
 });
 
