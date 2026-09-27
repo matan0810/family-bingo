@@ -479,6 +479,29 @@ await scenario(async () => {
   await done(p);
 });
 
+await scenario(async () => {
+  const p = await open("m=rate", { admin: true });
+  const n = 4, N = n * n;
+  await p.click(`[data-size="${n}"]`);
+  check("card tuning is collapsed", !(await p.isVisible("[data-tune]")));
+  await p.click(".tune summary"); await p.waitForTimeout(200);
+  check("tuning: every setting starts in the middle", (await p.locator("[data-tune].on").evaluateAll(x => x.map(b => b.dataset.tune.split(":")[1]))).every(x => x === "1"));
+  check("tuning shows a preview in numbers", /\d/.test(await p.textContent("#tuneStats")));
+  const sharedCells = async () => {
+    await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
+    const cards = Object.values((await lastBatch(p))[0][2].cards);
+    let s = 0, k = 0; cards.forEach((a, x) => cards.slice(x + 1).forEach(b => { s += a.filter(id => b.includes(id)).length; k++; }));
+    return s / k;
+  };
+  await p.click('[data-tune="shared:0"]'); const few = await sharedCells();
+  await p.click('[data-tune="shared:2"]'); const many = await sharedCells();
+  check("more crossings = cards share more cells", many > few, { few, many });
+  check("the panel stays open after a choice", await p.isVisible("[data-tune]"));
+  const cards = Object.values((await lastBatch(p))[0][2].cards);
+  check("…and cards stay full", cards.every(c => c.length === N));
+  await done(p);
+});
+
 console.log("— play and ended");
 for (const n of [2, 3, 4, 5]) await scenario(async () => {
   const p = await open(`m=play&size=${n}`, { ctx: { viewport: { width: 360, height: 740 } } });

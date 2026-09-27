@@ -35,12 +35,13 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 
 **Places:** a blackout comes first (earliest `blackoutAt` wins), then more marks, then having a bingo (earliest `bingoAt`). Ties share a place.
 
-**Card weights:** `weightOf(i) = (item.weight ?? 1) × (avgStars + 0.5)²`, where an unrated prediction counts as 1.5 stars. `item.weight` is the manual-priority hook; keep it.
+**Card weights:** `weightOf(i) = (item.weight ?? 1) × (avgStars + 0.5)^power` (power from the tuning, 2 by default), where an unrated prediction counts as 1.5 stars. `item.weight` is the manual-priority hook; keep it.
 
 **Cards (`makeCards(N)`):** all weighted draws without replacement (`draw`), from `poolFor(p)` (active predictions not about or involving `p`):
-1. **Shared moments:** one "hot" set of N predictions is drawn from all active ones; each card first takes `ceil(N/4)` of them (those allowed for its owner), so some events hit several cards at once.
-2. **Variety:** the rest is drawn with a cap per subject (`bucket`: `subjectOf(i)`, general events as one bucket) of `ceil(N / subjects in the pool) + 1`. When nothing under the cap is left, the cap is ignored rather than leaving cells empty.
+1. **Shared moments:** one small "hot" set is drawn from all active ones; each card first takes `k` of them (those allowed for its owner), so some events hit several cards at once. The smaller the set relative to `k`, the more crossings.
+2. **Variety:** the rest is drawn with a cap per subject (`bucket`: `subjectOf(i)`, general events as one bucket) of `ceil(N / subjects in the pool) + extra`. When nothing under the cap is left, the cap is ignored rather than leaving cells empty.
 3. **Shuffle:** positions are shuffled, since drawing by weight puts the strongest predictions first (they would crowd the top rows).
+4. **Tuning (`TUNE`, `tune`):** the admin picks, in a collapsed "🎛️ כוונון הכרטיסים" before generating, three levels (middle = default): crossings (`k = round(N·f)`, hot set `k·h`), how much stars count (the power 1/2/3), and subject variety (cap extra ∞/1/0). It lives in memory only (not in `game/state`, so no rules change). While open, `cardStats` averages a few dry runs of `makeCards` into a preview: cells two cards share, and the most cells one person gets on a card.
 
 ## People and game settings
 

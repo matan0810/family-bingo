@@ -155,6 +155,8 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 .danger summary{cursor:pointer;color:var(--muted);font-size:14px}
 .danger .row{flex-wrap:wrap}
 .danger select.field{flex:1 1 100%;min-height:44px}
+.tune{margin:10px 0;border:2px solid var(--line);border-radius:14px;padding:6px 12px}
+.tune summary{cursor:pointer;font-weight:700;padding:10px 0}
 .danger[open] summary{color:var(--hot);font-weight:700}
 button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
 .row.save{position:sticky;bottom:-16px;background:var(--card);padding:10px 0;margin-top:18px}
@@ -447,11 +449,19 @@ const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).ma
 const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
 
 // ---- selection: weighted sample without replacement ----
-// weight = item.weight (default 1, hook for manual priority) × rating factor (avg stars; unrated counts as 1.5)
+// the admin tunes the cards before generating them (index into each list; the middle one is the default)
+const TUNE = {
+  shared: ["🔀 הצלבות בין כרטיסים", [["מעט", { f: .2, h: 2 }], ["בינוני", { f: .4, h: 1.5 }], ["הרבה", { f: .6, h: 1.2 }]]],
+  stars: ["⭐ כמה הכוכבים קובעים", [["מעט", 1], ["רגיל", 2], ["הרבה", 3]]],
+  mix: ["🎨 גיוון בנושאים", [["חופשי", Infinity], ["רגיל", 1], ["קפדני", 0]]],
+};
+let tune = { shared: 1, stars: 1, mix: 1 }, tuneOpen = false;
+const tuned = k => TUNE[k][1][tune[k]][1];
+// weight = item.weight (default 1, hook for manual priority) × rating factor (avg stars; unrated counts as 1.5) ^ tuned power
 function weightOf(i) {
   const rs = ratings.filter(r => r.item === i.id).map(r => Math.min(3, Math.max(0, +r.stars || 0)));
   const avg = rs.length ? rs.reduce((s, x) => s + x, 0) / rs.length : 1.5;
-  return (i.weight ?? 1) * (avg + .5) ** 2;
+  return (i.weight ?? 1) * (avg + .5) ** tuned("stars");
 }
 const poolFor = p => items.filter(i => active(i) && !aboutOf(i).includes(p));
 const bucket = i => subjectOf(i) ?? ""; // "" = general events
@@ -468,16 +478,33 @@ function draw(pool, k, card, per, cap) {
   return card;
 }
 const shuffle = a => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
-// a card = a few "hot" predictions shared across cards (so some moments make several players shout at once),
-// then the rest by weight, with a cap per subject so every card laughs at everyone; positions are shuffled
-// (drawing puts the strongest first, which would crowd them into the top rows)
+// a card = k "hot" predictions from a small set shared by all cards (so some moments make several players shout
+// at once; the smaller the set, the more crossings), then the rest by weight, with a cap per subject so every card
+// laughs at everyone; positions are shuffled (drawing puts the strongest first, which would crowd the top rows)
 function makeCards(N) {
-  const hot = draw(items.filter(active), N, [], {}, Infinity);
+  const { f, h } = tuned("shared"), k = Math.max(1, Math.round(N * f));
+  const hot = draw(items.filter(active), Math.max(k, Math.round(k * h)), [], {}, Infinity);
   return Object.fromEntries(PLAYERS.map(p => {
-    const pool = poolFor(p), per = {}, cap = Math.ceil(N / new Set(pool.map(bucket)).size) + 1;
-    const card = draw(pool.filter(i => hot.includes(i.id)), Math.ceil(N / 4), [], per, cap);
+    const pool = poolFor(p), per = {}, cap = Math.ceil(N / new Set(pool.map(bucket)).size) + tuned("mix");
+    const card = draw(pool.filter(i => hot.includes(i.id)), k, [], per, cap);
     return [p, shuffle(draw(pool, N - card.length, card, per, cap))];
   }));
+}
+// preview for the admin, averaged over a few dry runs of the current settings: cells two cards share,
+// and the most cells one person gets on a card
+function cardStats(N, runs = 12) {
+  const byId = Object.fromEntries(items.map(i => [i.id, i]));
+  let shared = 0, pairs = 0, top = 0, cardsN = 0;
+  for (let r = 0; r < runs; r++) {
+    const cards = Object.values(makeCards(N));
+    cards.forEach((a, x) => cards.slice(x + 1).forEach(b => { shared += a.filter(id => b.includes(id)).length; pairs++; }));
+    cards.forEach(c => {
+      const per = {};
+      c.map(id => subjectOf(byId[id])).filter(Boolean).forEach(p => per[p] = (per[p] || 0) + 1);
+      top += Math.max(0, ...Object.values(per)); cardsN++;
+    });
+  }
+  return { shared: pairs ? shared / pairs : 0, top: cardsN ? top / cardsN : 0 };
 }
 
 // ---- board geometry ----
@@ -983,13 +1010,22 @@ function fillHistory() {
     <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
 }
 
+// what the current tuning means, in numbers (only when every card can be filled)
+function tuneStats(N) {
+  if (!tuneOpen || PLAYERS.some(p => poolFor(p).length < N)) return "";
+  const { shared, top } = cardStats(N);
+  return `🔮 תצוגה מקדימה: שני כרטיסים חולקים בממוצע ${shared.toFixed(1)} מתוך ${N} משבצות. האדם שהכי מופיע בכרטיס תופס בו בערך ${top.toFixed(1)} משבצות.`;
+}
 function fillAdmin() {
   const st = game.status;
   sizeSel ??= game.size || 3;
   const N = sizeSel * sizeSel;
   const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
-    <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>`;
+    <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>
+    <details class="tune"${tuneOpen ? " open" : ""}><summary>🎛️ כוונון הכרטיסים</summary>
+      ${Object.entries(TUNE).map(([k, [label, opts]]) => `<p class="muted">${label}:</p><div class="chips">${opts.map(([name], x) => `<button class="ghost pick${x === tune[k] ? " on" : ""}" data-tune="${k}:${x}">${name}</button>`).join("")}</div>`).join("")}
+      <p class="muted" id="tuneStats">${tuneStats(N)}</p></details>`;
   const who = `<p class="muted">המדרגים הם המתכללים: ${raters().map(p => `${emo(p)} ${esc(p)}`).join(", ")}. (מוסיפים מתכללים בהגדרות המשחק.)</p>`;
   const order = ["entry", "rate", "play", "ended"], at = order.indexOf(st);
   const stepper = `<div class="stepper">${order.map((k, i) => `<span class="${i < at ? "done" : i === at ? "now" : ""}">${i < at ? "✓ " : ""}${{ entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" }[k]}</span>`).join("")}</div>`;
@@ -1021,6 +1057,12 @@ async function toggle(id) {
   }));
 }
 
+// the tuning panel stays open across re-renders; its preview is computed only while it is open
+$("#app").addEventListener("toggle", e => {
+  if (!e.target.matches?.(".tune")) return;
+  tuneOpen = e.target.open;
+  if (tuneOpen && $("#tuneStats")) $("#tuneStats").textContent = tuneStats((sizeSel || size()) ** 2);
+}, true);
 function bind() {
   const app = $("#app");
   const act = {
@@ -1029,7 +1071,7 @@ function bind() {
     rate: startRating, back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-edit],[data-suggest],[data-accept],[data-reject],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-act]");
+    const t = e.target.closest("[data-me],[data-del],[data-edit],[data-suggest],[data-accept],[data-reject],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-tune],[data-act]");
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
@@ -1043,6 +1085,7 @@ function bind() {
     else if (d.cell) toggle(d.cell);
     else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
     else if (d.size) { sizeSel = +d.size; render(); }
+    else if (d.tune) { const [k, x] = d.tune.split(":"); tune[k] = +x; render(); }
     else if (d.act) act[d.act]?.();
   };
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
