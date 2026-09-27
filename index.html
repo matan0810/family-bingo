@@ -251,7 +251,6 @@ let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
 let sizeSel = null, raterSel = null; // admin's choices before starting a phase
 
-// first render right away: the welcome screen needs no data
 queueMicrotask(() => render());
 
 // ---- install as an app (PWA): Android shows the browser prompt, iPhone gets instructions ----
@@ -279,7 +278,7 @@ onAuthStateChanged(auth, async u => {
 });
 function fatal(e) { console.error(e); $("#app").innerHTML = `<p class="panel">⚠️ שגיאת חיבור (${esc(e.code || e.message)}). נסו לרענן.</p>`; }
 async function join(code) {
-  try { await setDoc(doc(db, "members", uid), { code }); member = true; listen(); }
+  try { await setDoc(doc(db, "members", uid), { code }); member = true; welcomed = false; listen(); render(); }
   catch { $("#err").textContent = "❌ קוד שגוי"; }
 }
 // wraps a write: reports failure with a toast, resolves to true/false
@@ -469,14 +468,18 @@ async function claim(p) {
 // full logout: free the name, drop this device's sign-in, back to the family-code screen
 async function logout() {
   if (!confirm("להתנתק? כדי לחזור צריך להקליד שוב את הקוד המשפחתי ולבחור שם.")) return;
-  if (!legacy && players[me] === uid) await deleteDoc(doc(db, "players", me)).catch(() => {});
-  localStorage.removeItem("bingo-me");
+  // forget the name first, or render() would see it free and claim it straight back
+  const name = me;
+  me = null; localStorage.removeItem("bingo-me");
+  if (!legacy && players[name] === uid) await deleteDoc(doc(db, "players", name)).catch(() => {});
   if (!legacy) await signOut(auth).catch(() => {});
   location.reload();
 }
 function release() {
-  if (!legacy && players[me] === uid) safe(deleteDoc(doc(db, "players", me)));
-  localStorage.removeItem("bingo-me"); me = null; render();
+  const name = me;
+  me = null; localStorage.removeItem("bingo-me");
+  if (!legacy && players[name] === uid) safe(deleteDoc(doc(db, "players", name)));
+  render();
 }
 
 // ---- render ----
@@ -496,7 +499,7 @@ function render() {
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = PHASE[game.status] ?? "";
 
-  const stage = !welcomed ? "welcome" : !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
+  const stage = !uid ? "load" : !member ? "code" : !welcomed ? "welcome" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
   const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
@@ -532,7 +535,7 @@ const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מ
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
 const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
 
-// ---- welcome screen: once per device ----
+// ---- welcome screen: right after the family code, then only from the header logo ----
 let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
 // the header logo opens it again; the phone's back button (or "יאללה") returns to the game
 function showWelcome() {
