@@ -33,6 +33,7 @@ const ME = ROLE.founder; // the device under test
 const whoName = i => aboutOf(i).length ? new Intl.ListFormat("he", { type: "conjunction" }).format(aboutOf(i)) : "כללי";
 const general = NEW_ITEMS.find(i => !aboutOf(i).length), group = NEW_ITEMS.find(i => aboutOf(i).length > 1 && !aboutOf(i).includes(ME));
 const typed = "typed prediction";
+const without = (list, x) => list.filter(y => y !== x);
 const check = (name, ok, got) => { ok ? pass++ : fail++; console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : `  (got: ${JSON.stringify(got)})`}`); };
 
 // opens the app; `me` = stored player (null = none), welcome skipped unless welcome:true
@@ -286,12 +287,11 @@ await scenario(async () => {
   check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes(EXTRA_PLAYER)));
   await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
   check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
-  check("founders can't be removed", (await p.locator("#cfgPlayers [data-cfg=del]").allTextContents()).every(t => FOUNDERS.every(f => !t.includes(f))));
+  check("the player list has no quick remove buttons", !(await p.locator("#cfgPlayers button").count()));
   check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes(CODE));
   check("save is disabled until something changes", await p.locator("#cfgSave").isDisabled());
   await p.fill("#cfgTitle", TITLE2);
   await p.fill("#cfgNew", NEW_PLAYER); await p.click("[data-cfg=add]");
-  await p.click(`[data-cfg=del][data-p="${EXTRA_PLAYER}"]`);
   await p.click(`[data-cfg=admin][data-p="${ROLE.player}"]`);
   const shown = await p.textContent("#cfgFounders");
   check("founders are fixed: shown, no toggles", FOUNDERS.every(f => shown.includes(f)) && !(await p.locator("[data-cfg=founder]").count()) && !(await p.locator(FOUNDERS.map(f => `#cfgAdmins [data-p="${f}"]`).join()).count()));
@@ -300,8 +300,8 @@ await scenario(async () => {
   check("save button lights up", !(await p.locator("#cfgSave").isDisabled()));
   await p.click("#cfgSave"); await p.waitForTimeout(300);
   const [, d] = (await cfgWrites()).at(-1);
-  check("one save writes all the settings", d.title === TITLE2 && d.players.includes(NEW_PLAYER) && !d.players.includes(EXTRA_PLAYER) && d.admins.includes(ROLE.player) && JSON.stringify(d.founders) === JSON.stringify(FOUNDERS), d);
-  check("save confirms removals and the new code", p.dialogs.some(m => m.includes(`יוסרו: ${EXTRA_PLAYER}`) && m.includes(NEW_CODE)));
+  check("one save writes all the settings", d.title === TITLE2 && JSON.stringify(d.players) === JSON.stringify([...SETTINGS.full.players, NEW_PLAYER]) && d.admins.includes(ROLE.player) && JSON.stringify(d.founders) === JSON.stringify(FOUNDERS), d);
+  check("save confirms the new code", p.dialogs.some(m => m.includes(NEW_CODE)));
   check("the new family code is saved", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === NEW_CODE));
   await p.click(`[data-cfg=admin][data-p="${ROLE.admin}"]`);
   const before = p.dialogs.length;
@@ -338,6 +338,51 @@ await scenario(async () => {
   await p.setInputFiles("#cfgFile", { name: "x.json", mimeType: "application/json", buffer: Buffer.from("{}") });
   await p.waitForTimeout(200);
   check("a non-backup file is refused", p.dialogs.at(-1).includes("לא קובץ גיבוי"));
+  await done(p);
+});
+console.log("— removing a player (founders, danger zone)");
+await scenario(async () => {
+  const p = await open("m=entry&cfg=full");
+  const cfgWrites = async () => (await writes(p)).filter(w => w[0] === "config/settings");
+  const gone = ROLE.admin; // an extra admin who wrote predictions and has predictions about them
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("removing lives in the collapsed danger zone", !(await p.isVisible("[data-cfg=del]")));
+  await p.click(".danger summary");
+  const options = await p.locator("#cfgDel option").evaluateAll(o => o.map(x => x.value).filter(Boolean));
+  check("founders can't be removed", JSON.stringify(options) === JSON.stringify(SETTINGS.full.players.filter(x => !FOUNDERS.includes(x))), options);
+  await p.click("[data-cfg=del]");
+  check("nothing chosen: asks to choose", p.dialogs.at(-1).includes("בוחרים") && !(await cfgWrites()).length);
+  await p.selectOption("#cfgDel", gone);
+  p.promptAnswer = gone + "x";
+  await p.click("[data-cfg=del]"); await p.waitForTimeout(200);
+  const msg = p.dialogs.at(-2) || "";
+  check("the warning spells out what leaves the game", msg.includes(`${ITEMS.filter(i => i.author === gone).length} ניחושים של ${gone}`) && msg.includes(`${ITEMS.filter(i => aboutOf(i).includes(gone)).length} ניחושים על ${gone}`) && msg.includes("מתכללים") && msg.includes("שום דבר לא נמחק"), msg);
+  check("a wrong name removes nobody", p.dialogs.at(-1).includes("לא תואם") && !(await cfgWrites()).length);
+  await p.fill("#cfgTitle", TITLE2);
+  p.promptAnswer = gone;
+  await p.click("[data-cfg=del]"); await p.waitForTimeout(200);
+  check("not while there are unsaved changes", p.dialogs.at(-1).includes("לא נשמרו") && !(await cfgWrites()).length);
+  await p.fill("#cfgTitle", TITLE);
+  await p.click("[data-cfg=del]"); await p.waitForTimeout(300);
+  const [, d] = (await cfgWrites()).at(-1) ?? [];
+  check("typing the name removes the player (and their admin role) right away", d && JSON.stringify(d.players) === JSON.stringify(without(SETTINGS.full.players, gone)) && !d.admins.includes(gone) && JSON.stringify(d.founders) === JSON.stringify(FOUNDERS) && d.title === TITLE, d);
+  check("…and no prediction is deleted", !(await batchOps(p)).some(([op]) => op === "del") && !(await p.evaluate(() => sessionStorage.del || "")).includes("items/"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=removed");
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("a removed player with data can be brought back", await p.isVisible(`#cfgFormer [data-cfg=back][data-p="${ROLE.removed}"]`));
+  await p.click(`[data-cfg=back][data-p="${ROLE.removed}"]`);
+  await p.click("#cfgSave"); await p.waitForTimeout(300);
+  const [, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1) ?? [];
+  check("…by saving, with their old name", d?.players.includes(ROLE.removed), d);
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&cfg=full");
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("no removing after the writing phase", await p.locator("[data-cfg=del]").isDisabled());
   await done(p);
 });
 await scenario(async () => {

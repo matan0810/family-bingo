@@ -153,6 +153,7 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 .danger{margin-top:22px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
 .danger summary{cursor:pointer;color:var(--muted);font-size:14px}
 .danger .row{flex-wrap:wrap}
+.danger select.field{flex:1 1 100%;min-height:44px}
 .danger[open] summary{color:var(--hot);font-weight:700}
 button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
 .row.save{position:sticky;bottom:-16px;background:var(--card);padding:10px 0;margin-top:18px}
@@ -222,7 +223,7 @@ body.intro header{display:none}
   <input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026">
   <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
   <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
-  <p class="muted" id="cfgPlayersNote"></p>
+  <p class="muted" id="cfgPlayersNote"></p><div class="chips" id="cfgFormer"></div>
   <h3>👑 מייסדים</h3><p class="muted"><span id="cfgFounders"></span>. המייסדים קבועים: הם תמיד מתכללים והיחידים שרואים את ההגדרות האלה.</p>
   <h3>🛠️ מתכללים ומדרגים</h3><p class="muted">מתכללים מנהלים את המשחק (שלבים, כרטיסים, סיום) ומדרגים את הניחושים בשלב הדירוג. המייסדים תמיד בפנים.</p><div class="chips" id="cfgAdmins"></div>
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
@@ -231,6 +232,8 @@ body.intro header{display:none}
   <details class="danger"><summary>⚠️ אזור מסוכן</summary>
     <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
     <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>
+    <p class="muted"><b>🚪 הסרת שחקן</b> (רק בשלב הניחושים) מוציאה מהמשחק את כל הניחושים שהשחקן כתב ואת כל הניחושים עליו, כולל ניחושים קבוצתיים, והטלפון שלו מתנתק מהשם. שום דבר לא נמחק, ומחזירים שחקן ב"↩️" שליד השחקנים. צריך להקליד את שם השחקן כדי לאשר.</p>
+    <div class="row"><select class="field" id="cfgDel"></select><button class="ghost warn" data-cfg="del">🚪 הסרת שחקן</button></div>
     <p class="muted"><b>🧹 טיול חדש</b> מוחק את כל הניחושים, הדירוגים וההצעות ומאפס סימונים (רק בשלב הניחושים). לפני המחיקה יורד גיבוי אוטומטית. צריך להקליד "מחיקה" כדי לאשר.</p>
     <div class="row"><button class="ghost warn" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost warn" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
   </details></div></dialog>
@@ -541,7 +544,7 @@ const cfgDirty = () => !!draft && (JSON.stringify(draft) !== JSON.stringify(draf
 async function openCfg() {
   draft = draftOf();
   $("#cfgTitle").value = draft.title; $("#cfgCode").value = $("#cfgNew").value = "";
-  $("#cfgBox .danger").open = false;
+  $("#cfgBox .danger").open = false; $("#cfgDel").value = "";
   fillCfg();
   $("#cfgCodeNote").textContent = "טוען…";
   $("#cfgDlg").showModal();
@@ -552,11 +555,14 @@ function fillCfg() {
   if (!draft) return;
   const entry = game.status === "entry", d = draft;
   const toggle = (kind, p, on) => `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="${kind}" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`;
-  $("#cfgPlayers").innerHTML = d.players.map(p => d.founders.includes(p)
-    ? `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)} 👑</span>`
-    : `<button class="ghost" data-cfg="del" data-p="${esc(p)}"${entry ? "" : " disabled"}>${emo(p)} ${esc(p)} ✕</button>`).join("");
-  $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם. מייסדים (👑) אי אפשר להסיר.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
-  $("#cfgNew").disabled = $("[data-cfg=add]").disabled = !entry;
+  $("#cfgPlayers").innerHTML = d.players.map(p => `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)}${d.founders.includes(p) ? " 👑" : ""}</span>`).join("");
+  $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד 12). הסרת שחקן נמצאת באזור המסוכן למטה.` : "הוספה, החזרה והסרה של שחקנים רק בשלב הניחושים.";
+  const former = formerPlayers().filter(p => !d.players.includes(p));
+  $("#cfgFormer").innerHTML = former.length ? `<span class="muted">הוסרו:</span>${former.map(p => `<button class="ghost" data-cfg="back" data-p="${esc(p)}"${entry ? "" : " disabled"}>↩️ ${esc(p)}</button>`).join("")}` : "";
+  const sel = $("#cfgDel").value;
+  $("#cfgDel").innerHTML = `<option value="">בוחרים שחקן…</option>` + PLAYERS.filter(p => !config.founders.includes(p)).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  $("#cfgDel").value = PLAYERS.includes(sel) ? sel : "";
+  $("#cfgNew").disabled = $("[data-cfg=add]").disabled = $("#cfgDel").disabled = $("[data-cfg=del]").disabled = !entry;
   $("#cfgFounders").textContent = d.founders.map(p => `${emo(p)} ${p}`).join(", ");
   $("#cfgAdmins").innerHTML = d.players.filter(p => !d.founders.includes(p)).map(p => toggle("admin", p, d.admins.includes(p))).join("");
   $("#cfgSave").disabled = !cfgDirty();
@@ -576,7 +582,10 @@ $("#cfgBox").onclick = async e => {
       if (d.players.length >= 12) return alert("אפשר עד 12 שחקנים");
       d.players.push(name); $("#cfgNew").value = ""; break;
     }
-    case "del": d.players = without(d.players, p); d.admins = without(d.admins, p); break;
+    case "back":
+      if (d.players.length >= 12) return alert("אפשר עד 12 שחקנים");
+      d.players.push(p); break;
+    case "del": return removePlayer($("#cfgDel").value);
     case "admin": d.admins = d.admins.includes(p) ? without(d.admins, p) : [...d.admins, p]; break;
     case "save": return saveCfg();
     case "backup": return downloadBackup();
@@ -587,16 +596,32 @@ $("#cfgBox").onclick = async e => {
   fillCfg();
 };
 async function saveCfg() {
-  const d = draft, code = $("#cfgCode").value.trim(), removed = PLAYERS.filter(p => !d.players.includes(p));
-  if (d.players.length < 2) return alert("צריך לפחות 2 שחקנים");
+  const d = draft, code = $("#cfgCode").value.trim();
   if (code && code.length < 3) return alert("הקוד צריך לפחות 3 תווים");
-  const notes = [removed.length && `יוסרו: ${removed.join(", ")} (הניחושים שלהם נשמרים)`, code && `הקוד המשפחתי יוחלף ל־"${code}"`].filter(Boolean);
-  if (notes.length && !confirm(`לשמור?\n• ${notes.join("\n• ")}`)) return;
+  if (code && !confirm(`לשמור? הקוד המשפחתי יוחלף ל־"${code}"`)) return;
   if (!await saveConfig(d)) return;
   if (code && await safe(setDoc(doc(db, "config", "secret"), { code }))) $("#cfgCode").value = "";
-  removed.filter(p => players[p]).forEach(p => safe(deleteDoc(doc(db, "players", p))));
   draft = draftOf(); fillCfg();
   toast("✅ ההגדרות נשמרו");
+}
+// players who left but still have data (predictions, marks, an emoji); adding them back brings it all back
+const formerPlayers = () => [...new Set([...items.flatMap(i => [i.author, ...aboutOf(i)]), ...Object.keys(marks), ...Object.keys(looks)])].filter(p => p && !PLAYERS.includes(p));
+// removing a player is serious: on its own (not part of a draft), with the full impact spelled out, confirmed by typing the name
+async function removePlayer(p) {
+  if (!p) return alert("בוחרים קודם שחקן להסרה");
+  if (game.status !== "entry" || config.founders.includes(p) || !PLAYERS.includes(p)) return;
+  if (cfgDirty()) return alert("יש שינויים שלא נשמרו. שומרים אותם קודם (או סוגרים בלי לשמור), ואז מסירים.");
+  if (PLAYERS.length <= 2) return alert("צריך לפחות 2 שחקנים");
+  const wrote = items.filter(i => i.author === p).length, about = items.filter(i => aboutOf(i).includes(p)).length;
+  const lines = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} (כולל קבוצתיים) יצאו מהדירוג ומהכרטיסים`,
+    config.admins.includes(p) && `${p} כבר לא בין המתכללים`, players[p] && `הטלפון של ${p} יתנתק מהשם`].filter(Boolean);
+  const typed = prompt(`🚪 הסרת ${p}\n\n• ${lines.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
+  if (typed === null) return;
+  if (typed.trim() !== p) return alert("השם לא תואם. לא הוסר אף אחד.");
+  if (!await saveConfig({ players: without(config.players, p), admins: without(config.admins, p) })) return;
+  if (players[p]) await safe(deleteDoc(doc(db, "players", p)));
+  draft = draftOf(); fillCfg();
+  toast(`🚪 ${p} כבר לא במשחק`);
 }
 // leaving with unsaved changes asks first (close button, tap outside, Esc)
 const leaveCfg = () => !cfgDirty() || confirm("לצאת בלי לשמור את השינויים?");
