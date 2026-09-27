@@ -63,10 +63,17 @@ await scenario(async () => {
   check("code stored as members/{uid}", (await writes(p)).some(([r, d]) => r === "members/U1" && d.code === "abc"));
   await p.click('[data-act="start"]'); await p.waitForTimeout(300);
   check("then name picker", await p.isVisible(".names"));
-  check("name taken by another device is disabled", await p.locator('[data-me="אמא"]').isDisabled());
+  check("taken name is marked", (await p.textContent('[data-me="אמא"]')).includes("תפוס"));
   await p.click('[data-me="אורי"]'); await p.waitForTimeout(300);
   check("claim writes players/{name}", (await writes(p)).some(([r, d]) => r === "players/אורי" && d.uid === "U1"));
   check("entry form after picking", await p.isVisible("#add"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("", { me: null });
+  await p.click('[data-me="אמא"]'); await p.waitForTimeout(300);
+  check("tapping a taken name explains how to release it", p.dialogs.some(m => m.includes("החלפת שחקן") && m.includes("שם תקוע")));
+  check("…without trying to take it", !(await writes(p)).some(([r]) => r === "players/אמא") && await p.isVisible(".names"));
   await done(p);
 });
 await scenario(async () => {
@@ -151,7 +158,7 @@ await scenario(async () => {
   const p = await open("m=entry");
   await p.click("#who"); await p.click('[data-set="switch"]'); await p.waitForTimeout(400);
   const claims = await p.evaluate(() => (sessionStorage.claims || "").split(";").filter(x => x === "מתן").length);
-  check("switch player frees the name (no re-claim)", claims === 0 && !(await p.locator('[data-me="מתן"]').isDisabled()), claims);
+  check("switch player frees the name (no re-claim)", claims === 0 && !(await p.locator('[data-me="מתן"].taken').count()), claims);
   await done(p);
 });
 await scenario(async () => {

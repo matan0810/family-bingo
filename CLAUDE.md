@@ -106,7 +106,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: 89 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:ui` | `ui/run.mjs`: 92 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
 | `npm run test:rules` | `rules/test.mjs`: 98 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
