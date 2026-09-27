@@ -106,12 +106,12 @@ service cloud.firestore {
       allow delete: if isEntry() && (isAdmin() || owns(resource.data.author));
     }
 
-    // texts/{id} = {text}: the author always; raters during the rating phase; everyone during
-    // and after the game; never anyone it is about. The author may edit it until rating ends.
+    // texts/{id} = {text}: the author always; raters during the rating phase; everyone during the game
+    // except anyone it is about; once the game has ended, everyone (the reveal). The author may edit it until rating ends.
     match /texts/{id} {
       function meta() { return get(/databases/$(db)/documents/items/$(id)).data; }
-      allow get: if isMember() && (owns(meta().author) || (iAm() && !(myName() in aboutOf(meta().about)) && (
-        status() in ['play', 'ended'] || (status() == 'rate' && isRater()))));
+      allow get: if isMember() && (status() == 'ended' || owns(meta().author) || (iAm() && !(myName() in aboutOf(meta().about)) && (
+        status() == 'play' || (status() == 'rate' && isRater()))));
       allow create: if isEntry()
         && d().keys().hasOnly(['text']) && textOk(d().text)
         && owns(getAfter(/databases/$(db)/documents/items/$(id)).data.author);
@@ -153,6 +153,16 @@ service cloud.firestore {
         && tsOk('bingoAt') && tsOk('blackoutAt');
     }
 
+    // events/{item}_{player} = {item, player, at}: when a player marked a cell (for the trip journal and the
+    // end-of-game awards). The owner writes it with the mark and deletes it on unmark; admins clear them with the cards.
+    match /events/{eid} {
+      allow read: if isMember();
+      allow create, update: if status() == 'play' && owns(d().player)
+        && d().keys().hasOnly(['item', 'player', 'at'])
+        && d().item is string && eid == d().item + '_' + d().player && d().at == request.time;
+      allow delete: if isAdmin() || (status() == 'play' && owns(resource.data.player));
+    }
+
     // looks/{player} = {e}: the player's chosen emoji (must match EMOJIS in index.html)
     match /looks/{p} {
       allow read: if isMember();
@@ -181,10 +191,11 @@ service cloud.firestore {
     match /history/{id} {
       allow read: if isMember();
       allow create: if isAdmin()
-        && d().keys().hasOnly(['at', 'size', 'title', 'results'])
+        && d().keys().hasOnly(['at', 'size', 'title', 'results', 'prophets'])
         && d().at == request.time && d().size in [2, 3, 4, 5]
         && (!('title' in d()) || (d().title is string && d().title.size() <= 40))
-        && d().results is list && d().results.size() <= 12;
+        && d().results is list && d().results.size() <= 12
+        && (!('prophets' in d()) || (d().prophets is list && d().prophets.size() <= 12));
       allow delete: if isAdmin();
     }
     // anything not matched above is denied

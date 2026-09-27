@@ -4,8 +4,8 @@ import { createServer } from "http";
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { extname, join, normalize } from "path";
-import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, ME_UID, OTHER_UID, SETTINGS, SIZE, BINGO_AT,
-  ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor, poolFor } from "../fixtures.mjs";
+import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, ME_UID, OTHER_UID, SETTINGS, SIZE, BINGO_AT, PLAY_AT,
+  ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor, poolFor, cardFor, marksFor, eventsFor, nudgeFor } from "../fixtures.mjs";
 import { LEGACY, EMOJIS, DEFAULT_TITLE, SIZES } from "../source.mjs";
 
 process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1"; // lets routes see the service worker's requests (offline test)
@@ -64,6 +64,8 @@ const batchOps = p => p.evaluate(() => (window.B || []).flat());
 // picking a name = one batch: players/{name} = {uid} and members/{uid}.name
 const picked = async (p, name) => { const ops = await batchOps(p); return ops.some(([op, r, d]) => op === "set" && r === `players/${name}` && d.uid === ME_UID) && ops.some(([op, r, d]) => op === "set" && r === `members/${ME_UID}` && d.name === name); };
 const lastBatch = p => p.evaluate(() => (window.B || []).at(-1));
+// a mark is one batch: marks/{me} and its journal entry events/{item}_{me}
+const markOp = b => b?.find(([op, r]) => op === "set" && r.startsWith("marks/")), eventOp = b => b?.find(([, r]) => r.startsWith("events/"));
 const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 0);
 // a scenario that throws (e.g. an element never shows up) counts as one failure; the run goes on
 async function scenario(fn) { try { await fn(); } catch (e) { check(`scenario crashed: ${e.message.split("\n")[0]}`, false); } }
@@ -527,22 +529,27 @@ for (const n of [2, 3, 4, 5]) await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=play", { admin: true });
-  await p.click(".cell:not(.on) >> nth=0"); await p.waitForTimeout(100);
-  const [r, d] = (await writes(p)).at(-1);
+  const cell = await p.locator(".cell:not(.on) >> nth=0").getAttribute("data-cell");
+  await p.click(`[data-cell="${cell}"]`); await p.waitForTimeout(100);
+  const m = await lastBatch(p), [r, d] = markOp(m).slice(1), ev = eventOp(m);
   check("marking keeps the original bingoAt", r === `marks/${ME}` && d.bingo && d.bingoAt?.seconds === BINGO_AT && d.marked.length === SIZE + 1);
+  check("…and logs it in the journal, in the same batch", ev?.[0] === "set" && ev[1] === `events/${cell}_${ME}` && JSON.stringify(ev[2]) === JSON.stringify({ item: cell, player: ME, at: "TS" }), ev);
+  const on = marksFor(SIZE)[ME][0];
+  await p.click(`[data-cell="${on}"]`); await p.waitForTimeout(100);
+  check("unmarking removes the journal entry", JSON.stringify(eventOp(await lastBatch(p))) === JSON.stringify(["del", `events/${on}_${ME}`]));
   await p.click('[data-act="end"]'); await p.waitForTimeout(200);
   const e = await lastBatch(p);
-  check("end game: history (with title) + ended state", e[0][1].startsWith("history/") && e[0][2].results.length === P.length && "title" in e[0][2] && e[1][2].status === "ended");
+  check("end game: history (with title and prophets) + ended state, keeping the start time", e[0][1].startsWith("history/") && e[0][2].results.length === P.length && "title" in e[0][2] && e[0][2].prophets.length === P.length && e[1][2].status === "ended" && e[1][2].at?.seconds === PLAY_AT, e);
   await p.click('[data-act="backRate"]'); await p.waitForTimeout(200);
-  const b = await lastBatch(p);
-  check("play → rate wipes cards and marks", b[0][2].status === "rate" && JSON.stringify(b[0][2].cards) === "{}" && b.length === 1 + P.length);
+  const b = await lastBatch(p), journal = eventsFor(SIZE).map(x => `events/${x.item}_${x.player}`);
+  check("play → rate wipes cards, marks and the journal", b[0][2].status === "rate" && JSON.stringify(b[0][2].cards) === "{}" && b.length === 1 + P.length + journal.length && journal.every(id => b.some(([op, r]) => op === "del" && r === id)));
   await done(p);
 });
 await scenario(async () => {
   const p = await open("m=play&pending=1");
   check("Firestore keeps a local cache on the device (offline)", await p.evaluate(() => !!window.FS?.localCache?.persistent));
   await p.click(".cell:not(.on) >> nth=0"); await p.waitForTimeout(100);
-  const [r, d] = (await writes(p)).at(-1);
+  const [r, d] = markOp(await lastBatch(p)).slice(1);
   check("a bingo whose time is still pending asks for the server time again (not null)", r === `marks/${ME}` && d.bingo && d.bingoAt === "TS", d);
   await done(p);
 });
@@ -551,7 +558,45 @@ await scenario(async () => {
   check("ended: winner banner", (await p.textContent("#winner")).includes("🏆"));
   check("ended: card is read-only", await p.locator("[data-cell]").count() === 0);
   check("history listed", await p.locator("#hist li").count() === HISTORY.length);
+  const top = Math.max(...HISTORY[0].prophets.map(x => x.n)), hist = await p.textContent("#hist");
+  check("history names the family prophets", HISTORY[0].prophets.filter(x => x.n === top).every(x => hist.includes(x.p)) && HISTORY[0].prophets.filter(x => x.n < top).every(x => !hist.includes(`${x.p} (`)), hist);
   check("new game button", await p.locator('[data-act="new"]').count() === 1);
+  await done(p);
+});
+console.log("— \"also on your card\" and the end-of-game summary");
+await scenario(async () => {
+  const p = await open("m=play&nudge=1");
+  check("no nudge on load", !(await p.isVisible("#nudge")));
+  await p.waitForTimeout(900);
+  const id = nudgeFor(SIZE), box = await p.isVisible("#nudge") ? await p.textContent("#nudge") : "";
+  check("another player marks a cell I have: a nudge with who and what", box.includes(ROLE.other) && box.includes(byId(id).text), box);
+  await p.click('[data-nudge="yes"]'); await p.waitForTimeout(100);
+  const m = markOp(await lastBatch(p));
+  check("one tap marks it on my card", m?.[2].marked.includes(id) && !(await p.isVisible("#nudge")), m);
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=play&nudge=1");
+  await p.waitForTimeout(900);
+  await p.click('[data-nudge="no"]'); await p.waitForTimeout(100);
+  check("'not now' closes it without marking", !(await p.isVisible("#nudge")) && !(await batchOps(p)).some(([, r]) => r.startsWith("marks/")));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=ended&nudge=1");
+  await p.waitForTimeout(900);
+  check("no nudges once the game has ended", !(await p.isVisible("#nudge")));
+  // what the summary should say, from the fixtures
+  const marked = marksFor(SIZE), onCards = [...new Set(P.flatMap(x => cardFor(x, SIZE)))];
+  const came = onCards.filter(id => P.some(x => marked[x].includes(id)));
+  const points = P.map(x => [x, came.filter(id => byId(id).author === x).length]).sort((a, b) => b[1] - a[1]);
+  const rows = await p.locator("#prophets li").evaluateAll(l => l.map(li => [li.querySelector(".name").textContent, +li.querySelector(".n").textContent]));
+  check("prophets: a point to the author of every prediction that came true", JSON.stringify(rows) === JSON.stringify(points), rows);
+  const first = eventsFor(SIZE)[0], awards = await p.textContent("#awards");
+  check("awards: the fastest prediction, with who marked it", awards.includes(byId(first.item).text) && awards.includes(first.player), awards);
+  check("the reveal lists every prediction that was on a card, with its author", await p.locator("#reveal li").count() === onCards.length && (await p.textContent("#reveal")).includes(`✍️`));
+  check("the journal lists every mark", await p.locator("#journal li").count() === eventsFor(SIZE).length);
+  check("the summary sits in collapsed sections", !(await p.isVisible("#reveal")) && !(await p.isVisible("#journal")));
   await done(p);
 });
 await scenario(async () => {

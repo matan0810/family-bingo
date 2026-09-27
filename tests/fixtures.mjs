@@ -48,6 +48,18 @@ export const poolFor = p => ITEMS.filter(i => !aboutOf(i).includes(p));
 // cards take the new-format items first, so they show up on every board size
 export const cardFor = (p, size) => [...NEW_ITEMS, ...OLD_ITEMS].filter(i => !aboutOf(i).includes(p)).slice(0, size * size).map(i => i.id);
 
+// the game in play/ended: the founder has the main diagonal (a bingo), player k has their first k cells;
+// every mark has a journal entry, a minute apart from the start of play
+export const PLAY_AT = 1790000000;
+export const marksFor = size => Object.fromEntries(PLAYERS.map((p, k) => {
+  const c = cardFor(p, size);
+  return [p, p === ROLE.founder ? [...Array(size).keys()].map(j => c[j * size + j]) : c.slice(0, k)];
+}));
+export const eventsFor = size => Object.entries(marksFor(size)).flatMap(([player, ids]) => ids.map(item => ({ item, player })))
+  .map((e, k) => ({ ...e, at: { seconds: PLAY_AT + 60 * (k + 1) } }));
+// mock nudge=1: another player marks a cell that is also on the founder's card (and not marked there yet)
+export const nudgeFor = size => cardFor(ROLE.founder, size).find(id => !marksFor(size)[ROLE.founder].includes(id) && !aboutOf(byId(id)).includes(ROLE.other));
+
 // an old-format prediction of mine that still holds its text (mock legacy=1): migrated by the app
 export const MIGRATED = OLD_ITEMS.find(i => i.author === ROLE.founder);
 // a prediction written by someone else with a device, and one whose author has no device
@@ -59,6 +71,7 @@ export const RATINGS = [
   { item: rateableFor(ROLE.founder2)[0].id, player: ROLE.founder2, stars: 2 },
 ];
 export const SUGGESTION = { id: "s1", item: MIGRATED.id, from: ROLE.other, fromUid: OTHER_UID, toUid: ME_UID, text: "suggested wording", at: { seconds: 99 } };
-export const HISTORY = [{ id: "h", at: { seconds: 1790000000 }, size: 3, title: TITLE, results: PLAYERS.slice(0, 3).map((p, k) => ({ p, place: k + 1, n: 9 - k * 2, bingo: k < 2, blackout: k === 0 })) }];
+export const HISTORY = [{ id: "h", at: { seconds: 1790000000 }, size: 3, title: TITLE, results: PLAYERS.slice(0, 3).map((p, k) => ({ p, place: k + 1, n: 9 - k * 2, bingo: k < 2, blackout: k === 0 })),
+  prophets: PLAYERS.map((p, k) => ({ p, n: k % 3 })) }];
 // which device holds which name at the start
 export const CLAIMS = { [ROLE.founder]: ME_UID, [ROLE.other]: OTHER_UID };

@@ -99,6 +99,8 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .bar{flex:1;height:12px;border-radius:99px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c));transition:width .5s cubic-bezier(.2,1.4,.4,1)}
 .score .name{width:3.4em;font-weight:700}
+.award .ae{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;font-size:22px;background:color-mix(in srgb,var(--sun) 28%,var(--card))}
+.journal .jt{flex:none;font-size:13px;min-width:4.6em}
 .win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
 
 /* rating, places, phases, history, board sizes */
@@ -182,6 +184,10 @@ button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));col
 button.av{padding:0;cursor:pointer;font-size:1em}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,200%) scale(.6);background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;padding:14px 24px;border-radius:18px;font-family:"Secular One",sans-serif;font-size:22px;box-shadow:0 8px 0 color-mix(in srgb,var(--hot) 55%,#000),0 16px 40px rgba(0,0,0,.25);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .2s;z-index:9;white-space:nowrap}
 #toast.show{transform:translate(-50%,0) scale(1);opacity:1}
+#nudge{position:fixed;inset-inline:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:536px;margin:0 auto;z-index:7;background:var(--card);border:2px solid var(--me);border-radius:20px;padding:12px 14px;box-shadow:var(--shadow);animation:rise .3s}
+#nudge[hidden]{display:none}
+#nudge .nt{font-weight:700;margin:2px 0;overflow-wrap:anywhere}
+#nudge .row{margin-top:8px}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
 
 /* welcome screen */
@@ -212,6 +218,7 @@ body.intro header{display:none}
 <header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><img class="ball" src="icons/icon-192.png" alt=""><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
+<div id="nudge" role="status" hidden></div>
 <dialog id="lookDlg"><div class="dlg"><div class="dlg-head"><h2>🎨 בחרו אימוג׳י</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><div class="emojis" id="emojis"></div></div></dialog>
 <dialog id="setDlg"><div class="dlg"><div class="dlg-head"><h2 id="setTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
   <div class="menu" id="setMenu">
@@ -321,6 +328,7 @@ const countChips = n => PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(
 
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
+let events = {}; // events/{item}_{player} = {item, player, at}: when each cell was marked (journal and awards)
 let config = LEGACY, PLAYERS = LEGACY.players;
 let memberName = null; // the name this device has recorded in members/{uid} (the rules identify players by it)
 let sugIn = [], sugOut = []; // wording suggestions for my predictions / that I sent
@@ -332,7 +340,7 @@ let legacy = false;
 const texts = {}; // item id -> text, fetched one by one (undefined = loading, null = not readable)
 const moved = new Set(); // old-format items (text inside the item) already migrated
 const got = new Set(); // snapshot sources that have delivered at least once
-const lastMarks = {}; // bingo/blackout per player at the last snapshot, to announce only new ones
+const lastMarks = {}; // per player at the last snapshot, to announce only new bingos and new marks
 let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
 let sizeSel = null; // admin's board size choice before generating cards
@@ -386,10 +394,12 @@ function listen() {
       const was = lastMarks[p];
       if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
       else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === me ? 140 : 70); }
-      lastMarks[p] = { bingo: m.bingo, blackout: m.blackout };
+      if (was && p !== me) (m.marked || []).filter(id => !was.marked.includes(id)).forEach(id => nudge(p, id));
+      lastMarks[p] = { bingo: m.bingo, blackout: m.blackout, marked: m.marked || [] };
     }
     ready("marks");
   }, fatal);
+  onSnapshot(collection(db, "events"), s => { events = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); ready("events"); }, e => { console.warn("events", e); ready("events"); });
   onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
   onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
   onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
@@ -410,7 +420,7 @@ function listen() {
     onSnapshot(query(collection(db, "suggestions"), where("fromUid", "==", uid)), s => { sugOut = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
   }
 }
-const SOURCES = 8;
+const SOURCES = 9;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
 const secs = t => t?.seconds ?? Infinity; // pending server timestamps sort last
 
@@ -519,6 +529,56 @@ function cardStats(N, runs = 12) {
   return { shared: pairs ? shared / pairs : 0, top: cardsN ? top / cardsN : 0 };
 }
 
+// ---- end of the game: author points ("prophets"), the reveal, awards and the trip journal ----
+function endStats() {
+  const byId = itemsById(), onCards = [...new Set(Object.values(game.cards || {}).flat())].map(id => byId[id]).filter(Boolean);
+  const markers = id => PLAYERS.filter(p => marks[p]?.marked?.includes(id));
+  const reveal = onCards.map(i => ({ i, by: markers(i.id) })).sort((a, b) => b.by.length - a.by.length);
+  const came = reveal.filter(r => r.by.length).map(r => r.i);
+  const count = key => came.reduce((t, i) => { const k = key(i); if (k) t[k] = (t[k] || 0) + 1; return t; }, {});
+  // a point for the author of every prediction that came true (someone marked it)
+  const points = count(i => i.author), prophets = PLAYERS.map(p => ({ p, n: points[p] || 0 })).sort((a, b) => b.n - a.n);
+  prophets.forEach((r, k) => r.place = k && prophets[k - 1].n === r.n ? prophets[k - 1].place : k + 1);
+  // the journal: marks that are still on, by time (a mark made offline is timed when it reached the server)
+  const journal = Object.values(events).filter(e => byId[e.item] && marks[e.player]?.marked?.includes(e.item)).sort((a, b) => secs(a.at) - secs(b.at));
+  const awards = [], first = journal[0];
+  if (first) {
+    const mins = Math.round((secs(first.at) - secs(game.at)) / 60);
+    awards.push({ e: "⚡", title: "הכי מהר", item: byId[first.item], note: `סימון ראשון: ${emo(first.player)} ${esc(first.player)}${Number.isFinite(mins) && mins >= 0 ? `, ${mins === 1 ? "דקה" : `${mins} דקות`} אחרי ההתחלה` : ""}` });
+  }
+  if (reveal[0]?.by.length > 1) awards.push({ e: "🤝", title: "קרה אצל הכי הרבה", item: reveal[0].i, note: `${reveal[0].by.length} שחקנים סימנו: ${reveal[0].by.map(emo).join("")}` });
+  const [subject, n] = Object.entries(count(subjectOf)).sort((a, b) => b[1] - a[1])[0] ?? [];
+  if (subject) awards.push({ e: "🎯", title: "הכי צפוי", note: `${n} ניחושים על ${emo(subject)} ${esc(subject)} התגשמו` });
+  const stars = i => { const rs = ratings.filter(r => r.item === i.id); return rs.length ? rs.reduce((s, r) => s + r.stars, 0) / rs.length : -1; };
+  const missed = reveal.filter(r => !r.by.length && stars(r.i) >= 0).map(r => r.i).sort((a, b) => stars(b) - stars(a))[0];
+  if (missed) awards.push({ e: "💤", title: "הכי שווה שלא קרה", item: missed, note: `⭐ ${stars(missed).toFixed(1)} בדירוג, ואף אחד לא סימן` });
+  return { byId, prophets, reveal, journal, awards };
+}
+
+// ---- "also on your card": another player marked a cell I have too; one tap marks it here ----
+const nudges = [], nudged = new Set();
+let nudgeShown = "";
+function nudge(p, id) {
+  if (game.status !== "play" || !game.cards?.[me]?.includes(id) || marks[me]?.marked?.includes(id) || nudged.has(id)) return;
+  nudged.add(id); nudges.push({ p, id }); showNudge();
+}
+function showNudge() {
+  while (nudges.length && (game.status !== "play" || marks[me]?.marked?.includes(nudges[0].id))) nudges.shift();
+  const n = nudges[0], i = n && itemsById()[n.id], key = n ? `${n.id}|${i && shownText(i)}` : "";
+  $("#nudge").hidden = !n;
+  if (key === nudgeShown) return;
+  nudgeShown = key;
+  if (n) $("#nudge").innerHTML = `<div>📣 אצל ${emo(n.p)} ${esc(n.p)} זה קרה:</div><div class="nt">${esc(i ? shownText(i) : "")}</div><div class="muted">וזה גם בכרטיס שלך!</div>
+    <div class="row"><button data-nudge="yes">✅ לסמן גם אצלי</button><button class="ghost" data-nudge="no">לא עכשיו</button></div>`;
+}
+$("#nudge").onclick = e => {
+  const b = e.target.closest("[data-nudge]");
+  if (!b) return;
+  const n = nudges.shift();
+  if (b.dataset.nudge === "yes" && n && !marks[me]?.marked?.includes(n.id)) toggle(n.id);
+  showNudge();
+};
+
 // ---- board geometry ----
 const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
 function lines(n) {
@@ -542,7 +602,10 @@ function ranking() {
 const medal = place => MEDAL[place - 1] ?? `${place}.`;
 
 // ---- admin actions ----
-const clearMarks = b => PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null }));
+const clearMarks = b => {
+  PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null }));
+  Object.keys(events).forEach(id => b.delete(doc(db, "events", id)));
+};
 async function generate() {
   if (game.status !== "rate") return; // cards are generated only after the rating phase
   const n = sizeSel || size(), N = n * n;
@@ -759,8 +822,9 @@ async function backToRating() {
 async function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
   const board = size(), b = writeBatch(db);
-  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: board, title: config.title, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
-  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: board, at: serverTimestamp() });
+  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: board, title: config.title, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })), prophets: endStats().prophets.map(({ p, n }) => ({ p, n })) });
+  // at stays the start of play: the journal and the awards count from it
+  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: board, at: game.at ?? serverTimestamp() });
   await safe(b.commit());
 }
 async function reset(ask) {
@@ -845,6 +909,7 @@ function render() {
   fillHistory();
   if (isAdmin()) fillAdmin();
   if ($("#cfgDlg").open) fillCfg();
+  showNudge();
 }
 
 const codeView = () => `<h2>🔐 קוד משפחתי</h2>
@@ -931,6 +996,10 @@ const playView = () => `
 const endedView = () => `
   <div class="banner" id="winner"></div>
   <h2>🏆 התוצאות</h2><ul class="score" id="score"></ul>
+  <h2>🔮 נביאי המשפחה</h2><p class="muted">נקודה לכותב על כל ניחוש שלו שהתגשם.</p><ul class="score" id="prophets"></ul>
+  <h2>🏅 פרסים</h2><ul id="awards"></ul>
+  <details class="mine"><summary>🎭 מי ניחש מה</summary><ul id="reveal"></ul></details>
+  <details class="mine"><summary>📜 יומן הטיול</summary><ul class="journal" id="journal"></ul></details>
   <h2>🃏 הכרטיס שלי</h2><div class="grid done" id="card"></div>
   ${tail()}`;
 
@@ -1013,12 +1082,23 @@ function fillEnded() {
   fillScore();
   const winners = ranking().filter(r => r.place === 1).map(r => `${emo(r.p)} ${esc(r.p)}`);
   $("#winner").innerHTML = winners.length ? `🏆 במקום הראשון: ${winners.join(", ")} 🏆` : "🏁 המשחק נגמר";
+  const st = endStats(), top = Math.max(1, st.prophets[0]?.n || 0);
+  need(st.reveal.filter(r => !r.i.text).map(r => r.i.id));
+  $("#prophets").innerHTML = st.prophets.map(r => `<li style="${col(r.p)}"><span class="place">${medal(r.place)}</span>${av(r.p)}<span class="name">${esc(r.p)}</span><span class="bar"><i style="width:${r.n / top * 100}%"></i></span><span class="n">${r.n}</span></li>`).join("");
+  $("#awards").innerHTML = st.awards.map(a => `<li class="award"><span class="ae">${a.e}</span><span class="t"><b>${a.title}</b>${a.item ? `<br>${esc(shownText(a.item))} <span class="muted">(${esc(whoName(a.item))})</span>` : ""}<br><span class="muted">${a.note}</span></span></li>`).join("") || `<li class="empty">אף ניחוש לא סומן הפעם 🤷</li>`;
+  $("#reveal").innerHTML = st.reveal.map(({ i, by }) => `<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${esc(whoName(i))}</span> · ${esc(shownText(i))}<br><span class="muted">✍️ ${emo(i.author)} ${esc(i.author)} · ${by.length ? `✅ ${by.map(emo).join("")}` : "לא קרה"}</span></span></li>`).join("");
+  const when = t => t?.seconds ? new Date(t.seconds * 1000).toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "עכשיו";
+  $("#journal").innerHTML = st.journal.map(e => `<li><span class="muted jt">${when(e.at)}</span>${av(e.player)}<span class="t">${esc(shownText(st.byId[e.item]))}</span></li>`).join("") || `<li class="empty">היומן ריק</li>`;
 }
 
+const prophetLine = h => {
+  const top = Math.max(0, ...(h.prophets || []).map(x => x.n));
+  return top ? `<div class="muted">🔮 נביאי המשפחה: ${h.prophets.filter(x => x.n === top).map(x => `${emo(x.p)} ${esc(x.p)}`).join(", ")} (${top})</div>` : "";
+};
 function fillHistory() {
   $("#histBox").hidden = !pastGames.length;
   $("#hist").innerHTML = pastGames.map(h => `<li class="hist">${h.title ? `<b>${esc(h.title)}</b>` : ""}<div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
-    <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
+    <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div>${prophetLine(h)}</li>`).join("");
 }
 
 // what the current tuning means, in numbers (only when every card can be filled)
@@ -1064,12 +1144,15 @@ async function toggle(id) {
   on.has(id) ? on.delete(id) : on.add(id);
   navigator.vibrate?.(25);
   const bingo = lines(size()).some(l => l.every(k => on.has(ids[k]))), blackout = ids.every(x => on.has(x));
-  await safe(setDoc(doc(db, "marks", me), {
+  const b = writeBatch(db), ev = doc(db, "events", `${id}_${me}`);
+  b.set(doc(db, "marks", me), {
     marked: [...on], bingo, blackout,
     // keep a time the server already set; one still pending (offline) reads as null, so ask for it again
     bingoAt: bingo ? (m.bingo && m.bingoAt || serverTimestamp()) : null,
     blackoutAt: blackout ? (m.blackout && m.blackoutAt || serverTimestamp()) : null
-  }));
+  });
+  on.has(id) ? b.set(ev, { item: id, player: me, at: serverTimestamp() }) : b.delete(ev);
+  await safe(b.commit());
 }
 
 // the tuning panel stays open across re-renders; its preview is computed only while it is open

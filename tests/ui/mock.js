@@ -12,9 +12,10 @@
 //   nohist=1                  no history
 //   sugg=1                    SUGGESTION waits for its author
 //   pending=1                 the founder's bingo time is still pending (made offline): it reads as null
+//   nudge=1                   after load, ROLE.other marks nudgeFor(size), which is also on the founder's card
 // Writes are recorded for assertions: window.W (setDoc), window.B (batches), window.FS (Firestore options),
 // sessionStorage.claims / .del (survive the reload after logout).
-import { PLAYERS, ROLE, ITEMS, MIGRATED, SETTINGS, CODE, ME_UID, CLAIMS, SIZE, BINGO_AT, RATINGS, SUGGESTION, HISTORY, cardFor } from "../fixtures.mjs";
+import { PLAYERS, ROLE, ITEMS, MIGRATED, SETTINGS, CODE, ME_UID, CLAIMS, SIZE, BINGO_AT, RATINGS, SUGGESTION, HISTORY, PLAY_AT, cardFor, marksFor, eventsFor, nudgeFor } from "../fixtures.mjs";
 
 const q = new URLSearchParams(location.hash.slice(1));
 const TX = Object.fromEntries(ITEMS.map(i => [i.id, i.text]));
@@ -24,12 +25,13 @@ const cards = Object.fromEntries(PLAYERS.map(p => [p, cardFor(p, n)]));
 const state = {
   entry: { status: "entry", cards: {} },
   rate: { status: "rate", cards: {} },
-  play: { status: "play", cards, size: n },
-  ended: { status: "ended", cards, size: n }
+  play: { status: "play", cards, size: n, at: { seconds: PLAY_AT } },
+  ended: { status: "ended", cards, size: n, at: { seconds: PLAY_AT } }
 }[mode];
-// the founder has the main diagonal (a bingo); player k has k marks
-const diag = [...Array(n).keys()].map(k => cards[ROLE.founder][k * n + k]);
-const marks = PLAYERS.map((p, k) => ({ id: p, data: () => p === ROLE.founder ? { marked: diag, bingo: true, blackout: false, bingoAt: q.get("pending") ? null : { seconds: BINGO_AT } } : { marked: cards[p].slice(0, k), bingo: false, blackout: false } }));
+const marked = marksFor(n), playing = ["play", "ended"].includes(mode);
+const marksDocs = (extra = {}) => PLAYERS.map(p => ({ id: p, data: () => ({ marked: [...marked[p], ...(extra[p] || [])], bingo: p === ROLE.founder, blackout: false,
+  ...(p === ROLE.founder ? { bingoAt: q.get("pending") ? null : { seconds: BINGO_AT } } : {}) }) }));
+const events = playing ? eventsFor(n).map(e => ({ id: `${e.item}_${e.player}`, ...e })) : [];
 const config = SETTINGS[cfg];
 const sugIn = q.get("sugg") ? [SUGGESTION] : [];
 const asDocs = list => list.map(({ id, ...d }) => ({ id, data: () => d }));
@@ -76,7 +78,11 @@ export const onSnapshot = (ref, cb) => setTimeout(() => {
   const docs = list => cb({ docs: list });
   switch (String(ref)) {
     case "items": return docs(items);
-    case "marks": return docs(marks);
+    case "marks":
+      docs(marksDocs());
+      if (q.get("nudge")) setTimeout(() => docs(marksDocs({ [ROLE.other]: [nudgeFor(n)] })), 800);
+      return;
+    case "events": return docs(asDocs(events));
     case "ratings": return docs(asDocs(RATINGS.map(r => ({ id: `${r.item}_${r.player}`, ...r }))));
     case "history": return docs(q.get("nohist") ? [] : asDocs(HISTORY));
     case "looks": return docs([]);
