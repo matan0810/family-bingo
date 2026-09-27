@@ -109,7 +109,7 @@ await scenario(async () => {
   const p = await open("m=entry");
   await p.click("#who");
   check("settings open from the header", await p.evaluate(() => setDlg.open));
-  check("settings items", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
+  check("settings items (admin)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "🛠️ הפעלת מצב מתכלל", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
   await p.mouse.click(5, 5);
   check("tapping outside closes a dialog", !(await p.evaluate(() => setDlg.open)));
   await p.click(".hello .av");
@@ -126,6 +126,25 @@ await scenario(async () => {
   check("back button returns to the game", await p.isVisible("#add"));
   await p.click("#logo"); await p.click('[data-act="start"]'); await p.waitForTimeout(300);
   check("'יאללה' returns too", await p.isVisible("#add"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry", { once: true });
+  check("no admin panel by default", !(await p.locator(".admin").count()));
+  await p.click("#who"); await p.click('[data-set="admin"]'); await p.waitForTimeout(200);
+  check("settings turns admin mode on", await p.isVisible(".admin"));
+  await p.reload(); await p.waitForTimeout(600);
+  check("admin mode is remembered on this device", await p.isVisible(".admin"));
+  await p.click("#who");
+  check("settings shows it is on", (await p.textContent("#adminItem")).includes("פועל"));
+  await p.click('[data-set="admin"]'); await p.waitForTimeout(200);
+  check("…and turns it off", !(await p.locator(".admin").count()));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry", { me: "אבא" });
+  await p.click("#who");
+  check("non-admins have no admin item", !(await p.isVisible("#adminItem")));
   await done(p);
 });
 await scenario(async () => {

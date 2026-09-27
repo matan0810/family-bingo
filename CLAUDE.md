@@ -40,7 +40,7 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 ## People
 
 - `PLAYERS = ["אבא","אמא","מתן","אורי","עדי","הדר"]`
-- `ADMINS = ["מתן","אורי"]`. The admin panel shows with the header "🛠️ מתכלל" button or `?admin`, but only for these names.
+- `ADMINS = ["מתן","אורי"]`. Admin mode is toggled in settings (`#adminItem`), remembered in `localStorage['bingo-admin']` (or forced on with `?admin`), and shown only for these names.
 - `EMOJIS`: 30 avatars, each with a fixed color, stored in `looks/{player}`. `DEFAULT` maps each player to a starting avatar.
 - **These three lists also appear in `firestore.rules`. Change both, always.**
 
@@ -82,7 +82,7 @@ Old-format items that still have `text` in the item are migrated by their author
   - Otherwise it calls `fill*()` functions that update lists in place.
   - Set `view = ""` to force a rebuild.
 - **Events:** one delegated `#app.onclick` on `data-*` attributes (`data-act`, `data-cell`, `data-rate`, `data-rater`, `data-size`, `data-free`, `data-del`, `data-me`, `data-look`). Admin actions live in the `act` map in `bind()`.
-- **Dialogs:** native `<dialog>` with an inner `.dlg`. Tapping the backdrop or `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, how to play, switch player, logout), how to play (`#howDlg`).
+- **Dialogs:** native `<dialog>` with an inner `.dlg`. Tapping the backdrop or `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, admin mode for admins, how to play, switch player, logout), how to play (`#howDlg`).
 - **Welcome screen:** shown right after the family code, and again from the header logo. The back button or "יאללה" returns via `history.pushState`/`popstate`.
 - **Writes:** wrap them in `safe(promise)`, which shows a toast on failure and resolves true or false. Use `writeBatch` for multi-document changes.
 - **Install:** `beforeinstallprompt` on Android, instructions on iOS. The install item appears only in settings.
@@ -106,7 +106,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: 81 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:ui` | `ui/run.mjs`: 89 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
 | `npm run test:rules` | `rules/test.mjs`: 98 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
