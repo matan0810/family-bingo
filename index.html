@@ -4,54 +4,109 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>בינגו משפחתי</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#eef2f6;--card:#fff;--ink:#1d2a44;--muted:#5d6b82;--line:#d3dae5;--dab:#ffcf33;--hot:#e4572e}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#131a26;--card:#1e2736;--ink:#e8edf5;--muted:#9aa7bb;--line:#2e3a4d;--dab:#e0b21c;--hot:#ff7a54}}
-:root[data-theme="dark"]{--bg:#131a26;--card:#1e2736;--ink:#e8edf5;--muted:#9aa7bb;--line:#2e3a4d;--dab:#e0b21c;--hot:#ff7a54}
+:root{--bg:#fff6ea;--card:#fff;--ink:#26213d;--muted:#716b8a;--line:#efe5d6;--hot:#ff4f6d;--sun:#ffc23c;--sky:#3fc1f0;--shadow:0 6px 0 rgba(38,33,61,.08),0 10px 24px rgba(38,33,61,.08);--me:var(--hot)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15122a;--card:#221d3d;--ink:#f4f1ff;--muted:#a9a2c8;--line:#362f5c;--hot:#ff6882;--sun:#ffd166;--sky:#4cc9f0;--shadow:0 6px 0 rgba(0,0,0,.25),0 10px 24px rgba(0,0,0,.3)}}
+:root[data-theme="dark"]{--bg:#15122a;--card:#221d3d;--ink:#f4f1ff;--muted:#a9a2c8;--line:#362f5c;--hot:#ff6882;--sun:#ffd166;--sky:#4cc9f0;--shadow:0 6px 0 rgba(0,0,0,.25),0 10px 24px rgba(0,0,0,.3)}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *,*::before,*::after{box-sizing:inherit}
-body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 Assistant,system-ui,sans-serif}
-main{max-width:560px;margin:0 auto;padding:16px}
-header{display:flex;justify-content:space-between;align-items:center;max-width:560px;margin:0 auto;padding:16px 16px 0}
-h1,.big{font-family:"Secular One",Assistant,sans-serif;font-weight:400;margin:0}
-h1{font-size:30px}
-h2{font-size:19px;margin:24px 0 8px}
-button,select,textarea{font:inherit;color:inherit}
-button{border:0;border-radius:10px;padding:10px 16px;background:var(--ink);color:var(--bg);font-weight:700;cursor:pointer}
-button.ghost{background:none;color:var(--muted);border:1px solid var(--line);padding:6px 12px;font-weight:600}
-button:focus-visible,select:focus-visible,textarea:focus-visible,.cell:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
-select,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}
-textarea{resize:vertical;min-height:70px}
-.names{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
-.names button{padding:18px;font-size:20px}
-.row{display:flex;gap:8px;align-items:center;margin-top:8px}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:17px/1.5 Rubik,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 8% 4%,color-mix(in srgb,var(--sun) 40%,transparent),transparent 38%),
+    radial-gradient(circle at 100% 35%,color-mix(in srgb,var(--hot) 28%,transparent),transparent 42%),
+    radial-gradient(circle at 0% 100%,color-mix(in srgb,var(--sky) 32%,transparent),transparent 45%),
+    radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1.2px,transparent 1.6px) 0 0/22px 22px}
+main{max-width:560px;margin:0 auto;padding:8px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:560px;margin:0 auto;padding:18px 16px 4px}
+h1,h2,.display{font-family:"Secular One",Rubik,sans-serif;font-weight:400;margin:0}
+h1{font-size:clamp(22px,6.6vw,34px);white-space:nowrap;line-height:1.1;display:flex;align-items:center;gap:10px}
+h1 .ball{display:grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,var(--hot) 13% 100%);color:#fff;font-size:.8em;box-shadow:inset -4px -6px 0 rgba(0,0,0,.15);animation:bob 2.4s ease-in-out infinite}
+h1 .word{background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--muted);font-size:14px;font-weight:500}
+h2{font-size:21px;margin:28px 0 10px}
+button,select,textarea,input{font:inherit;color:inherit}
+button{border:0;border-radius:14px;padding:12px 20px;background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 4px 0 color-mix(in srgb,var(--hot) 60%,#000);transition:transform .1s,box-shadow .1s}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--hot) 60%,#000)}
+button.ghost{background:var(--card);color:var(--muted);border:2px solid var(--line);padding:6px 12px;font-weight:500;box-shadow:none;font-size:15px;white-space:nowrap}
+button:focus-visible,textarea:focus-visible,.cell:focus-visible,.chip:has(input:focus-visible){outline:3px solid var(--sky);outline-offset:2px}
+textarea{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;resize:vertical;min-height:84px}
+textarea:focus{border-color:var(--me);outline:0}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow)}
 .muted{color:var(--muted);font-size:15px}
-.counts{display:flex;flex-wrap:wrap;gap:6px}
-.counts span{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:14px}
+.row{display:flex;gap:8px;align-items:center;margin-top:12px}
+.av{display:inline-grid;place-items:center;width:1.9em;height:1.9em;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 22%,var(--card));box-shadow:inset 0 0 0 2px var(--c);font-size:1em;line-height:1}
+
+/* who are you */
+.names{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.names button{--c:var(--hot);display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 10px;font-size:22px;border-radius:22px;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 85%,#fff),var(--c));box-shadow:0 6px 0 color-mix(in srgb,var(--c) 55%,#000);animation:rise .4s backwards}
+.names button .e{font-size:44px;line-height:1;filter:drop-shadow(0 3px 0 rgba(0,0,0,.15));transition:transform .2s}
+.names button:hover .e{transform:scale(1.15) rotate(-8deg)}
+.names button:active{box-shadow:0 2px 0 color-mix(in srgb,var(--c) 55%,#000)}
+
+/* entry */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 6px;border-radius:99px;border:2px solid var(--line);background:var(--card);cursor:pointer;font-weight:500;transition:transform .1s,background .15s}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 20%,var(--card));transform:scale(1.05)}
+.counts{display:flex;flex-wrap:wrap;gap:8px}
+.counts span{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:2px solid var(--line);border-radius:99px;padding:3px 12px 3px 4px;font-size:15px}
+.counts b{font-weight:800;color:var(--c)}
 ul{list-style:none;margin:0;padding:0}
-li{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start}
-li .t{flex:1}
-li b{margin-left:6px}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-.cell{aspect-ratio:1;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:8px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-size:clamp(12px,3.6vw,16px);line-height:1.25;cursor:pointer;user-select:none;overflow:hidden;transition:background .15s}
-.cell small{display:block;color:var(--muted);font-size:.8em;margin-top:4px}
-.cell.on{background:radial-gradient(circle,var(--dab) 0 60%,var(--card) 61%);color:#1d2a44}
-.cell.on small{color:#1d2a44}
-.cell.line{border-color:var(--hot)}
-.score li{align-items:center}
-.tag{color:var(--hot);font-weight:700}
-.admin{border:2px dashed var(--line);border-radius:14px;padding:12px 14px;margin-top:24px}
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,150%);background:var(--hot);color:#fff;padding:12px 20px;border-radius:12px;font-family:"Secular One",sans-serif;font-size:20px;transition:transform .3s;z-index:9}
-#toast.show{transform:translate(-50%,0)}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+li{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;animation:rise .3s backwards}
+li.pred{border-inline-start:6px solid var(--c)}
+li .t{flex:1;min-width:0;overflow-wrap:anywhere}
+li .who{font-weight:700;color:var(--c)}
+li .by{color:var(--muted);font-size:13px}
+li.empty{justify-content:center;color:var(--muted);padding:24px}
+
+/* play */
+.status{display:flex;align-items:center;gap:14px}
+@property --p{syntax:"<number>";inherits:true;initial-value:0}
+.ring{width:64px;height:64px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--me) calc(var(--p)*1%),var(--line) 0);transition:--p .4s}
+.ring span{display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:var(--card);font-family:"Secular One",sans-serif;font-size:19px}
+.banner{margin-top:12px;padding:10px 14px;border-radius:16px;text-align:center;font-family:"Secular One",sans-serif;font-size:20px;color:#26213d;background:linear-gradient(90deg,var(--sun),#ffdf7e,var(--sun));background-size:200%;animation:shine 2.5s linear infinite}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px;padding:10px;border-radius:24px;background:color-mix(in srgb,var(--me) 16%,var(--card));border:2px solid color-mix(in srgb,var(--me) 40%,var(--line));box-shadow:var(--shadow)}
+.grid.full{background:linear-gradient(135deg,#ff4f6d,#ff8a3d,#ffc23c,#3fc1f0,#8b5cf6,#ff4f6d);background-size:300% 300%;animation:shine 5s linear infinite;border-color:transparent}
+.cell{position:relative;aspect-ratio:1;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:6px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;text-align:center;font-size:clamp(12px,3.5vw,15px);font-weight:500;line-height:1.25;cursor:pointer;user-select:none;overflow:hidden;box-shadow:0 3px 0 var(--line);transition:transform .12s,background .2s,border-color .2s}
+.cell:active{transform:scale(.94)}
+.cell .txt{position:relative;z-index:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.cell .tag{position:relative;z-index:1;display:inline-flex;align-items:center;gap:3px;font-size:.78em;font-weight:700;padding:1px 7px 1px 3px;border-radius:99px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--ink)}
+.cell .tag i{font-style:normal}
+.cell.on{background:color-mix(in srgb,var(--me) 26%,var(--card));border-color:var(--me);box-shadow:0 3px 0 color-mix(in srgb,var(--me) 60%,#000)}
+.cell.on::before{content:attr(data-stamp);position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(46px,15vw,74px);opacity:.28;transform:rotate(-14deg)}
+.cell.on::after{content:"✓";position:absolute;top:5px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--me);color:#fff;font-size:13px;font-weight:800;display:grid;place-items:center}
+.cell.pop{animation:stamp .45s cubic-bezier(.2,1.6,.4,1)}
+.cell.line{border-color:var(--sun);animation:glow 1.4s ease-in-out infinite alternate}
+.score li{align-items:center;padding:10px 12px}
+.score .n{font-weight:700;min-width:2.5em;text-align:center}
+.bar{flex:1;height:12px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c));transition:width .5s cubic-bezier(.2,1.4,.4,1)}
+.score .name{width:3.4em;font-weight:700}
+.win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
+
+.admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
+.admin h2{margin-top:14px}
+
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,200%) scale(.6);background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;padding:14px 24px;border-radius:18px;font-family:"Secular One",sans-serif;font-size:22px;box-shadow:0 8px 0 color-mix(in srgb,var(--hot) 55%,#000),0 16px 40px rgba(0,0,0,.25);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .2s;z-index:9;white-space:nowrap}
+#toast.show{transform:translate(-50%,0) scale(1);opacity:1}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
+
+@keyframes bob{50%{transform:translateY(-4px) rotate(12deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+@keyframes stamp{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
+@keyframes glow{from{box-shadow:0 0 0 2px var(--sun),0 0 6px var(--sun)}to{box-shadow:0 0 0 3px var(--sun),0 0 20px var(--sun)}}
+@keyframes shine{to{background-position:200% 0}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<header><h1>בינגו משפחתי</h1><button class="ghost" id="who" hidden></button></header>
+<header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><button class="ghost" id="who" hidden></button></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
+<canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -67,6 +122,8 @@ const firebaseConfig = {
 };
 
 const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
+// per-player avatar + color
+const LOOK = { "אבא": ["🦁", "#f59e0b"], "אמא": ["🦄", "#ec4899"], "מתן": ["🐬", "#3b82f6"], "אורי": ["🐸", "#22c55e"], "עדי": ["🐙", "#8b5cf6"], "הדר": ["🐢", "#14b8a6"] };
 const N = 9;
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
@@ -74,10 +131,14 @@ const db = getFirestore(initializeApp(firebaseConfig));
 const isAdmin = new URLSearchParams(location.search).has("admin");
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const emo = p => LOOK[p]?.[0] ?? "🙂";
+const col = p => `--c:${LOOK[p]?.[1] ?? "#888"}`;
+const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, loaded = 0, view = "";
 const prev = {};
+let shown = null; // marked ids at last card render, to animate only new stamps
 
 onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready(); });
 onSnapshot(doc(db, "game", "state"), s => { game = s.data() || { status: "entry", cards: {} }; ready(); });
@@ -85,8 +146,8 @@ onSnapshot(collection(db, "marks"), s => {
   marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
   for (const [p, m] of Object.entries(marks)) {
     const was = prev[p];
-    if (was && !was.bingo && m.bingo) toast(`${p}: בינגו!`);
-    if (was && !was.blackout && m.blackout) toast(`${p}: כרטיס מלא! 🏆`);
+    if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
+    else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === me ? 140 : 70); }
     prev[p] = { bingo: m.bingo, blackout: m.blackout };
   }
   ready();
@@ -128,41 +189,49 @@ async function reset() {
 // ---- render ----
 function render() {
   const who = $("#who");
-  who.hidden = !me; who.textContent = me ? `${me} · החלף` : "";
+  who.hidden = !me; who.innerHTML = me ? `${emo(me)} ${esc(me)} · החלפה` : "";
   who.onclick = () => { localStorage.removeItem("bingo-me"); me = null; render(); };
+  document.documentElement.style.setProperty("--me", LOOK[me]?.[1] ?? "var(--hot)");
+  $("#phase").textContent = game.status === "play" ? "🚗 המשחק רץ!" : "🔮 שלב הניחושים";
 
   const key = `${me}|${game.status}`;
-  if (key !== view) { view = key; $("#app").innerHTML = !me ? pickView() : game.status === "play" ? playView() : entryView(); bind(); }
+  if (key !== view) { view = key; shown = null; $("#app").innerHTML = !me ? pickView() : game.status === "play" ? playView() : entryView(); bind(); }
   if (!me) return;
   if (game.status === "play") fillPlay(); else fillEntry();
   if (isAdmin) fillAdmin();
 }
 
-const pickView = () => `<h2>מי אתה?</h2><div class="names">${PLAYERS.map(p => `<button data-me="${esc(p)}">${esc(p)}</button>`).join("")}</div>`;
+const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS.map((p, k) =>
+  `<button data-me="${esc(p)}" style="${col(p)};animation-delay:${k * 60}ms"><span class="e">${emo(p)}</span>${esc(p)}</button>`).join("")}</div>`;
 
-const adminBox = () => isAdmin ? `<section class="admin"><h2>מסך מתכלל</h2><div id="adm"></div></section>` : "";
+const adminBox = () => isAdmin ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 
 const entryView = () => `
-  <h2>משפט חדש</h2>
-  <form id="add">
-    <select id="about" required><option value="">על מי?</option>${PLAYERS.filter(p => p !== me).map(p => `<option>${esc(p)}</option>`).join("")}</select>
-    <div class="row"><textarea id="text" required maxlength="140" placeholder="מה הוא יגיד או יעשה?"></textarea></div>
-    <div class="row"><button>הוסף</button></div>
+  <h2>✍️ ניחוש חדש</h2>
+  <form id="add" class="panel">
+    <div class="muted">על מי?</div>
+    <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
+      `<label class="chip" style="${col(p)}"><input type="radio" name="about" value="${esc(p)}" required>${av(p)}${esc(p)}</label>`).join("")}</div>
+    <textarea id="text" required maxlength="140" placeholder="למשל: &quot;עוד 5 דקות מגיעים&quot;"></textarea>
+    <div class="row"><button>הוסף ניחוש ✨</button></div>
   </form>
-  <h2>כמה משפטים יש על כל אחד</h2><div class="counts" id="counts"></div>
-  <h2>המשפטים</h2><p class="muted">משפטים שנכתבו עליך מוסתרים.</p><ul id="list"></ul>
+  <h2>🎯 כמה ניחושים על כל אחד</h2><div class="counts" id="counts"></div>
+  <h2>📜 הניחושים</h2><p class="muted">🤫 ניחושים שנכתבו עליך מוסתרים.</p><ul id="list"></ul>
   ${adminBox()}`;
 
 const playView = () => `
-  <p class="muted">מסמנים משבצת כשזה קורה. שורה, עמודה או אלכסון = בינגו. כל 9 = ניצחון.</p>
+  <div class="panel status"><div class="ring" id="ring"><span id="cnt"></span></div>
+    <div><div class="display" style="font-size:22px">הכרטיס של ${esc(me)} ${emo(me)}</div>
+    <div class="muted">שורה, עמודה או אלכסון = בינגו. כל 9 = ניצחון 🏆</div></div></div>
+  <div id="banner"></div>
   <div class="grid" id="card"></div>
-  <h2>מצב המשחק</h2><ul class="score" id="score"></ul>
+  <h2>🏁 טבלת המשחק</h2><ul class="score" id="score"></ul>
   ${adminBox()}`;
 
 function fillEntry() {
-  $("#counts").innerHTML = PLAYERS.map(p => `<span>${esc(p)}: ${items.filter(i => i.about === p).length}</span>`).join("");
+  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
   const vis = items.filter(i => i.about !== me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li><span class="t"><b>${esc(i.about)}</b>${esc(i.text)}<br><span class="muted">כתב/ה: ${esc(i.author)}</span></span>${i.author === me ? `<button class="ghost" data-del="${i.id}">מחק</button>` : ""}</li>`).join("") || `<li class="muted">עוד אין משפטים. תתחיל!</li>`;
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(i.text)}<br><span class="by">✍️ ${esc(i.author)}</span></span>${i.author === me ? `<button class="ghost" data-del="${i.id}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד אין ניחושים. מי מתחיל? 🚀</li>`;
 }
 
 function fillPlay() {
@@ -170,21 +239,29 @@ function fillPlay() {
   const byId = Object.fromEntries(items.map(i => [i.id, i]));
   const on = new Set(marks[me]?.marked || []);
   const hot = new Set(LINES.filter(l => l.every(k => on.has(ids[k]))).flat());
+  const full = ids.length && on.size === ids.length;
+  $("#card").classList.toggle("full", !!full);
   $("#card").innerHTML = ids.map((id, k) => {
     const i = byId[id] || { text: "(נמחק)", about: "" };
-    return `<div class="cell${on.has(id) ? " on" : ""}${hot.has(k) ? " line" : ""}" role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${id}">${esc(i.text)}<small>${esc(i.about)}</small></div>`;
+    const cls = `${on.has(id) ? " on" : ""}${on.has(id) && shown && !shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
+    return `<div class="cell${cls}" role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${id}" data-stamp="${emo(me)}"><span class="txt">${esc(i.text)}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i>${esc(i.about)}</span>` : ""}</div>`;
   }).join("");
-  $("#score").innerHTML = PLAYERS.map(p => {
-    const m = marks[p] || {};
-    return `<li><span class="t">${esc(p)}</span><span class="muted">${(m.marked || []).length}/${N}</span>${m.blackout ? `<span class="tag">🏆 מלא</span>` : m.bingo ? `<span class="tag">בינגו</span>` : ""}</li>`;
+  shown = on;
+  $("#ring").style.setProperty("--p", on.size / N * 100);
+  $("#cnt").textContent = `${on.size}/${N}`;
+  $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופ/ה! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
+  $("#score").innerHTML = PLAYERS.map(p => [p, marks[p] || {}]).sort((a, b) => (b[1].marked?.length || 0) - (a[1].marked?.length || 0)).map(([p, m]) => {
+    const n = (m.marked || []).length;
+    return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${n / N * 100}%"></i></span><span class="n">${n}/${N}</span>${m.blackout ? `<span class="win">🏆 מלא</span>` : m.bingo ? `<span class="win">🎉 בינגו</span>` : ""}</li>`;
   }).join("");
 }
 
 function fillAdmin() {
   $("#adm").innerHTML = game.status === "play"
     ? `<p class="muted">המשחק רץ.</p><button class="ghost" id="reset">אפס כרטיסים</button>`
-    : `<div class="counts">${PLAYERS.map(p => `<span>לכרטיס של ${esc(p)}: ${poolFor(p).length}</span>`).join("")}</div>
-       <div class="row"><button id="gen">צור כרטיסים והתחל</button></div>`;
+    : `<p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
+       <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>
+       <div class="row"><button id="gen">🎲 צור כרטיסים והתחל</button></div>`;
   $("#gen")?.addEventListener("click", generate);
   $("#reset")?.addEventListener("click", reset);
 }
@@ -193,6 +270,7 @@ async function toggle(id) {
   const ids = game.cards[me];
   const on = new Set(marks[me]?.marked || []);
   on.has(id) ? on.delete(id) : on.add(id);
+  navigator.vibrate?.(25);
   const bingo = LINES.some(l => l.every(k => on.has(ids[k])));
   await setDoc(doc(db, "marks", me), { marked: [...on], bingo, blackout: on.size === N });
 }
@@ -209,7 +287,7 @@ function bind() {
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
   $("#add")?.addEventListener("submit", async e => {
     e.preventDefault();
-    const text = $("#text").value.trim(), about = $("#about").value;
+    const text = $("#text").value.trim(), about = $("input[name=about]:checked")?.value;
     if (!text || !about) return;
     $("#text").value = "";
     await addDoc(collection(db, "items"), { text, about, author: me, weight: 1, at: serverTimestamp() });
@@ -218,6 +296,28 @@ function bind() {
 
 let tt;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 4000); }
+
+// ---- confetti ----
+const fx = $("#fx"), cx = fx.getContext("2d"), bits = [];
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function confetti(n) {
+  if (calm) return;
+  const dpr = devicePixelRatio || 1, cols = Object.values(LOOK).map(l => l[1]).concat("#ffc23c", "#ff4f6d");
+  fx.width = innerWidth * dpr; fx.height = innerHeight * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const idle = !bits.length;
+  for (let k = 0; k < n; k++) bits.push({ x: innerWidth * (k % 2 ? .15 : .85), y: innerHeight * .9, vx: (Math.random() - .5) * 10 + (k % 2 ? 4 : -4), vy: -Math.random() * 16 - 10, r: Math.random() * 6, vr: (Math.random() - .5) * .4, s: 7 + Math.random() * 7, c: cols[k % cols.length] });
+  if (idle) requestAnimationFrame(tick);
+}
+function tick() {
+  cx.clearRect(0, 0, innerWidth, innerHeight);
+  for (let k = bits.length - 1; k >= 0; k--) {
+    const b = bits[k];
+    b.vy += .4; b.vx *= .985; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+    if (b.y > innerHeight + 30) { bits.splice(k, 1); continue; }
+    cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.fillStyle = b.c; cx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); cx.restore();
+  }
+  if (bits.length) requestAnimationFrame(tick);
+}
 </script>
 </body>
 </html>
