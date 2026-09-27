@@ -32,7 +32,7 @@ h1{font-size:clamp(22px,6.6vw,34px);white-space:nowrap;line-height:1.1;display:f
 .logo{all:unset;display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:12px}
 .logo:focus-visible{outline:3px solid var(--sky);outline-offset:4px}
 .logo:active{transform:scale(.96)}
-h1 .ball{display:grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,var(--hot) 13% 100%);color:#fff;font-size:.8em;box-shadow:inset -4px -6px 0 rgba(0,0,0,.15);animation:bob 2.4s ease-in-out infinite}
+h1 .ball{width:1.35em;height:1.35em;border-radius:28%;box-shadow:0 3px 8px rgba(0,0,0,.18);animation:bob 2.4s ease-in-out infinite}
 h1 .word{background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
 .tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 #adminBtn[aria-pressed="true"]{border-color:var(--me);color:var(--ink)}
@@ -180,7 +180,7 @@ body.intro header{display:none}
 </style>
 </head>
 <body>
-<header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><span class="ball">B</span><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
+<header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><img class="ball" src="icons/icon-192.png" alt=""><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
 <dialog id="lookDlg"><div class="dlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" data-close>סגירה</button></div></dialog>
