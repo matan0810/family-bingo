@@ -105,6 +105,10 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .star.on{color:var(--sun);border-color:var(--sun);background:color-mix(in srgb,var(--sun) 15%,var(--card))}
 .star:first-child:not(.on){filter:grayscale(1);opacity:.45}
 .step{font-weight:700;margin-top:12px}
+.stepper{display:flex;gap:4px;margin:4px 0 8px;font-size:13px;font-weight:700}
+.stepper span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:5px 2px;border-radius:99px;background:var(--line);color:var(--muted);white-space:nowrap}
+.stepper .done{background:color-mix(in srgb,#22c55e 22%,var(--card));color:var(--ink)}
+.stepper .now{background:var(--hot);color:#fff}
 .step .muted{font-weight:400;font-size:13px}
 button:disabled{opacity:.5;cursor:not-allowed}
 .toggle .box{display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:6px;border-radius:6px;border:2px solid var(--line);font-size:12px;font-weight:800;vertical-align:-3px}
@@ -400,7 +404,7 @@ async function generate() {
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
   const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
-  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, at: serverTimestamp() });
+  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, raters: game.raters || [], raterUids: game.raterUids || [], at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
 }
@@ -418,10 +422,21 @@ function syncRaterUids() {
   syncing = true;
   setDoc(doc(db, "game", "state"), { raterUids: uids }, { merge: true }).catch(e => console.warn("raterUids", e)).finally(() => syncing = false);
 }
-function startRating() { if (confirm("לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate"); }
+// ---- moving between phases (every step asks first) ----
+function startRating() {
+  const again = ratings.length > 0;
+  if (confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate");
+}
 function backToEntry() {
-  if (!confirm("לחזור לשלב הניחושים? הדירוגים נשמרים.")) return;
-  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {} }));
+  if (!confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.")) return;
+  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {}, raters: game.raters || [], raterUids: game.raterUids || [] }));
+}
+async function backToRating() {
+  if (!confirm("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו! הדירוגים נשמרים.")) return;
+  const raters = game.raters?.length ? game.raters : PLAYERS, b = writeBatch(db);
+  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() });
+  clearMarks(b);
+  await safe(b.commit());
 }
 async function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
@@ -644,14 +659,17 @@ function fillAdmin() {
     <div class="row"><button class="ghost" data-act="allRaters">כולם</button><button class="ghost" data-act="noRaters">אף אחד</button>
       <span class="muted">${chosen.length ? `ידרגו ${chosen.length}: ${chosen.map(esc).join(", ")}` : "⚠️ לא נבחרו מדרגים"}</span></div>
     ${noDevice.length ? `<p class="muted">⚠️ ${noDevice.map(esc).join(", ")} עוד לא נכנסו לאתר. אחרי שייכנסו הם יוכלו לדרג.</p>` : ""}`;
-  $("#adm").innerHTML = ({
+  const order = ["entry", "rate", "play", "ended"], at = order.indexOf(st);
+  const stepper = `<div class="stepper">${order.map((k, i) => `<span class="${i < at ? "done" : i === at ? "now" : ""}">${i < at ? "✓ " : ""}${{ entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" }[k]}</span>`).join("")}</div>`;
+  $("#adm").innerHTML = stepper + ({
     entry: `${raters}<hr><div class="step">2. כשכולם סיימו לכתוב</div>
       <p class="muted">הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
-      <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>⭐ נעילה ומעבר לדירוג</button></div>`,
-    rate: `${raters}<div class="row">${dirty ? `<button data-act="raters">💾 שמירת השינוי במדרגים</button>` : ""}<button class="ghost" data-act="back">↩️ חזרה לניחושים</button></div>
+      <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
+    rate: `${raters}<div class="row">${dirty ? `<button data-act="raters">💾 שמירת השינוי במדרגים</button>` : ""}<button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
       <hr><div class="step">כשהמדרגים סיימו: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
-      <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
+      <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button></div>
+      <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
     ended: `<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
   })[st] ?? "";
 }
@@ -678,7 +696,7 @@ function bind() {
     home: showWelcome,
     allRaters: () => { raterSel = new Set(PLAYERS); render(); },
     noRaters: () => { raterSel.clear(); render(); },
-    rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
+    rate: startRating, raters: () => setRaters("rate"), back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
     const t = e.target.closest("[data-me],[data-del],[data-cell],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
