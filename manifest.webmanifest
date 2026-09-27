@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "בינגו משפחתי",
+  "short_name": "בינגו",
+  "description": "מנחשים מה יקרה בטיול, ומסמנים כשזה קורה",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff6ea",
+  "theme_color": "#ff4f6d",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

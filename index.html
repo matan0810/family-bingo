@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>בינגו משפחתי</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ff4f6d">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="בינגו">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -132,22 +138,20 @@ button.av{padding:0;cursor:pointer;font-size:1em}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
 
 body.intro header{display:none}
-.welcome{text-align:center;padding-top:28px}
-.balls{display:flex;justify-content:center;gap:10px;margin-bottom:18px}
-.balls span{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;font-size:26px;background:radial-gradient(circle at 35% 30%,#fff 0 14%,var(--b) 15% 100%);box-shadow:inset -4px -6px 0 rgba(0,0,0,.15),0 6px 14px rgba(0,0,0,.12);animation:hop 1.6s ease-in-out calc(var(--k) * .15s) infinite}
-.balls span:nth-child(1){--b:#ff4f6d}.balls span:nth-child(2){--b:#3fc1f0}.balls span:nth-child(3){--b:#ffc23c}.balls span:nth-child(4){--b:#22c55e}.balls span:nth-child(5){--b:#8b5cf6}
-.wtitle{font-size:clamp(26px,7.5vw,36px);line-height:1.2}
-.wtitle .word{display:block;background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
-.wsub{color:var(--muted);margin:8px 0 18px;font-size:18px}
-.steps{list-style:none;padding:0;margin:0 0 22px;text-align:start;counter-reset:s}
-.steps li{align-items:center;gap:12px;padding:12px 14px;border-radius:18px;box-shadow:var(--shadow);animation:rise .45s calc(.25s + var(--k) * .12s) backwards}
-.steps .se{display:grid;place-items:center;width:46px;height:46px;flex:none;border-radius:14px;font-size:24px;background:color-mix(in srgb,var(--sun) 30%,var(--card))}
-.steps li:nth-child(2) .se{background:color-mix(in srgb,var(--hot) 22%,var(--card))}
-.steps li:nth-child(3) .se{background:color-mix(in srgb,var(--sky) 28%,var(--card))}
-.steps li:nth-child(4) .se{background:color-mix(in srgb,#22c55e 25%,var(--card))}
-.go{font-size:22px;padding:16px 32px;border-radius:20px;animation:rise .45s .8s backwards}
-.howto{text-align:center;margin-top:28px}
-@keyframes hop{0%,60%,100%{transform:none}30%{transform:translateY(-14px) rotate(-10deg)}}
+.welcome{min-height:calc(100vh - 60px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:24px 0}
+.fam{display:flex;gap:6px;font-size:30px}
+.fam span{animation:wave 2.4s ease-in-out calc(var(--k) * .15s) infinite}
+.mini{position:relative;display:grid;grid-template-columns:repeat(3,62px);gap:8px;padding:12px;margin:22px 0 18px;border-radius:26px;background:var(--card);box-shadow:var(--shadow);transform:rotate(-5deg);animation:rise .5s backwards}
+.mini span{height:62px;display:grid;place-items:center;font-size:28px;border-radius:16px;background:color-mix(in srgb,var(--ink) 6%,var(--card))}
+.mini .hit{animation:dab .4s cubic-bezier(.2,1.6,.4,1) calc(.7s + var(--d) * .5s) both}
+.yay{position:absolute;top:-16px;left:-18px;padding:4px 14px;border-radius:99px;background:var(--hot);color:#fff;font-family:"Secular One",sans-serif;font-size:20px;font-weight:400;box-shadow:0 4px 0 color-mix(in srgb,var(--hot) 55%,#000);transform:rotate(-10deg);animation:yay .5s cubic-bezier(.2,1.6,.4,1) 2.3s both}
+.wtitle{font-size:clamp(36px,11vw,50px);line-height:1.05;background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wsub{color:var(--muted);font-size:18px;margin:4px 0 20px}
+.go{font-size:22px;padding:14px 40px;border-radius:99px}
+.howto{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:28px}
+@keyframes wave{0%,70%,100%{transform:none}20%{transform:translateY(-8px) rotate(-12deg)}40%{transform:rotate(10deg)}}
+@keyframes dab{from{background:color-mix(in srgb,var(--ink) 6%,var(--card))}to{background:var(--sun);transform:scale(1.08) rotate(-4deg)}}
+@keyframes yay{from{opacity:0;transform:scale(0) rotate(-40deg)}}
 @keyframes bob{50%{transform:translateY(-4px) rotate(12deg)}}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}}
 @keyframes stamp{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
@@ -219,6 +223,21 @@ let sizeSel = null, raterSel = null; // admin's choices before starting a phase
 
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 queueMicrotask(() => render());
+
+// ---- install as an app (PWA): Android shows the browser prompt, iPhone gets instructions ----
+let installEvt = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+function showInstall() { document.querySelectorAll(".install").forEach(b => b.hidden = standalone() || !(installEvt || isIOS)); }
+async function install() {
+  if (!installEvt) return alert("באייפון: בספארי לוחצים על כפתור השיתוף ⬆️ ואז על \"הוספה למסך הבית\" ➕");
+  installEvt.prompt();
+  await installEvt.userChoice;
+  installEvt = null; showInstall();
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; showInstall(); });
+addEventListener("appinstalled", () => { installEvt = null; showInstall(); toast("📲 הבינגו הותקן!"); });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e));
 onAuthStateChanged(auth, async u => {
   if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
   if (uid) return; // listeners already set up
@@ -422,11 +441,13 @@ function render() {
     view = key; shown = null;
     const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
     document.body.classList.toggle("intro", stage === "welcome");
+    if (stage === "welcome") setTimeout(() => view.startsWith(`${me}|welcome`) && confetti(90), 2400);
     $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
     if (draft && $("#text")) $("#text").value = draft;
     if (about) $(`input[name=about][value="${about}"]`)?.click();
     bind();
   }
+  showInstall();
   if (stage === "welcome") return;
   if (stage === "pick") $("#app").innerHTML = pickView();
   if (!me || !live) return;
@@ -447,22 +468,18 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
-const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button><button class="ghost install" data-act="install" hidden>📲 התקנה בטלפון</button></p>`;
 
 // ---- welcome screen: once per device, and again from "איך משחקים?" ----
 let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
-const STEPS = [
-  ["🔮", "כותבים ניחושים", "מה כל אחד יגיד או יעשה בטיול? כל אחד רואה רק את מה שהוא כתב 🤫"],
-  ["⭐", "מדרגים", "המדרגים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
-  ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, אף פעם לא עם ניחושים עליו עצמו"],
-  ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת. שורה = בינגו 🎉, כרטיס מלא = ניצחון 🏆"]
-];
+const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"];
 const welcomeView = () => `<section class="welcome">
-  <div class="balls">${["🎲", "🚗", "⭐", "🎉", "🏆"].map((e, k) => `<span style="--k:${k}">${e}</span>`).join("")}</div>
-  <h2 class="wtitle">ברוכים הבאים <span class="word">לבינגו המשפחתי!</span></h2>
-  <p class="wsub">מנחשים מה יקרה בטיול, ומסמנים כשזה קורה 😄</p>
-  <ol class="steps">${STEPS.map(([e, t, d], k) => `<li style="--k:${k}"><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`).join("")}</ol>
-  <button class="go" data-act="start">יאללה, מתחילים! 🚀</button>
+  <div class="fam">${PLAYERS.map((p, k) => `<span style="--k:${k}">${emo(p)}</span>`).join("")}</div>
+  <div class="mini" aria-hidden="true">${MINI.map((e, k) => `<span${k % 4 ? "" : ` class="hit" style="--d:${k / 4}"`}>${e}</span>`).join("")}<b class="yay">בינגו!</b></div>
+  <h2 class="wtitle">בינגו משפחתי</h2>
+  <p class="wsub">מנחשים מה יקרה בטיול 🔮<br>ומסמנים כשזה קורה ✅</p>
+  <button class="go" data-act="start">יאללה! 🚀</button>
+  <p class="howto"><button class="ghost install" data-act="install" hidden>📲 התקנה בטלפון</button></p>
 </section>`;
 
 const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
@@ -618,6 +635,7 @@ function bind() {
   const app = $("#app");
   const act = {
     start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
+    install,
     howto: () => { welcomed = false; view = ""; render(); scrollTo(0, 0); },
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
