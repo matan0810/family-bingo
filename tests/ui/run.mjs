@@ -72,8 +72,8 @@ await scenario(async () => {
 await scenario(async () => {
   const p = await open("", { me: null });
   await p.click('[data-me="אמא"]'); await p.waitForTimeout(300);
-  check("tapping a taken name explains how to release it", p.dialogs.some(m => m.includes("החלפת שחקן") && m.includes("שם תקוע")));
-  check("…without trying to take it", !(await writes(p)).some(([r]) => r === "players/אמא") && await p.isVisible(".names"));
+  check("taking a taken name asks 'זה אתם?' first", p.dialogs.some(m => m.includes("זה אתם?")));
+  check("…then moves the name to this device", (await writes(p)).some(([r, d]) => r === "players/אמא" && d.uid === "U1") && await p.isVisible("#add"));
   await done(p);
 });
 await scenario(async () => {
@@ -116,7 +116,7 @@ await scenario(async () => {
   const p = await open("m=entry");
   await p.click("#who");
   check("settings open from the header", await p.evaluate(() => setDlg.open));
-  check("settings items (admin)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "🛠️ הפעלת מצב מתכלל", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
+  check("settings items (founder)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "🛠️ הפעלת מצב מתכלל", "👑 הגדרות משחק", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
   await p.mouse.click(5, 5);
   check("tapping outside closes a dialog", !(await p.evaluate(() => setDlg.open)));
   await p.click(".hello .av");
@@ -167,6 +167,108 @@ await scenario(async () => {
   const s = await p.evaluate(() => ({ del: sessionStorage.del, claims: sessionStorage.claims || "", me: localStorage.getItem("bingo-me") }));
   check("logout frees the name without re-claiming", s.del?.includes("players/מתן") && !s.claims.includes("מתן") && s.me === null, s);
   check("logout returns to the code screen", await p.isVisible("#join"));
+  await done(p);
+});
+
+console.log("— editing wording and suggestions");
+await scenario(async () => {
+  const p = await open("m=entry");
+  await p.click("[data-edit] >> nth=0");
+  const before = await p.inputValue("#editText");
+  check("edit opens with the current text", await p.evaluate(() => editDlg.open) && before.length > 0);
+  await p.fill("#editText", "ניסוח מתוקן"); await p.click("#editSave"); await p.waitForTimeout(200);
+  const [r, d] = (await writes(p)).at(-1);
+  check("author edit updates texts/{id} only", r.startsWith("texts/") && JSON.stringify(d) === JSON.stringify({ text: "ניסוח מתוקן" }));
+  check("edited text shows in my list", (await p.textContent("#list")).includes("ניסוח מתוקן"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate");
+  await p.click('[data-suggest="i5"]');
+  check("rater: suggestion dialog names the author", (await p.textContent("#editSub")).includes("אמא"));
+  await p.fill("#editText", "ניסוח טוב יותר"); await p.click("#editSave"); await p.waitForTimeout(200);
+  const [r, d] = (await writes(p)).at(-1);
+  check("suggestion goes to the author's device", r.startsWith("suggestions/") && d.item === "i5" && d.from === "מתן" && d.fromUid === "U1" && d.toUid === "OTHER" && d.text === "ניסוח טוב יותר", d);
+  await p.click('[data-suggest="i4"]'); await p.waitForTimeout(200);
+  check("no suggestion when the author has no device", (await p.textContent("#toast")).includes("לא מחובר") && !(await p.evaluate(() => editDlg.open)));
+  await p.click(".mine summary");
+  check("rate: my predictions are editable, not deletable", await p.locator("#list [data-edit]").count() > 0 && !(await p.locator("#list [data-del]").count()));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&sugg=1", { me: "אורי" });
+  check("suggestions box is only for their author", !(await p.isVisible("#sugBox")));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&sugg=1");
+  check("author sees the suggestion: old and new wording", await p.isVisible("#sugBox") && (await p.textContent("#sugList")).includes("הצעה משופרת"));
+  await p.click('[data-accept="s1"]'); await p.waitForTimeout(200);
+  const b = await lastBatch(p);
+  check("accept = update text + delete suggestion in one batch", JSON.stringify(b) === JSON.stringify([["set", "texts/i0", { text: "הצעה משופרת" }], ["del", "suggestions/s1"]]), b);
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&sugg=1");
+  await p.click('[data-reject="s1"]'); await p.waitForTimeout(200);
+  check("reject deletes the suggestion", (await p.evaluate(() => sessionStorage.del || "")).includes("suggestions/s1"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=play&sugg=1");
+  check("suggestions are cleared once the rating phase is over", (await p.evaluate(() => sessionStorage.del || "")).includes("suggestions/s1"));
+  await done(p);
+});
+
+console.log("— game settings (founders)");
+await scenario(async () => {
+  const p = await open("m=entry&cfg=1");
+  check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes("סבתא")));
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
+  check("founders can't be removed", (await p.locator("#cfgPlayers [data-cfg=del]").allTextContents()).every(t => !t.includes("מתן") && !t.includes("אורי")));
+  check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes("lavi"));
+  await p.fill("#cfgNew", "סבא"); await p.click("[data-cfg=add]"); await p.waitForTimeout(200);
+  let [r, d] = (await writes(p)).at(-1);
+  check("add player saves config/settings", r === "config/settings" && d.players.includes("סבא") && d.admins.join() === "עדי");
+  await p.click('[data-cfg=del][data-p="סבתא"]'); await p.waitForTimeout(200);
+  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
+  check("remove player asks and saves", p.dialogs.some(m => m.includes("להסיר את סבתא")) && !d.players.includes("סבתא"));
+  await p.click('[data-cfg=admin][data-p="אבא"]'); await p.waitForTimeout(200);
+  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
+  check("toggle an admin", d.admins.includes("אבא"));
+  await p.fill("#cfgCode", "new-code"); await p.click("[data-cfg=code]"); await p.waitForTimeout(200);
+  check("change family code writes config/secret", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === "new-code"));
+  await p.click("[data-cfg=wipe]"); await p.waitForTimeout(300);
+  const all = (await p.evaluate(() => window.B || [])).flat();
+  check("new trip deletes items, texts, ratings and resets marks", all.some(([op, r]) => op === "del" && r === "items/i1") && all.some(([op, r]) => op === "del" && r === "texts/i1") && all.some(([op, r]) => op === "del" && r.startsWith("ratings/")) && all.some(([op, r, d]) => op === "set" && r.startsWith("marks/") && d.marked.length === 0));
+  check("new trip asks twice", p.dialogs.filter(m => m.includes("לנקות") || m.includes("בטוח")).length >= 2);
+  await p.click("[data-cfg=wipeHist]"); await p.waitForTimeout(200);
+  check("delete history", (await lastBatch(p)).some(([op, r]) => op === "del" && r === "history/h"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=1", { me: "עדי" });
+  await p.click("#who");
+  check("extra admin: admin mode, but no game settings", await p.isVisible("#adminItem") && !(await p.isVisible("#cfgItem")));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry", { me: "אבא" });
+  await p.click("#who");
+  check("regular player: no game settings", !(await p.isVisible("#cfgItem")));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=1", { me: null });
+  const e = (await p.textContent('[data-me="סבתא"] .e')).trim();
+  const others = await Promise.all(["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"].map(n => p.textContent(`[data-me="${n}"] .e`)));
+  check("new player gets an unused emoji", e && !others.map(x => x.trim()).includes(e), e);
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&cfg=2");
+  check("removed player's predictions are left out of rating", !(await p.locator("#rate li .who", { hasText: "הדר" }).count()) && await p.locator("#rate li").count() > 0);
   await done(p);
 });
 

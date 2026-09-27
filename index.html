@@ -140,6 +140,17 @@ dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);paddi
 dialog::backdrop{background:rgba(20,16,40,.55)}
 dialog h2{margin:0 0 12px}
 .dlg{padding:16px}
+dialog{max-height:90vh;overflow:auto}
+dialog h3{font-size:16px;margin:18px 0 6px}
+#editText{margin:4px 0 0}
+.sugg{flex-direction:column;align-items:stretch;gap:6px}
+.sugg .old{color:var(--muted);text-decoration:line-through}
+.sugg .new{font-weight:700}
+.mine{margin-top:22px}
+.mine summary{cursor:pointer;font-family:"Secular One",Rubik,sans-serif;font-size:19px}
+.mine ul{margin-top:10px}
+.sent{font-size:12px;color:var(--muted);align-self:center}
+.fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
 .menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .menu button{text-align:start;font-size:17px;padding:12px 14px}
 .steps{list-style:none;padding:0;margin:0 0 14px}
@@ -191,17 +202,31 @@ body.intro header{display:none}
     <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
     <button class="ghost" data-set="admin" id="adminItem" hidden></button>
+    <button class="ghost" data-set="cfg" id="cfgItem" hidden>👑 הגדרות משחק</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
     <button class="ghost" data-set="logout">🚪 התנתקות</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="editDlg"><div class="dlg"><h2 id="editTitle"></h2><p class="muted" id="editSub"></p>
+  <textarea id="editText" maxlength="140"></textarea>
+  <div class="row"><button id="editSave">שמירה</button><button class="ghost" data-close>ביטול</button></div></div></dialog>
+<dialog id="cfgDlg"><div class="dlg" id="cfgBox"><h2>👑 הגדרות משחק</h2>
+  <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
+  <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
+  <p class="muted" id="cfgPlayersNote"></p>
+  <h3>🛠️ מתכללים</h3><p class="muted">מתן ואורי מייסדים (👑) ותמיד מתכללים. מתכלל מנהל את המשחק, אבל לא את ההגדרות האלה.</p><div class="chips" id="cfgAdmins"></div>
+  <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
+  <div class="row"><input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש"><button class="ghost" data-cfg="code">שמירה</button></div>
+  <h3>🧹 טיול חדש</h3><p class="muted">מוחק את כל הניחושים, הדירוגים וההצעות ומאפס את הסימונים. ההיסטוריה נשארת. רק בשלב הניחושים.</p>
+  <div class="row"><button class="ghost" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
+  <div class="row"><button class="ghost" data-close>סגירה</button></div></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, addDoc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvZu7ozy2-NFuE1ysuIU_EnFbO12LntVE",
@@ -212,7 +237,10 @@ const firebaseConfig = {
   appId: "1:564240750544:web:706f367543d2903c660bd5"
 };
 
-const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
+// players and extra admins come from config/settings (game settings); these are the defaults until a founder saves them.
+// Keep DEFAULT_PLAYERS and FOUNDERS in sync with defaultPlayers() and founders() in the rules.
+const DEFAULT_PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
+const FOUNDERS = ["מתן", "אורי"];
 // avatars a player can choose (looks/{player} = {e}); each emoji has a fixed color. Keep in sync with the rules.
 const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸","#22c55e"],["🐙","#8b5cf6"],["🐢","#14b8a6"],
   ["🦊","#f97316"],["🐼","#64748b"],["🐯","#eab308"],["🐨","#78716c"],["🐷","#f472b6"],["🐵","#a16207"],
@@ -221,7 +249,6 @@ const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸"
   ["🍕","#dc2626"],["🍉","#e11d48"],["🚀","#7c3aed"],["👽","#84cc16"],["🤖","#06b6d4"],["👻","#a78bfa"]];
 const COLOR = Object.fromEntries(EMOJIS);
 const DEFAULT = { "אבא": "🦁", "אמא": "🦄", "מתן": "🐬", "אורי": "🐸", "עדי": "🐙", "הדר": "🐢" };
-const ADMINS = ["מתן", "אורי"]; // must match isAdmin() in the Firestore rules
 const SIZES = [2, 3, 4, 5];
 const MEDAL = ["🥇", "🥈", "🥉"];
 const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
@@ -230,16 +257,25 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app), auth = getAuth(app);
 // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
 let adminOpen = new URLSearchParams(location.search).has("admin") || (() => { try { return !!localStorage.getItem("bingo-admin"); } catch { return false; } })();
-const isAdmin = () => adminOpen && ADMINS.includes(me);
+const isAdminName = p => FOUNDERS.includes(p) || config.admins.includes(p);
+const isAdmin = () => adminOpen && isAdminName(me);
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const emo = p => COLOR[looks[p]] ? looks[p] : DEFAULT[p] ?? "🙂";
+const emo = p => COLOR[looks[p]] ? looks[p] : DEFAULT[p] ?? spareEmoji(p);
+// players added later start with the first emoji nobody has, in player order
+function spareEmoji(p) {
+  const own = x => COLOR[looks[x]] ? looks[x] : DEFAULT[x];
+  const used = new Set(PLAYERS.map(own).filter(Boolean));
+  return EMOJIS.map(([e]) => e).filter(e => !used.has(e))[PLAYERS.filter(x => !own(x)).indexOf(p)] ?? "🙂";
+}
 const colorOf = p => COLOR[emo(p)] ?? "#888";
 const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
+let config = { players: DEFAULT_PLAYERS, admins: [], adminUids: [] }, PLAYERS = DEFAULT_PLAYERS;
+let sugIn = [], sugOut = []; // wording suggestions for my predictions / that I sent
 let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
@@ -307,9 +343,16 @@ onSnapshot(collection(db, "marks"), s => {
 }, fatal);
 onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
 onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
-onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => d.data()).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
+onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
+// game settings: a missing doc (or rules that predate it) means the defaults
+const setConfig = c => { config = { players: c?.players?.length ? c.players : DEFAULT_PLAYERS, admins: c?.admins || [], adminUids: c?.adminUids || [] }; PLAYERS = config.players; ready("config"); };
+onSnapshot(doc(db, "config", "settings"), s => setConfig(s.data()), e => { console.warn("settings", e); setConfig(null); });
+if (!legacy) {
+  onSnapshot(query(collection(db, "suggestions"), where("toUid", "==", uid)), s => { sugIn = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
+  onSnapshot(query(collection(db, "suggestions"), where("fromUid", "==", uid)), s => { sugOut = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
 }
-const SOURCES = 7;
+}
+const SOURCES = 8;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
 const secs = t => t?.seconds ?? Infinity; // pending server timestamps sort last
 
@@ -349,7 +392,9 @@ function migrate() {
 }
 
 // ---- rating: ratings/{item}_{player} = {item, player, stars 0..3}; nobody rates what is about them or by them ----
-const rateable = p => items.filter(i => i.about !== p && i.author !== p);
+// predictions by or about a removed player stay stored but are left out of rating and cards
+const active = i => PLAYERS.includes(i.about) && PLAYERS.includes(i.author);
+const rateable = p => items.filter(i => active(i) && i.about !== p && i.author !== p);
 const isRater = () => (game.raters || []).includes(me);
 const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).map(r => [r.item, r.stars]));
 const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
@@ -372,7 +417,7 @@ function pick(pool, k) {
   }
   return out;
 }
-const poolFor = p => items.filter(i => i.about !== p);
+const poolFor = p => items.filter(i => active(i) && i.about !== p);
 
 // ---- board geometry ----
 const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
@@ -424,6 +469,111 @@ function syncRaterUids() {
   syncing = true;
   setDoc(doc(db, "game", "state"), { raterUids: uids }, { merge: true }).catch(e => console.warn("raterUids", e)).finally(() => syncing = false);
 }
+// extra admins are matched by device in the rules; founders' devices keep adminUids up to date
+let syncingAdmins = false;
+function syncAdminUids() {
+  if (syncingAdmins || !config.admins.length && !config.adminUids.length) return;
+  const uids = config.admins.map(p => players[p]).filter(Boolean);
+  if (uids.length === config.adminUids.length && uids.every(u => config.adminUids.includes(u))) return;
+  syncingAdmins = true;
+  saveConfig({}).finally(() => syncingAdmins = false);
+}
+const saveConfig = patch => {
+  const next = { ...config, ...patch };
+  next.adminUids = next.admins.map(p => players[p]).filter(Boolean);
+  return safe(setDoc(doc(db, "config", "settings"), next));
+};
+
+// ---- wording: the author edits until the rating phase ends; raters suggest, the author decides ----
+let editing = null;
+function openEdit(mode, id) {
+  const i = items.find(x => x.id === id);
+  if (!i) return;
+  if (mode === "suggest" && !players[i.author]) return toast("✋ הכותב/ת עוד לא מחובר/ת");
+  editing = { mode, i };
+  $("#editTitle").textContent = mode === "edit" ? "✏️ עריכת ניחוש" : "✏️ הצעת ניסוח";
+  $("#editSub").innerHTML = mode === "edit" ? `על ${emo(i.about)} ${esc(i.about)}` : `על ${emo(i.about)} ${esc(i.about)}. ההצעה תגיע ל${esc(i.author)}, שיחליט/תחליט אם לאשר.`;
+  $("#editText").value = textOf(i) ?? "";
+  $("#editDlg").showModal();
+}
+$("#editSave").onclick = async () => {
+  const { mode, i } = editing, text = $("#editText").value.trim();
+  if (!text || text === textOf(i)) return $("#editDlg").close();
+  $("#editDlg").close();
+  if (mode === "edit") { if (await safe(setDoc(doc(db, "texts", i.id), { text }))) { texts[i.id] = text; render(); } }
+  else if (await safe(addDoc(collection(db, "suggestions"), { item: i.id, from: me, fromUid: uid, toUid: players[i.author], text, at: serverTimestamp() }))) toast(`💬 ההצעה נשלחה ל${i.author}`);
+};
+async function acceptSuggestion(id) {
+  const x = sugIn.find(s => s.id === id);
+  if (!x) return;
+  const b = writeBatch(db);
+  b.set(doc(db, "texts", x.item), { text: x.text });
+  b.delete(doc(db, "suggestions", id));
+  if (await safe(b.commit())) { texts[x.item] = x.text; toast("✅ הניסוח עודכן"); render(); }
+}
+// suggestions live only during the rating phase, and only for predictions that still exist
+const cleaned = new Set();
+function cleanSuggestions() {
+  [...sugIn, ...sugOut].filter(x => !cleaned.has(x.id) && (game.status !== "rate" || !items.some(i => i.id === x.item))).forEach(x => {
+    cleaned.add(x.id);
+    deleteDoc(doc(db, "suggestions", x.id)).catch(() => {});
+  });
+}
+
+// ---- game settings (founders): players, admins, family code, new trip ----
+async function openCfg() {
+  fillCfg();
+  $("#cfgCodeNote").textContent = "טוען…";
+  $("#cfgDlg").showModal();
+  const secret = await getDoc(doc(db, "config", "secret")).catch(() => null);
+  $("#cfgCodeNote").textContent = secret?.exists() ? `הקוד הנוכחי: ${secret.data().code}. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.` : "עכשיו בתוקף הקוד שמוגדר בחוקים. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.";
+}
+function fillCfg() {
+  const entry = game.status === "entry";
+  $("#cfgPlayers").innerHTML = PLAYERS.map(p => FOUNDERS.includes(p)
+    ? `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)} 👑</span>`
+    : `<button class="ghost" data-cfg="del" data-p="${esc(p)}"${entry ? "" : " disabled"}>${emo(p)} ${esc(p)} ✕</button>`).join("");
+  $("#cfgPlayersNote").textContent = entry ? `${PLAYERS.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
+  $("#cfgNew").disabled = $("[data-cfg=add]").disabled = !entry;
+  $("#cfgAdmins").innerHTML = PLAYERS.filter(p => !FOUNDERS.includes(p)).map(p => { const on = config.admins.includes(p);
+    return `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="admin" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`; }).join("");
+}
+$("#cfgBox").onclick = async e => {
+  const b = e.target.closest("[data-cfg]");
+  if (!b) return;
+  const p = b.dataset.p;
+  if (b.dataset.cfg === "add") {
+    const name = $("#cfgNew").value.trim();
+    if (!name || /[\/.#$\[\]]/.test(name)) return alert("שם לא תקין (בלי / . # $ [ ])");
+    if (PLAYERS.includes(name)) return alert("כבר יש שחקן בשם הזה");
+    if (PLAYERS.length >= 12) return alert("אפשר עד 12 שחקנים");
+    if (await saveConfig({ players: [...PLAYERS, name] })) { $("#cfgNew").value = ""; toast(`👋 ${name} הצטרף/ה`); }
+  } else if (b.dataset.cfg === "del") {
+    if (!confirm(`להסיר את ${p} מהמשחק?\nהניחושים שלו/ה ועליו/ה נשמרים, אבל לא ייכנסו לדירוג ולכרטיסים. אפשר להחזיר אחר כך.`)) return;
+    if (await saveConfig({ players: PLAYERS.filter(x => x !== p), admins: config.admins.filter(x => x !== p) }) && players[p]) safe(deleteDoc(doc(db, "players", p)));
+  } else if (b.dataset.cfg === "admin") {
+    saveConfig({ admins: config.admins.includes(p) ? config.admins.filter(x => x !== p) : [...config.admins, p] });
+  } else if (b.dataset.cfg === "code") {
+    const code = $("#cfgCode").value.trim();
+    if (code.length < 3) return alert("הקוד צריך לפחות 3 תווים");
+    if (!confirm(`להחליף את הקוד המשפחתי ל־"${code}"?`)) return;
+    if (await safe(setDoc(doc(db, "config", "secret"), { code }))) { $("#cfgCode").value = ""; $("#cfgCodeNote").textContent = `הקוד הנוכחי: ${code}. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.`; toast("🔐 הקוד עודכן"); }
+  } else if (b.dataset.cfg === "wipe") {
+    if (game.status !== "entry") return alert("ניקוי אפשרי רק בשלב הניחושים. קודם מחזירים את המשחק לשלב הניחושים.");
+    if (!confirm("לנקות הכול לטיול חדש?\nכל הניחושים, הדירוגים וההצעות יימחקו. ההיסטוריה נשארת.") || !confirm("בטוח? אי אפשר לבטל את זה.")) return;
+    const ops = [...items.flatMap(i => [["items", i.id], ["texts", i.id]]), ...ratings.map(r => ["ratings", `${r.item}_${r.player}`]), ...[...sugIn, ...sugOut].map(x => ["suggestions", x.id])];
+    let ok = true;
+    for (let k = 0; k < ops.length; k += 400) { const b = writeBatch(db); ops.slice(k, k + 400).forEach(([c, id]) => b.delete(doc(db, c, id))); ok = await safe(b.commit()) && ok; }
+    const b2 = writeBatch(db); clearMarks(b2); ok = await safe(b2.commit()) && ok;
+    if (ok) toast("🧹 הכול נקי לטיול חדש");
+  } else if (b.dataset.cfg === "wipeHist") {
+    if (!pastGames.length) return alert("אין היסטוריה");
+    if (!confirm(`למחוק את כל ההיסטוריה (${pastGames.length} משחקים)?`)) return;
+    const b = writeBatch(db); pastGames.forEach(h => b.delete(doc(db, "history", h.id)));
+    if (await safe(b.commit())) toast("🗑️ ההיסטוריה נמחקה");
+  }
+};
+
 // ---- moving between phases (every step asks first) ----
 function startRating() {
   const again = ratings.length > 0;
@@ -493,7 +643,9 @@ function render() {
   }
   who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} ⚙️` : "";
   who.onclick = openSettings;
-  if (live && !legacy && ADMINS.includes(me)) syncRaterUids();
+  if (live && !legacy && isAdminName(me)) syncRaterUids();
+  if (live && !legacy && FOUNDERS.includes(me)) syncAdminUids();
+  if (live && !legacy) cleanSuggestions();
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = PHASE[game.status] ?? "";
 
@@ -515,6 +667,7 @@ function render() {
   ({ entry: fillEntry, rate: fillRate, play: fillPlay, ended: fillEnded })[stage]();
   fillHistory();
   if (isAdmin()) fillAdmin();
+  if ($("#cfgDlg").open) fillCfg();
 }
 
 const codeView = () => `<h2>🔐 קוד משפחתי</h2>
@@ -581,7 +734,9 @@ const rateView = () => `${hello()}
     ? `<h2>⭐ דרגו את הניחושים <span class="muted" id="rateCnt"></span></h2>
        <p class="muted">כמה כיף יהיה לראות את זה בכרטיס? 🥱 = לא מעניין, ⭐⭐⭐ = חובה! ניחושים עליכם או שלכם לא מופיעים כאן.</p><ul id="rate"></ul>`
     : `<div class="panel" style="margin-top:16px">⏳ עכשיו שלב הדירוג. המדרגים בוחרים את הניחושים הכי טובים, ואחר כך מתחילים!</div>`}
+  <section id="sugBox" hidden><h2>💬 הצעות ניסוח לניחושים שלך</h2><ul id="sugList"></ul></section>
   <h2>📊 התקדמות המדרגים</h2><ul class="score" id="raters"></ul>
+  <details class="mine"><summary>📜 הניחושים שלי (אפשר לערוך עד סוף הדירוג)</summary><ul id="list"></ul></details>
   ${tail()}`;
 
 const playView = () => `
@@ -602,26 +757,40 @@ const endedView = () => `
 function fillEntry() {
   $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
   if (!legacy) migrate();
+  fillMine(true);
+}
+
+// my predictions: editable until the rating phase ends, deletable only while writing
+function fillMine(canDelete) {
   const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}</span><button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button></li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}</span><button class="ghost" data-edit="${esc(i.id)}" aria-label="עריכה">✏️</button>${canDelete ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
   need(vis.filter(i => !i.text).map(i => i.id));
 }
 
 function fillRate() {
   if (isRater()) {
-    const list = rateable(me).sort((a, b) => secs(a.at) - secs(b.at)), my = myStars();
+    const list = rateable(me).sort((a, b) => secs(a.at) - secs(b.at)), my = myStars(), sent = new Set(sugOut.filter(x => x.from === me).map(x => x.item));
     need(list.filter(i => !i.text).map(i => i.id));
     $("#rateCnt").textContent = `(${list.filter(i => i.id in my).length}/${list.length})`;
     $("#rate").innerHTML = list.map(i => {
       const s = my[i.id];
       return `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}
-        <span class="stars">${[0, 1, 2, 3].map(k => `<button class="star${k ? (s >= k ? " on" : "") : (s === 0 ? " on" : "")}" data-rate="${esc(i.id)}" data-k="${k}" aria-label="${k} כוכבים">${k ? "★" : "🥱"}</button>`).join("")}</span></span></li>`;
+        <span class="stars">${[0, 1, 2, 3].map(k => `<button class="star${k ? (s >= k ? " on" : "") : (s === 0 ? " on" : "")}" data-rate="${esc(i.id)}" data-k="${k}" aria-label="${k} כוכבים">${k ? "★" : "🥱"}</button>`).join("")}
+        ${sent.has(i.id) ? `<span class="sent">💬 נשלחה הצעה</span>` : `<button class="star" data-suggest="${esc(i.id)}" aria-label="הצעת ניסוח">✏️</button>`}</span></span></li>`;
     }).join("") || `<li class="empty">אין ניחושים לדרג</li>`;
   }
   $("#raters").innerHTML = (game.raters || []).map(p => {
     const total = rateable(p).length, done = ratings.filter(r => r.player === p).length;
     return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
   }).join("");
+  const byId = Object.fromEntries(items.map(i => [i.id, i])), mine = sugIn.filter(x => byId[x.item]?.author === me); // by device, so also check it is my prediction
+  $("#sugBox").hidden = !mine.length;
+  $("#sugList").innerHTML = mine.map(x => `<li class="pred sugg" style="${col(byId[x.item].about)}">
+    <span>${av(byId[x.item].about)} <span class="who">${esc(byId[x.item].about)}</span> · <span class="old">${esc(shownText(byId[x.item]))}</span></span>
+    <span class="new">✏️ ${esc(x.text)}</span><span class="muted">הצעה של ${emo(x.from)} ${esc(x.from)}</span>
+    <span class="row"><button data-accept="${esc(x.id)}">✅ אישור</button><button class="ghost" data-reject="${esc(x.id)}">✖️ לא, תודה</button></span></li>`).join("");
+  need(mine.map(x => x.item));
+  fillMine(false);
 }
 
 function fillCard(interactive) {
@@ -727,12 +896,16 @@ function bind() {
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
+    const t = e.target.closest("[data-me],[data-del],[data-edit],[data-suggest],[data-accept],[data-reject],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
-    else if (d.me) t.classList.contains("taken") ? alert(`${d.me} כבר מחובר/ת בטלפון אחר.\nזה אתם? אפשר לשחרר את השם באחת משתי דרכים:\n• בטלפון הישן: ⚙️ ← "החלפת שחקן"\n• לבקש ממתן או מאורי: מסך מתכלל ← "🔓 שם תקוע?"`) : claim(d.me);
+    else if (d.me) { if (!t.classList.contains("taken") || confirm(`${d.me} כבר מחובר/ת בטלפון אחר.\nזה אתם? השם יעבור לטלפון הזה, והטלפון השני יחזור למסך בחירת השם.`)) claim(d.me); }
     else if (d.free) { if (confirm(`לשחרר את השם ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))).then(ok => ok && toast(`🔓 ${d.free} שוחרר`)); }
+    else if (d.edit) openEdit("edit", d.edit);
+    else if (d.suggest) openEdit("suggest", d.suggest);
+    else if (d.accept) acceptSuggestion(d.accept);
+    else if (d.reject) safe(deleteDoc(doc(db, "suggestions", d.reject)));
     else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
     else if (d.cell) toggle(d.cell);
     else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
@@ -795,7 +968,8 @@ function toggleAdmin() {
 function openSettings() {
   $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
   const ai = $("#adminItem");
-  ai.hidden = !ADMINS.includes(me);
+  ai.hidden = !isAdminName(me);
+  $("#cfgItem").hidden = legacy || !FOUNDERS.includes(me);
   ai.textContent = adminOpen ? "🛠️ מצב מתכלל: פועל ✓ (לכיבוי)" : "🛠️ הפעלת מצב מתכלל";
   showInstall();
   $("#setDlg").showModal();
@@ -805,7 +979,7 @@ $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, logout, admin: toggleAdmin, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+  ({ look: openLooks, install, howto: openHow, logout, admin: toggleAdmin, cfg: openCfg, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // close a dialog from its close button or by tapping outside it
 document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
