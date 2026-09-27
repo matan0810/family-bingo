@@ -25,6 +25,8 @@ h1,h2,.display{font-family:"Secular One",Rubik,sans-serif;font-weight:400;margin
 h1{font-size:clamp(22px,6.6vw,34px);white-space:nowrap;line-height:1.1;display:flex;align-items:center;gap:10px}
 h1 .ball{display:grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,var(--hot) 13% 100%);color:#fff;font-size:.8em;box-shadow:inset -4px -6px 0 rgba(0,0,0,.15);animation:bob 2.4s ease-in-out infinite}
 h1 .word{background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#adminBtn[aria-pressed="true"]{border-color:var(--me);color:var(--ink)}
 .sub{color:var(--muted);font-size:14px;font-weight:500}
 h2{font-size:21px;margin:28px 0 10px}
 button,select,textarea,input{font:inherit;color:inherit}
@@ -107,7 +109,7 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 </style>
 </head>
 <body>
-<header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><button class="ghost" id="who" hidden></button></header>
+<header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -129,14 +131,14 @@ const firebaseConfig = {
 const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
 // per-player avatar + color
 const LOOK = { "אבא": ["🦁", "#f59e0b"], "אמא": ["🦄", "#ec4899"], "מתן": ["🐬", "#3b82f6"], "אורי": ["🐸", "#22c55e"], "עדי": ["🐙", "#8b5cf6"], "הדר": ["🐢", "#14b8a6"] };
-const ADMIN = "מתן"; // must match isAdmin() in the Firestore rules
+const ADMINS = ["מתן", "אורי"]; // must match isAdmin() in the Firestore rules
 const N = 9;
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app), auth = getAuth(app);
-const wantAdmin = new URLSearchParams(location.search).has("admin");
-const isAdmin = () => wantAdmin && me === ADMIN;
+let adminOpen = new URLSearchParams(location.search).has("admin");
+const isAdmin = () => adminOpen && ADMINS.includes(me);
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const emo = p => LOOK[p]?.[0] ?? "🙂";
@@ -245,6 +247,9 @@ function render() {
   }
   who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} · החלפה` : "";
   who.onclick = release;
+  const ab = $("#adminBtn");
+  ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
+  ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
   document.documentElement.style.setProperty("--me", LOOK[me]?.[1] ?? "var(--hot)");
   $("#phase").textContent = game.status === "play" ? "🚗 המשחק רץ!" : "🔮 שלב הניחושים";
 
