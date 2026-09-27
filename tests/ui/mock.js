@@ -1,5 +1,5 @@
-// Stand-in for the three Firebase modules (app, auth, firestore) used by index.html.
-// run.mjs rewrites the gstatic imports to "./mock.js". All data comes from ../fixtures.mjs.
+// Stand-in for the three Firebase modules (app, auth, firestore) imported by js/firebase.js.
+// run.mjs serves the app under /mock/ with the gstatic imports pointed here. All data comes from ../fixtures.mjs.
 // Fixtures are chosen by URL hash params:
 //   m=entry|rate|play|ended   game phase (default entry)
 //   size=2..5                 board size in play/ended (default SIZE)

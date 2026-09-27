@@ -10,18 +10,20 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 
 | File | What |
 |---|---|
-| `index.html` | The whole app: CSS, HTML shell and dialogs, one `<script type="module">`. No build step. |
+| `index.html` | The HTML shell: header, `#app`, the dialogs, and `<script type="module" src="js/main.js">`. |
+| `style.css` | All the CSS. |
+| `js/*.js` | The app as native ES modules, loaded by the browser as is (see "Client architecture"). No build step. |
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
-| `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, service worker (own files network-first; Firebase modules and fonts cache-first, precached from the URLs in `index.html`), icons (the header logo is `icons/icon-192.png`). |
+| `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, service worker (own files network-first; Firebase modules and fonts cache-first, precached from the URLs in `index.html` and `js/`), icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
-| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
+| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `unit/logic.test.mjs` (unit suite), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
 ## Stack and hard constraints
 
-- Vanilla JS ES module, single file. **No frameworks, bundlers or build tooling** in the app unless Matan asks (the dev-only `tests/` package is the exception).
+- Vanilla JS as native ES modules in `js/` (Matan chose the split over a single file). **No frameworks, bundlers or build tooling** in the app unless Matan asks (the dev-only `tests/` package is the exception).
 - Firebase v10.12.2 from the gstatic CDN: `firebase-app`, `firebase-auth` (anonymous), `firebase-firestore`. Project `family-bingo-4c8e7`; the config is inline, and the public API key is expected.
 - Fonts: Google Fonts (Secular One for display, Rubik for body).
-- Deployment = push to `master`. Pages caches files for about 10 minutes, and `sw.js` revalidates (`cache: "no-cache"`). Bump `CACHE` in `sw.js` when the shell file list changes.
+- Deployment = push to `master`. Pages caches files for about 10 minutes, and `sw.js` revalidates (`cache: "no-cache"`). Bump `CACHE` in `sw.js` when the shell file list changes, and list every new `js/` module in its `SHELL` (a unit test checks the list matches the folder).
 - **Offline (road trip):** Firestore uses `persistentLocalCache` (multi-tab), so the game opens without reception and offline writes survive the app being closed. `sw.js` never touches the Firestore or sign-in APIs, only `www.gstatic.com`, `fonts.googleapis.com` and `fonts.gstatic.com`. Server timestamps are set when a write reaches the server, so a pending `bingoAt` reads as `null`: `toggle()` asks for `serverTimestamp()` again instead of writing `null`. An offline bingo is timed when it syncs (accepted: the rules only trust `request.time`).
 - Work on the assigned feature branch, then fast-forward `master` (`git push origin <branch>:master`) when Matan says "merge". Matan does not want PRs unless he asks.
 
@@ -48,7 +50,7 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 ## People and game settings
 
 - **No names or codes are hard-coded** in the code, the rules or UI text. Title, players, founders and admins all live in `config/settings` (`{title, players, founders, admins}`). `PLAYERS` is a live `let`; `appTitle()` falls back to "בינגו משפחתי".
-- **Migration (`LEGACY`):** the only names in `index.html` are the one-time seed from the first version. If `config/settings` doesn't exist, the first client to load creates it from `LEGACY` (the rules allow any member to create it once), so the running game carries on with nothing lost. Never delete data in a migration. Normalize old shapes on read instead (see `aboutOf`).
+- **Migration (`LEGACY`, in `js/config.js`):** the only names in the code are the one-time seed from the first version. If `config/settings` doesn't exist, the first client to load creates it from `LEGACY` (the rules allow any member to create it once), so the running game carries on with nothing lost. Never delete data in a migration. Normalize old shapes on read instead (see `aboutOf`).
 - **Players** are managed in the app by founders (max 12, only in entry).
   - Removing a player is treated as dangerous: it is its own action in the danger zone (`removePlayer`, not part of the draft), entry only, never a founder, blocked while the draft is dirty, and confirmed by typing the name after a prompt that counts what leaves the game. It writes settings at once and frees the name.
   - Removing keeps all data; `active(i)` leaves predictions by or about removed players out of rating and cards. `formerPlayers()` (names found in items, marks or looks) shows them as "↩️" chips that add them back through the draft.
@@ -106,19 +108,39 @@ Matan chose the simple trust model for now. When it's time to harden it, ideas i
 4. **Server-side checks:** a Cloud Function that validates bingo and blackout and fills in timestamps, instead of the honor system.
 5. **App Check** (reCAPTCHA) and an API key restricted to the Pages domain, to block scripted access with the public config.
 
-## Client architecture (index.html)
+## Client architecture (js/)
 
-- **State:** module-level `let`s (`items, game, marks, players, looks, ratings, pastGames, texts, me, uid, member, welcomed, …`). **Never shadow browser globals** (a variable named `history` once broke `history.pushState`).
-- **Data:** `listen()` starts 9 counted `onSnapshot` listeners (`SOURCES`; an `events` error is not fatal, so the game runs without a journal under older rules), and `ready(k)` renders once all have delivered. It also starts two suggestion queries (`toUid`/`fromUid` equal to my uid) that don't block rendering. A missing `config/settings` is seeded from `LEGACY`; an unreadable one (e.g. old rules) falls back to `LEGACY` in memory.
+Native ES modules, one job each. Imports only point "down" from `main.js`; the cycles between screens and actions
+(views ↔ game, data → views) are fine because nothing runs at import time except in `main.js`.
+Fixed page elements are wired by `init*()` functions that `main.js` calls once.
+
+| Module | What |
+|---|---|
+| `config.js` | Constants: Firebase config, `LEGACY`, `APP_NAME`, `MAX_PLAYERS`, `EMOJIS`/`COLOR`, `SIZES`, `PHASE`/`STAGES`, `TUNE`, `GOOD`, `STEPS`, `MINI`. |
+| `logic.js` | **Pure** game logic, no DOM/Firebase/state: `aboutOf`, `subjectOf`, `isActive`, `autoEmoji`, `lines`, `bingoCells`, `isBlackout`, `withPlaces`/`scoreRows`, `avgStars`/`weightOf`, `draw`, `shuffle`, `makeCards`, `cardStats`, `enough`, `endStats`, `formerPlayers`. Randomness is injectable. Unit-tested. |
+| `firebase.js` | The only importer of the gstatic CDN: `db`, `auth` and the Firebase functions. |
+| `state.js` | `S`, the one state object (device, shared game data, screen), `setMe`, and selectors over it (`isAdmin`, `emo`, `poolFor`, `rateable`, `ranking`, `weight`, `tuned`, …). |
+| `ui.js` | `$`/`$$`, `esc`, HTML bits shared by views (`av`, `col`, `whoName`, `whoAv`, `countChips`, `medal`, `when`), `toast`, `confetti`. |
+| `data.js` | Firestore: `startAuth`, `join`, `listen()` (9 counted `onSnapshot` sources; `ready(k)` renders once all delivered; an `events` error is not fatal; two suggestion queries that don't block), `need(ids)` for texts, `safe`, and the shared writes (`addItem`, `delItem`, `migrate`, `rate`, `saveConfig`, `writeGame`, `clearMarks`, …). A missing `config/settings` is seeded from `LEGACY`; an unreadable one falls back to `LEGACY` in memory. |
+| `account.js` | The device's name: `claim` (one batch: `players/{name}` + `members/{uid}.name`), `checkMyName`, `recordName`, `release`, `logout`. |
+| `game.js` | Phase moves (each asks first), `generate`, `endGame`, `toggle` (mark + journal entry in one batch), the "גם אצלך!" nudge, `tuneStats`, `summary()` (= `endStats` over `S`). |
+| `wording.js` | Edit/suggest dialog, accept/reject suggestions, `cleanSuggestions`. |
+| `settings.js` | The founders' game settings dialog (draft, `saveCfg`, `leaveCfg`), `removePlayer`, backup/restore, wipes. |
+| `dialogs.js` | Settings menu (⚙️), emoji picker, how to play, admin mode, install; closing dialogs by ✕/backdrop. |
+| `views.js` | `render()`, the welcome flow, view templates, `fill*()` and the admin panel, and the one delegated click handler (`taps`: `data-*` attribute → action). |
+| `main.js` | Calls the `init*()` functions, registers `sw.js`, renders, starts auth. |
+
+- **State** lives in `S` (fields like `S.items`, `S.game`, `S.marks`, `S.claims` = `players/{name}`, `S.config`; `S.players` is the player list from the settings). Change it only through the listeners and the actions. **Never shadow browser globals** (a variable named `history` once broke `history.pushState`).
 - **Render:**
   - `render()` works out the `stage` in this order: `load → code → welcome → load → pick → entry|rate|play|ended`.
-  - It rebuilds the view HTML only when `view` (the key of me, stage, rater flag and looks) changes, keeping the textarea draft and the chosen chip.
+  - It rebuilds the view HTML only when `S.view` (the key of me, stage, rater flag and looks) changes, keeping the textarea draft and the chosen chip.
   - Otherwise it calls `fill*()` functions that update lists in place.
-  - Set `view = ""` to force a rebuild.
-- **Events:** one delegated `#app.onclick` on `data-*` attributes (`data-act`, `data-cell`, `data-rate`, `data-size`, `data-free`, `data-del`, `data-edit`, `data-suggest`, `data-accept`, `data-reject`, `data-me`, `data-look`). Admin actions live in the `act` map in `bind()`. Game settings use `data-cfg` inside `#cfgBox`.
+  - Set `S.view = ""` to force a rebuild.
+- **Events:** one delegated `#app.onclick` over the `taps` table in `views.js` (`data-look`, `data-me`, `data-del`, `data-edit`, `data-suggest`, `data-accept`, `data-reject`, `data-cell`, `data-free`, `data-rate`, `data-size`, `data-tune`, `data-act`). Admin actions live in the `act` map. Game settings use `data-cfg` inside `#cfgBox` (the `actions` map in `settings.js`).
 - **Dialogs:** native `<dialog>` with an inner `.dlg` that starts with a sticky `.dlg-head` (title + ✕ `.x[data-close]`); a save button sits in a sticky `.row.save`. Tapping the backdrop or any `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, admin mode for admins, game settings for founders, how to play, switch player, logout), edit or suggest wording (`#editDlg`), game settings (`#cfgDlg`), how to play (`#howDlg`).
 - **Welcome screen:** shown right after the family code, and again from the header logo. The back button or "יאללה" returns via `history.pushState`/`popstate`.
-- **Writes:** wrap them in `safe(promise)`, which shows a toast on failure and resolves true or false. Use `writeBatch` for multi-document changes.
+- **Writes:** wrap them in `safe(promise)`, which shows a toast on failure and resolves true or false. Use one batch for multi-document changes.
+- **Logic goes in `logic.js`** when it can be pure (pass what it needs in), with a unit test. Screens and Firestore stay out of it.
 - **Install:** `beforeinstallprompt` on Android, instructions on iOS. The install item appears only in settings.
 
 ## Coding guidelines
@@ -140,17 +162,18 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:unit` | `unit/logic.test.mjs`: `node:test` over `js/logic.js` (cards, caps, crossings, places, bingo, weights, end-of-game stats, auto emojis) with a seeded random, plus a check that `sw.js` lists every module. Fast, no browser. |
+| `npm run test:ui` | `ui/run.mjs`: serves the repo, and again under `/mock/` with the gstatic imports in `js/firebase.js` swapped for `ui/mock.js`, and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode, and an offline reload through the service worker (real files, stand-in CDNs). |
 | `npm run test:rules` | `rules/test.mjs`: allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
-| `npm test` | Both. |
+| `npm test` | All three. |
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
-- **No hardcoded test data.** Names, roles, titles, codes, predictions, ratings and history live only in `tests/fixtures.mjs` (made-up names, not the family), which the browser mock and both suites import. Values the app owns (`LEGACY`, `EMOJIS`, `SIZES`, the default title, the fallback code and the limits in the rules) are read from the source by `tests/source.mjs`. Every expectation (counts, who sees what) is computed from these, never typed in. Don't write test counts in the docs either.
+- **No hardcoded test data.** Names, roles, titles, codes, predictions, ratings and history live only in `tests/fixtures.mjs` (made-up names, not the family), which the browser mock and both suites import. Values the app owns (`LEGACY`, `EMOJIS`, `SIZES`, `APP_NAME` from `js/config.js`, the fallback code and the limits in the rules) are read from the source by `tests/source.mjs`. Every expectation (counts, who sees what) is computed from these, never typed in. Don't write test counts in the docs either.
 - `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `cfg=base|full|removed|none`, `claim=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`, `sugg=1`, `pending=1`, `nudge=1`). In play/ended, marks and journal entries come from `marksFor`/`eventsFor`. With `cfg=none` the app seeds settings from `LEGACY`. `OLD_ITEMS` use the old single-name format, and `NEW_ITEMS` the list format (general and group). Extend the fixtures and the mock when the app reads or writes something new.
-- **Add or adjust checks for every behavior you change**: UI checks in `run.mjs`, and allow and deny cases in `rules/test.mjs` for every rule you touch.
+- **Add or adjust checks for every behavior you change**: unit tests for logic in `unit/`, UI checks in `run.mjs`, and allow and deny cases in `rules/test.mjs` for every rule you touch.
 
 Before pushing:
-1. Syntax: `python3 -c "s=open('index.html').read();a=s.index('<script type=\"module\">')+22;b=s.index('</script>',a);open('/tmp/x.mjs','w').write(s[a:b])" && node --check /tmp/x.mjs`
+1. Syntax: `for f in js/*.js sw.js; do node --check $f; done`
 2. `npm test` in `tests/`: everything must pass.
 3. For visual changes, take Playwright screenshots in light and dark mode at 360–390px and look at them.
 4. Re-read the diff, update `README.md` if behavior changed, commit with a clear message, push the branch, and fast-forward `master` if asked.

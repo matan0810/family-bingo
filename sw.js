@@ -1,18 +1,20 @@
 // Service worker: makes the site installable and lets the app open without reception.
-// The site's own files: network first, so a new index.html shows up right away.
+// The site's own files: network first, so a new version shows up right away.
 // Firebase's code and the fonts (other origins): cached, so the app also starts offline; the game data itself
 // comes from Firestore's own cache on the device.
-const CACHE = "bingo-v3";
-const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const CACHE = "bingo-v4";
+// every file of the app (tests/unit checks that the js/ list matches the folder)
+const SHELL = ["./", "index.html", "style.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
+  ...["account", "config", "data", "dialogs", "firebase", "game", "logic", "main", "settings", "state", "ui", "views", "wording"].map(m => `js/${m}.js`)];
 // only code and fonts; never the Firestore or sign-in APIs
 const LIBS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(async c => {
     await c.addAll(SHELL);
-    // the Firebase modules and the font stylesheet named in index.html, so the first offline start works too
-    const html = await (await c.match("index.html")).text();
-    const urls = [...new Set(html.match(/https:\/\/(www\.gstatic\.com\/firebasejs|fonts\.googleapis\.com)\/[^"'\s]+/g) || [])];
+    // the Firebase modules and the font stylesheet the app loads, so the first offline start works too
+    const texts = await Promise.all(SHELL.filter(f => /\.(html|js)$/.test(f)).map(async f => (await c.match(f))?.text() ?? ""));
+    const urls = [...new Set(texts.join("\n").match(/https:\/\/(www\.gstatic\.com\/firebasejs|fonts\.googleapis\.com)\/[^"'\s]+/g) || [])];
     await Promise.all(urls.map(u => c.add(new Request(u.replaceAll("&amp;", "&"), { mode: "cors" })).catch(() => {})));
   }));
   self.skipWaiting();

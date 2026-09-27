@@ -1,6 +1,6 @@
 // Firestore rules tests against ../../firestore.rules on the local emulator (needs Java).
 // Run from tests/: `npm run test:rules`. Names come from ../fixtures.mjs; the fallback family code,
-// the emojis and the limits are read from the rules and index.html (../source.mjs). Each t() line is one allow/deny case.
+// the emojis and the limits are read from the rules and js/config.js (../source.mjs). Each t() line is one allow/deny case.
 import { initializeTestEnvironment, assertSucceeds as ok, assertFails as no } from '@firebase/rules-unit-testing';
 import { Timestamp, doc, setDoc, getDoc, getDocs, addDoc, deleteDoc, collection, serverTimestamp, writeBatch, query, where } from 'firebase/firestore';
 import { PLAYERS, ROLE, FOUNDERS, EXTRA_PLAYER, UNKNOWN, TITLE, NEW_CODE, BULK } from '../fixtures.mjs';
@@ -31,7 +31,7 @@ const state = (d, v) => setDoc(doc(d, 'game', 'state'), { status: 'entry', cards
 const noMarks = { marked: [], bingo: false, blackout: false };
 
 section('the rules and the app agree');
-await t('emojis in the rules match EMOJIS in index.html', JSON.stringify(RULES_EMOJIS) === JSON.stringify(EMOJIS) ? Promise.resolve() : Promise.reject(new Error('emoji lists differ')));
+await t('emojis in the rules match EMOJIS in js/config.js', JSON.stringify(RULES_EMOJIS) === JSON.stringify(EMOJIS) ? Promise.resolve() : Promise.reject(new Error('emoji lists differ')));
 
 section('membership and the family code');
 await t('anon cannot read items', no(getDocs(collection(anon, 'items'))));

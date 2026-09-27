@@ -1,3 +1,2 @@
 tests/node_modules
-tests/ui/app.html
 tests/*.log

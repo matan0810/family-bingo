@@ -163,7 +163,7 @@ service cloud.firestore {
       allow delete: if isAdmin() || (status() == 'play' && owns(resource.data.player));
     }
 
-    // looks/{player} = {e}: the player's chosen emoji (must match EMOJIS in index.html)
+    // looks/{player} = {e}: the player's chosen emoji (must match EMOJIS in js/config.js)
     match /looks/{p} {
       allow read: if isMember();
       allow write: if p in players() && (owns(p) || isAdmin())

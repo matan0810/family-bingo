@@ -1,7 +1,7 @@
-// UI tests: index.html against a mocked Firebase (mock.js), driven by Playwright/Chromium.
+// UI tests: the app against a mocked Firebase (mock.js), driven by Playwright/Chromium.
 // Run from tests/: `npm run test:ui` (or `node ui/run.mjs`). Exits 1 if any check fails.
 import { createServer } from "http";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { extname, join, normalize } from "path";
 import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, ME_UID, OTHER_UID, SETTINGS, SIZE, BINGO_AT, PLAY_AT,
@@ -13,20 +13,21 @@ const { chromium, devices } = await import("playwright").catch(() =>
   import(join(execSync("npm root -g").toString().trim(), "playwright/index.mjs")));
 const CHROMIUM = ["/opt/pw-browsers/chromium", process.env.CHROMIUM_PATH].find(p => p && existsSync(p));
 
-// app.html = index.html with the gstatic Firebase imports pointed at mock.js
+// The repo is served as is at /, and again under /mock/ with the gstatic Firebase imports (in js/firebase.js)
+// pointed at mock.js; the tests use /mock/, the offline test the real thing.
 const root = new URL("../..", import.meta.url).pathname;
-const html = readFileSync(join(root, "index.html"), "utf8").replace(/https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-(app|auth|firestore)\.js/g, "./mock.js");
-writeFileSync(join(root, "tests/ui/app.html"), html);
-
-const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".png": "image/png", ".webmanifest": "application/manifest+json" };
+const GSTATIC = /https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-(app|auth|firestore)\.js/g;
+const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const server = createServer((req, res) => {
-  let file = join(root, normalize(decodeURIComponent(req.url.split(/[?#]/)[0])));
+  const path = decodeURIComponent(req.url.split(/[?#]/)[0]), mocked = path.startsWith("/mock/");
+  let file = join(root, normalize(mocked ? path.slice(5) : path));
   if (file.endsWith("/")) file += "index.html";
   if (!file.startsWith(root) || !existsSync(file)) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream" });
-  res.end(readFileSync(file));
+  const body = readFileSync(file);
+  res.end(mocked && extname(file) === ".js" ? body.toString().replace(GSTATIC, "/tests/ui/mock.js") : body);
 }).listen(0);
-const URL_ = `http://localhost:${server.address().port}/tests/ui/app.html`;
+const ORIGIN = `http://localhost:${server.address().port}`, URL_ = `${ORIGIN}/mock/index.html`;
 
 const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
 let pass = 0, fail = 0;
@@ -41,7 +42,8 @@ const check = (name, ok, got) => { ok ? pass++ : fail++; console.log(`${ok ? "âœ
 
 // opens the app; `me` = stored player (null = none), welcome skipped unless welcome:true
 async function open(hash = "", { me = ME, admin = false, welcome = false, ctx = {}, once = false } = {}) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, ...ctx });
+  // no service worker here: it would cache the mocked files (the offline test below covers it)
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", ...ctx });
   const page = await context.newPage();
   page.errors = []; page.dialogs = [];
   page.on("pageerror", e => page.errors.push(e.message));
@@ -623,7 +625,7 @@ await scenario(async () => {
   await p.addInitScript(me => { try { localStorage.setItem("bingo-welcome", "1"); localStorage.setItem("bingo-me", me); } catch {} }, ME);
   await p.goto(`http://localhost:${port}/#m=play`); await p.waitForTimeout(1500);
   const cached = await p.evaluate(async () => (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat());
-  check("the service worker keeps Firebase's code and the fonts", ["firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"].every(x => cached.some(u => u.includes(x))), cached);
+  check("the service worker keeps the app's files, Firebase's code and the fonts", ["/style.css", "/js/main.js", "/js/views.js", "firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"].every(x => cached.some(u => u.includes(x))), cached);
   cdn.length = 0;
   await context.setOffline(true);
   await p.reload(); await p.waitForTimeout(1500);
