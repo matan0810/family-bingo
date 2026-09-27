@@ -150,6 +150,12 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 .mine summary{cursor:pointer;font-family:"Secular One",Rubik,sans-serif;font-size:19px}
 .mine ul{margin-top:10px}
 .sent{font-size:12px;color:var(--muted);align-self:center}
+.danger{margin-top:22px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
+.danger summary{cursor:pointer;color:var(--muted);font-size:14px}
+.danger .row{flex-wrap:wrap}
+.danger[open] summary{color:var(--hot);font-weight:700}
+button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
+.row.save{position:sticky;bottom:-16px;background:var(--card);padding:10px 0;margin-top:18px}
 .fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
 .menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .menu button{text-align:start;font-size:17px;padding:12px 14px}
@@ -211,18 +217,23 @@ body.intro header{display:none}
   <textarea id="editText" maxlength="140"></textarea>
   <div class="row"><button id="editSave">שמירה</button><button class="ghost" data-close>ביטול</button></div></div></dialog>
 <dialog id="cfgDlg"><div class="dlg" id="cfgBox"><h2>👑 הגדרות משחק</h2>
+  <p class="muted">שינויים נשמרים רק בלחיצה על "💾 שמירת שינויים" למטה.</p>
   <h3>🏷️ שם התחרות</h3>
-  <div class="row"><input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026"><button class="ghost" data-cfg="title">שמירה</button></div>
+  <input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026">
   <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
   <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
   <p class="muted" id="cfgPlayersNote"></p>
   <h3>👑 מייסדים</h3><p class="muted">מייסדים תמיד מתכללים, והם היחידים שרואים את ההגדרות האלה.</p><div class="chips" id="cfgFounders"></div>
   <h3>🛠️ מתכללים</h3><p class="muted">מתכלל מנהל את המשחק (שלבים, כרטיסים, סיום), אבל לא את ההגדרות האלה.</p><div class="chips" id="cfgAdmins"></div>
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
-  <div class="row"><input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש"><button class="ghost" data-cfg="code">שמירה</button></div>
-  <h3>🧹 טיול חדש</h3><p class="muted">מוחק את כל הניחושים, הדירוגים וההצעות ומאפס את הסימונים. ההיסטוריה נשארת. רק בשלב הניחושים.</p>
-  <div class="row"><button class="ghost" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
-  <div class="row"><button class="ghost" data-close>סגירה</button></div></div></dialog>
+  <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)">
+  <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button><button class="ghost" data-close>סגירה</button></div>
+  <details class="danger"><summary>⚠️ אזור מסוכן</summary>
+    <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
+    <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>
+    <p class="muted"><b>🧹 טיול חדש</b> מוחק את כל הניחושים, הדירוגים וההצעות ומאפס סימונים (רק בשלב הניחושים). לפני המחיקה יורד גיבוי אוטומטית. צריך להקליד "מחיקה" כדי לאשר.</p>
+    <div class="row"><button class="ghost warn" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost warn" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
+  </details></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
@@ -527,69 +538,134 @@ function cleanSuggestions() {
 }
 
 // ---- game settings (founders): players, admins, family code, new trip ----
+// changes are collected in a draft and written only by "💾 שמירת שינויים"
+let draft = null;
+const draftOf = () => ({ title: config.title, players: [...PLAYERS], founders: [...config.founders], admins: [...config.admins] });
+const cfgDirty = () => !!draft && (JSON.stringify(draft) !== JSON.stringify(draftOf()) || !!$("#cfgCode").value.trim());
 async function openCfg() {
+  draft = draftOf();
+  $("#cfgTitle").value = draft.title; $("#cfgCode").value = $("#cfgNew").value = "";
+  $("#cfgBox .danger").open = false;
   fillCfg();
   $("#cfgCodeNote").textContent = "טוען…";
   $("#cfgDlg").showModal();
   const secret = await getDoc(doc(db, "config", "secret")).catch(() => null);
-  $("#cfgCodeNote").textContent = secret?.exists() ? `הקוד הנוכחי: ${secret.data().code}. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.` : "עכשיו בתוקף הקוד שמוגדר בחוקים. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.";
+  $("#cfgCodeNote").textContent = secret?.exists() ? `הקוד הנוכחי: ${secret.data().code}. טלפונים שכבר מחוברים לא יצטרכו קוד חדש.` : "עכשיו בתוקף הקוד שמוגדר בחוקים. טלפונים שכבר מחוברים לא יצטרכו קוד חדש.";
 }
 function fillCfg() {
-  const entry = game.status === "entry";
-  $("#cfgTitle").value ||= config.title;
-  $("#cfgPlayers").innerHTML = PLAYERS.map(p => isFounderName(p)
+  if (!draft) return;
+  const entry = game.status === "entry", d = draft;
+  const toggle = (kind, p, on) => `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="${kind}" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`;
+  $("#cfgPlayers").innerHTML = d.players.map(p => d.founders.includes(p)
     ? `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)} 👑</span>`
     : `<button class="ghost" data-cfg="del" data-p="${esc(p)}"${entry ? "" : " disabled"}>${emo(p)} ${esc(p)} ✕</button>`).join("");
-  $("#cfgPlayersNote").textContent = entry ? `${PLAYERS.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
+  $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד 12). הסרת שחקן לא מוחקת את הניחושים שלו, רק לא משתמשים בהם. מייסד (👑) מסירים קודם מהמייסדים.` : "הוספה והסרה של שחקנים רק בשלב הניחושים.";
   $("#cfgNew").disabled = $("[data-cfg=add]").disabled = !entry;
-  const toggle = (kind, p, on) => `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="${kind}" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`;
-  $("#cfgFounders").innerHTML = PLAYERS.map(p => toggle("founder", p, isFounderName(p))).join("");
-  $("#cfgAdmins").innerHTML = PLAYERS.filter(p => !isFounderName(p)).map(p => { const on = config.admins.includes(p);
-    return `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="admin" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`; }).join("");
+  $("#cfgFounders").innerHTML = d.players.map(p => toggle("founder", p, d.founders.includes(p))).join("");
+  $("#cfgAdmins").innerHTML = d.players.filter(p => !d.founders.includes(p)).map(p => toggle("admin", p, d.admins.includes(p))).join("");
+  $("#cfgSave").disabled = !cfgDirty();
 }
+$("#cfgTitle").oninput = () => { if (draft) { draft.title = $("#cfgTitle").value.trim(); fillCfg(); } };
+$("#cfgCode").oninput = () => fillCfg();
+const without = (list, p) => list.filter(x => x !== p);
 $("#cfgBox").onclick = async e => {
   const b = e.target.closest("[data-cfg]");
-  if (!b) return;
-  const p = b.dataset.p;
-  if (b.dataset.cfg === "add") {
-    const name = $("#cfgNew").value.trim();
-    if (!name || /[\/.#$\[\]]/.test(name)) return alert("שם לא תקין (בלי / . # $ [ ])");
-    if (PLAYERS.includes(name)) return alert("כבר יש שחקן בשם הזה");
-    if (PLAYERS.length >= 12) return alert("אפשר עד 12 שחקנים");
-    if (await saveConfig({ players: [...PLAYERS, name] })) { $("#cfgNew").value = ""; toast(`👋 ${name} הצטרף/ה`); }
-  } else if (b.dataset.cfg === "del") {
-    if (!confirm(`להסיר את ${p} מהמשחק?\nהניחושים שלו/ה ועליו/ה נשמרים, אבל לא ייכנסו לדירוג ולכרטיסים. אפשר להחזיר אחר כך.`)) return;
-    if (await saveConfig({ players: PLAYERS.filter(x => x !== p), founders: config.founders.filter(x => x !== p), admins: config.admins.filter(x => x !== p) }) && players[p]) safe(deleteDoc(doc(db, "players", p)));
-  } else if (b.dataset.cfg === "title") {
-    const title = $("#cfgTitle").value.trim();
-    if (await saveConfig({ title })) toast(title ? `🏷️ ${title}` : "🏷️ השם הוסר");
-  } else if (b.dataset.cfg === "founder") {
-    const on = isFounderName(p);
-    if (on && config.founders.length === 1) return alert("צריך לפחות מייסד אחד");
-    if (on && p === me && !confirm("להסיר את עצמך מהמייסדים? לא תוכל/י לחזור להגדרות האלה.")) return;
-    saveConfig({ founders: on ? config.founders.filter(x => x !== p) : [...config.founders, p], admins: config.admins.filter(x => x !== p) });
-  } else if (b.dataset.cfg === "admin") {
-    saveConfig({ admins: config.admins.includes(p) ? config.admins.filter(x => x !== p) : [...config.admins, p] });
-  } else if (b.dataset.cfg === "code") {
-    const code = $("#cfgCode").value.trim();
-    if (code.length < 3) return alert("הקוד צריך לפחות 3 תווים");
-    if (!confirm(`להחליף את הקוד המשפחתי ל־"${code}"?`)) return;
-    if (await safe(setDoc(doc(db, "config", "secret"), { code }))) { $("#cfgCode").value = ""; $("#cfgCodeNote").textContent = `הקוד הנוכחי: ${code}. טלפונים שכבר מחוברים לא יצטרכו את הקוד החדש.`; toast("🔐 הקוד עודכן"); }
-  } else if (b.dataset.cfg === "wipe") {
-    if (game.status !== "entry") return alert("ניקוי אפשרי רק בשלב הניחושים. קודם מחזירים את המשחק לשלב הניחושים.");
-    if (!confirm("לנקות הכול לטיול חדש?\nכל הניחושים, הדירוגים וההצעות יימחקו. ההיסטוריה נשארת.") || !confirm("בטוח? אי אפשר לבטל את זה.")) return;
-    const ops = [...items.flatMap(i => [["items", i.id], ["texts", i.id]]), ...ratings.map(r => ["ratings", `${r.item}_${r.player}`]), ...[...sugIn, ...sugOut].map(x => ["suggestions", x.id])];
-    let ok = true;
-    for (let k = 0; k < ops.length; k += 400) { const b = writeBatch(db); ops.slice(k, k + 400).forEach(([c, id]) => b.delete(doc(db, c, id))); ok = await safe(b.commit()) && ok; }
-    const b2 = writeBatch(db); clearMarks(b2); ok = await safe(b2.commit()) && ok;
-    if (ok) toast("🧹 הכול נקי לטיול חדש");
-  } else if (b.dataset.cfg === "wipeHist") {
-    if (!pastGames.length) return alert("אין היסטוריה");
-    if (!confirm(`למחוק את כל ההיסטוריה (${pastGames.length} משחקים)?`)) return;
-    const b = writeBatch(db); pastGames.forEach(h => b.delete(doc(db, "history", h.id)));
-    if (await safe(b.commit())) toast("🗑️ ההיסטוריה נמחקה");
+  if (!b || !draft) return;
+  const p = b.dataset.p, d = draft;
+  switch (b.dataset.cfg) {
+    case "add": {
+      const name = $("#cfgNew").value.trim();
+      if (!name || /[\/.#$\[\]]/.test(name)) return alert("שם לא תקין (בלי / . # $ [ ])");
+      if (d.players.includes(name)) return alert("כבר יש שחקן בשם הזה");
+      if (d.players.length >= 12) return alert("אפשר עד 12 שחקנים");
+      d.players.push(name); $("#cfgNew").value = ""; break;
+    }
+    case "del": d.players = without(d.players, p); d.admins = without(d.admins, p); break;
+    case "founder":
+      if (d.founders.includes(p)) {
+        if (d.founders.length === 1) return alert("צריך לפחות מייסד אחד");
+        d.founders = without(d.founders, p);
+      } else { d.founders.push(p); d.admins = without(d.admins, p); }
+      break;
+    case "admin": d.admins = d.admins.includes(p) ? without(d.admins, p) : [...d.admins, p]; break;
+    case "save": return saveCfg();
+    case "backup": return downloadBackup();
+    case "restore": return $("#cfgFile").click();
+    case "wipe": return wipeTrip();
+    case "wipeHist": return wipeHistory();
   }
+  fillCfg();
 };
+async function saveCfg() {
+  const d = draft, code = $("#cfgCode").value.trim(), removed = PLAYERS.filter(p => !d.players.includes(p));
+  if (d.players.length < 2) return alert("צריך לפחות 2 שחקנים");
+  if (code && code.length < 3) return alert("הקוד צריך לפחות 3 תווים");
+  const notes = [removed.length && `יוסרו: ${removed.join(", ")} (הניחושים שלהם נשמרים)`, !d.founders.includes(me) && "את/ה לא ברשימת המייסדים, ולא תוכל/י לחזור להגדרות האלה", code && `הקוד המשפחתי יוחלף ל־"${code}"`].filter(Boolean);
+  if (notes.length && !confirm(`לשמור?\n• ${notes.join("\n• ")}`)) return;
+  if (!await saveConfig(d)) return;
+  if (code && await safe(setDoc(doc(db, "config", "secret"), { code }))) $("#cfgCode").value = "";
+  removed.filter(p => players[p]).forEach(p => safe(deleteDoc(doc(db, "players", p))));
+  draft = draftOf(); fillCfg();
+  toast("✅ ההגדרות נשמרו");
+}
+// leaving with unsaved changes asks first (close button, tap outside, Esc)
+const leaveCfg = () => !cfgDirty() || confirm("לצאת בלי לשמור את השינויים?");
+$("#cfgDlg").addEventListener("cancel", e => { if (!leaveCfg()) e.preventDefault(); });
+
+// ---- backup and restore (founders); only what the rules let this device read and write ----
+const plain = v => v?.toDate ? { seconds: v.seconds } : Array.isArray(v) ? v.map(plain) : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)])) : v;
+async function downloadBackup() {
+  const txt = Object.fromEntries(await Promise.all(items.map(i => getDoc(doc(db, "texts", i.id)).then(s => [i.id, s.data()?.text ?? null], () => [i.id, textOf(i) ?? null]))));
+  const secret = await getDoc(doc(db, "config", "secret")).catch(() => null);
+  const data = plain({ app: "family-bingo", version: 1, at: new Date().toISOString(), by: me,
+    settings: config, secret: secret?.exists() ? secret.data() : null, game, marks, looks, players,
+    items: items.map(i => ({ ...i, text: txt[i.id] })), ratings, history: pastGames });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.download = `bingo-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(a); a.click(); a.remove();
+  toast("💾 הגיבוי ירד");
+  return true;
+}
+$("#cfgFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  let bk;
+  try { bk = JSON.parse(await f.text()); } catch { return alert("הקובץ לא נקרא. צריך קובץ גיבוי של הבינגו (json)."); }
+  if (bk?.app !== "family-bingo" || !bk.settings?.players?.length) return alert("זה לא קובץ גיבוי של הבינגו");
+  if (!confirm(`לשחזר מהגיבוי של ${new Date(bk.at).toLocaleString("he-IL")}?\nיוחזרו: הגדרות המשחק, הקוד, שלב המשחק והכרטיסים, הסימונים והאימוג׳ים${pastGames.length ? "" : ", וההיסטוריה (עם תאריך של היום)"}.\nניחושים ודירוגים לא ניתן לשחזר מכאן (החוקים לא מאפשרים לכתוב בשם אחרים), אבל הם שמורים בקובץ.`)) return;
+  const s = bk.settings, pl = s.players;
+  const writes = [
+    ["config", "settings", { title: s.title || "", players: pl, founders: s.founders?.length ? s.founders : [me], admins: s.admins || [] }],
+    ...(bk.secret?.code ? [["config", "secret", { code: bk.secret.code }]] : []),
+    ...(bk.game?.status ? [["game", "state", { status: bk.game.status, cards: bk.game.cards || {}, ...(bk.game.size ? { size: bk.game.size } : {}), raters: (bk.game.raters || []).filter(p => pl.includes(p)) }]] : []),
+    ...Object.entries(bk.marks || {}).filter(([p]) => pl.includes(p)).map(([p, m]) => ["marks", p, { marked: m.marked || [], bingo: !!m.bingo, blackout: !!m.blackout, bingoAt: m.bingo ? serverTimestamp() : null, blackoutAt: m.blackout ? serverTimestamp() : null }]),
+    ...Object.entries(bk.looks || {}).filter(([p, e]) => pl.includes(p) && COLOR[e]).map(([p, e]) => ["looks", p, { e }])
+  ];
+  const b = writeBatch(db);
+  writes.forEach(([c, id, v]) => b.set(doc(db, c, id), v));
+  if (!pastGames.length) (bk.history || []).forEach(h => b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: h.size, title: h.title || "", results: h.results || [] }));
+  if (await safe(b.commit())) { draft = draftOf(); fillCfg(); toast("♻️ שוחזר מהגיבוי"); }
+};
+// the typed word makes wiping a deliberate act
+const typed = what => prompt(`${what}\nכדי לאשר, הקלידו: מחיקה`)?.trim() === "מחיקה";
+async function wipeTrip() {
+  if (game.status !== "entry") return alert("ניקוי אפשרי רק בשלב הניחושים. קודם מחזירים את המשחק לשלב הניחושים.");
+  if (!typed(`לנקות הכול לטיול חדש?\n${items.length} ניחושים, ${ratings.length} דירוגים והצעות יימחקו, והסימונים יתאפסו. ההיסטוריה נשארת.\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  await downloadBackup();
+  const ops = [...items.flatMap(i => [["items", i.id], ["texts", i.id]]), ...ratings.map(r => ["ratings", `${r.item}_${r.player}`]), ...[...sugIn, ...sugOut].map(x => ["suggestions", x.id])];
+  let ok = true;
+  for (let k = 0; k < ops.length; k += 400) { const b = writeBatch(db); ops.slice(k, k + 400).forEach(([c, id]) => b.delete(doc(db, c, id))); ok = await safe(b.commit()) && ok; }
+  const b2 = writeBatch(db); clearMarks(b2); ok = await safe(b2.commit()) && ok;
+  if (ok) toast("🧹 הכול נקי לטיול חדש");
+}
+async function wipeHistory() {
+  if (!pastGames.length) return alert("אין היסטוריה");
+  if (!typed(`למחוק את כל ההיסטוריה (${pastGames.length} משחקים)?\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  await downloadBackup();
+  const b = writeBatch(db); pastGames.forEach(h => b.delete(doc(db, "history", h.id)));
+  if (await safe(b.commit())) toast("🗑️ ההיסטוריה נמחקה");
+}
 
 // ---- moving between phases (every step asks first) ----
 function startRating() {
@@ -1012,7 +1088,9 @@ $("#setMenu").onclick = e => {
   ({ look: openLooks, install, howto: openHow, logout, admin: toggleAdmin, cfg: openCfg, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // close a dialog from its close button or by tapping outside it
-document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
+document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => {
+  if ((e.target === d || e.target.closest("[data-close]")) && (d.id !== "cfgDlg" || leaveCfg())) d.close();
+}));
 
 let tt;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 4000); }

@@ -33,7 +33,7 @@ async function open(hash = "", { me = "מתן", admin = false, welcome = false, 
   const page = await context.newPage();
   page.errors = []; page.dialogs = [];
   page.on("pageerror", e => page.errors.push(e.message));
-  page.on("dialog", d => { page.dialogs.push(d.message()); d.accept(); });
+  page.on("dialog", d => { page.dialogs.push(d.message()); d.type() === "prompt" ? d.accept(page.promptAnswer ?? "") : d.accept(); });
   await page.addInitScript(({ me, welcome, once }) => {
     try {
       if (once && sessionStorage.init) return; // keep storage across the reload after logout
@@ -269,35 +269,62 @@ await scenario(async () => {
 console.log("— game settings (founders)");
 await scenario(async () => {
   const p = await open("m=entry&cfg=1");
+  const cfgWrites = async () => (await writes(p)).filter(w => w[0] === "config/settings");
   check("title from settings in the header and tab", (await p.textContent("#logo .word")) === "טיול צפון" && (await p.title()) === "טיול צפון");
   check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes("סבתא")));
   await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
   check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
   check("founders can't be removed", (await p.locator("#cfgPlayers [data-cfg=del]").allTextContents()).every(t => !t.includes("מתן") && !t.includes("אורי")));
   check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes("lavi"));
-  await p.fill("#cfgNew", "סבא"); await p.click("[data-cfg=add]"); await p.waitForTimeout(200);
-  let [r, d] = (await writes(p)).at(-1);
-  check("add player saves config/settings", r === "config/settings" && d.players.includes("סבא") && d.admins.join() === "עדי" && d.founders.join() === "מתן,אורי");
-  await p.click('[data-cfg=del][data-p="סבתא"]'); await p.waitForTimeout(200);
-  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
-  check("remove player asks and saves", p.dialogs.some(m => m.includes("להסיר את סבתא")) && !d.players.includes("סבתא"));
-  await p.click('[data-cfg=admin][data-p="אבא"]'); await p.waitForTimeout(200);
-  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
-  check("toggle an admin", d.admins.includes("אבא"));
-  await p.fill("#cfgTitle", "טיול דרום"); await p.click("[data-cfg=title]"); await p.waitForTimeout(200);
-  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
-  check("set the competition title", d.title === "טיול דרום");
-  await p.click('[data-cfg=founder][data-p="אמא"]'); await p.waitForTimeout(200);
-  [r, d] = (await writes(p)).filter(w => w[0] === "config/settings").at(-1);
-  check("make someone a founder", d.founders.includes("אמא"));
-  await p.fill("#cfgCode", "new-code"); await p.click("[data-cfg=code]"); await p.waitForTimeout(200);
-  check("change family code writes config/secret", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === "new-code"));
+  check("save is disabled until something changes", await p.locator("#cfgSave").isDisabled());
+  await p.fill("#cfgTitle", "טיול דרום");
+  await p.fill("#cfgNew", "סבא"); await p.click("[data-cfg=add]");
+  await p.click('[data-cfg=del][data-p="סבתא"]');
+  await p.click('[data-cfg=admin][data-p="אבא"]');
+  await p.click('[data-cfg=founder][data-p="אמא"]');
+  await p.fill("#cfgCode", "new-code");
+  check("changes are only a draft until saved", !(await cfgWrites()).length && !(await writes(p)).some(([r]) => r === "config/secret"));
+  check("save button lights up", !(await p.locator("#cfgSave").isDisabled()));
+  await p.click("#cfgSave"); await p.waitForTimeout(300);
+  const [, d] = (await cfgWrites()).at(-1);
+  check("one save writes all the settings", d.title === "טיול דרום" && d.players.includes("סבא") && !d.players.includes("סבתא") && d.admins.includes("אבא") && d.founders.includes("אמא"), d);
+  check("save confirms removals and the new code", p.dialogs.some(m => m.includes("יוסרו: סבתא") && m.includes("new-code")));
+  check("the new family code is saved", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === "new-code"));
+  await p.click('[data-cfg=admin][data-p="עדי"]');
+  const before = p.dialogs.length;
+  await p.click("#cfgDlg [data-close]"); await p.waitForTimeout(200);
+  check("closing with unsaved changes asks first", p.dialogs.length === before + 1 && p.dialogs.at(-1).includes("בלי לשמור"));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=1");
+  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  check("danger zone is collapsed", !(await p.isVisible("[data-cfg=wipe]")));
+  await p.click(".danger summary");
+  p.promptAnswer = "לא";
   await p.click("[data-cfg=wipe]"); await p.waitForTimeout(300);
-  const all = (await p.evaluate(() => window.B || [])).flat();
+  check("wipe without typing 'מחיקה' deletes nothing", !(await batchOps(p)).some(([op]) => op === "del"));
+  p.promptAnswer = "מחיקה";
+  const dl = p.waitForEvent("download", { timeout: 5000 });
+  await p.click("[data-cfg=wipe]");
+  const file = await dl; await p.waitForTimeout(300);
+  check("a backup downloads before wiping", /bingo-backup-.*\.json/.test(file.suggestedFilename()));
+  const all = await batchOps(p);
   check("new trip deletes items, texts, ratings and resets marks", all.some(([op, r]) => op === "del" && r === "items/i1") && all.some(([op, r]) => op === "del" && r === "texts/i1") && all.some(([op, r]) => op === "del" && r.startsWith("ratings/")) && all.some(([op, r, d]) => op === "set" && r.startsWith("marks/") && d.marked.length === 0));
-  check("new trip asks twice", p.dialogs.filter(m => m.includes("לנקות") || m.includes("בטוח")).length >= 2);
-  await p.click("[data-cfg=wipeHist]"); await p.waitForTimeout(200);
-  check("delete history", (await lastBatch(p)).some(([op, r]) => op === "del" && r === "history/h"));
+  const bk = JSON.parse(await (await import("fs")).promises.readFile(await file.path(), "utf8"));
+  check("backup holds settings, items with texts, ratings, marks, history", bk.app === "family-bingo" && bk.settings.title === "טיול צפון" && bk.items.length > 0 && bk.items.some(i => i.text) && bk.ratings.length > 0 && Object.keys(bk.marks).length === 6 && bk.history.length === 1);
+  await p.click("[data-cfg=wipeHist]"); await p.waitForTimeout(400);
+  check("delete history needs the word too", (await lastBatch(p)).some(([op, r]) => op === "del" && r === "history/h"));
+  // restore from the downloaded backup
+  const bk2 = { ...bk, settings: { ...bk.settings, title: "משוחזר" } };
+  await p.setInputFiles("#cfgFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(bk2)) });
+  await p.waitForTimeout(400);
+  const r = await lastBatch(p);
+  check("restore writes settings, code, game state, marks", r.some(([op, k, d]) => k === "config/settings" && d.title === "משוחזר") && r.some(([, k]) => k === "config/secret") && r.some(([, k]) => k === "game/state") && r.filter(([, k]) => k.startsWith("marks/")).length === 6, r.map(x => x[1]));
+  check("restore asks first and explains the limits", p.dialogs.some(m => m.includes("לשחזר") && m.includes("ניחושים ודירוגים לא ניתן")));
+  await p.setInputFiles("#cfgFile", { name: "x.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+  await p.waitForTimeout(200);
+  check("a non-backup file is refused", p.dialogs.at(-1).includes("לא קובץ גיבוי"));
   await done(p);
 });
 await scenario(async () => {

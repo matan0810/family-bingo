@@ -44,7 +44,9 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 - **Players** are managed in the app by founders (max 12, only in entry).
   - Removing a player keeps their data; `active(i)` leaves predictions by or about removed players out of rating and cards.
   - Names are document IDs everywhere, so renaming isn't supported (remove and add instead).
-- **Founders** (`config/settings.founders`, at least one) are always admins, and they alone open "👑 הגדרות משחק" (`#cfgDlg`): title, players, founders, extra admins, family code (`config/secret`) and new-trip cleanup. **Extra admins** (`config/settings.admins`) run the game. The client helpers are `isFounderName(p)` and `isAdminName(p)`.
+- **Founders** (`config/settings.founders`, at least one) are always admins, and they alone open "👑 הגדרות משחק" (`#cfgDlg`): title, players, founders, extra admins and family code (`config/secret`).
+  - Edits go into a `draft` and are written only by "💾 שמירת שינויים" (`saveCfg`). Leaving with unsaved changes asks first (`leaveCfg`, also on Esc and backdrop).
+  - Destructive tools live in a collapsed "⚠️ אזור מסוכן" `<details>`: backup download (`downloadBackup`, everything this device may read), restore from a backup file (settings, code, game state, marks, looks, and history if empty; predictions and ratings can't be restored under the rules), new-trip wipe and history wipe. Wipes need the typed word "מחיקה" and download a backup first. **Extra admins** (`config/settings.admins`) run the game. The client helpers are `isFounderName(p)` and `isAdminName(p)`.
 - **Identity in the rules:** a device records the name it holds in `members/{uid}.name`, in the same batch as claiming `players/{name}` (the rules check it with `getAfter`). The rules trust `myName()` only together with `owns(myName())`. `iAm()`, `isFounder()`, `isAdmin()` and `isRater()` all build on that, so there are no per-device uid lists to sync. Devices from before the upgrade record their name on load (`recordName`).
 - **Admin mode** is toggled in settings (`#adminItem`), remembered in `localStorage['bingo-admin']` (or forced on with `?admin`).
 - `EMOJIS`: 30 avatars, each with a fixed color, stored in `looks/{player}`. A player without a chosen one gets `autoEmoji(p)`: the emoji at their position in the player list, skipping ones already taken. This keeps the original avatars stable.
@@ -127,7 +129,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: 151 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:ui` | `ui/run.mjs`: 159 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
 | `npm run test:rules` | `rules/test.mjs`: 151 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
