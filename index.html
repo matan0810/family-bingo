@@ -29,6 +29,9 @@ main{max-width:560px;margin:0 auto;padding:8px 16px 40px}
 header{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:560px;margin:0 auto;padding:18px 16px 4px}
 h1,h2,.display{font-family:"Secular One",Rubik,sans-serif;font-weight:400;margin:0}
 h1{font-size:clamp(22px,6.6vw,34px);white-space:nowrap;line-height:1.1;display:flex;align-items:center;gap:10px}
+.logo{all:unset;display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:12px}
+.logo:focus-visible{outline:3px solid var(--sky);outline-offset:4px}
+.logo:active{transform:scale(.96)}
 h1 .ball{display:grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 12%,var(--hot) 13% 100%);color:#fff;font-size:.8em;box-shadow:inset -4px -6px 0 rgba(0,0,0,.15);animation:bob 2.4s ease-in-out infinite}
 h1 .word{background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
 .tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
@@ -177,7 +180,7 @@ body.intro header{display:none}
 </style>
 </head>
 <body>
-<header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
+<header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><span class="ball">B</span><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
 <dialog id="lookDlg"><div class="dlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" data-close>סגירה</button></div></dialog>
@@ -186,7 +189,6 @@ body.intro header{display:none}
     <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
-    <button class="ghost" data-set="home">🏠 מסך הפתיחה</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
     <button class="ghost" data-set="free" id="freeBtn" hidden>🔓 שחרור שם של שחקן</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
@@ -236,7 +238,7 @@ const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
-let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], history = [], view = "";
+let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
 let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
@@ -305,7 +307,7 @@ onSnapshot(collection(db, "marks"), s => {
 }, fatal);
 onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
 onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
-onSnapshot(collection(db, "history"), s => { history = s.docs.map(d => d.data()).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
+onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => d.data()).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
 }
 const SOURCES = 7;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
@@ -518,11 +520,26 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
-const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button><button class="ghost" data-act="home">🏠 מסך הפתיחה</button></p>`;
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
 
 // ---- welcome screen: once per device ----
 let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
-function showWelcome() { welcomed = false; view = ""; render(); scrollTo(0, 0); }
+// the header logo opens it again; the phone's back button (or "יאללה") returns to the game
+function showWelcome() {
+  if (!welcomed) return;
+  history.pushState({ welcome: 1 }, "");
+  welcomed = false; view = ""; render(); scrollTo(0, 0);
+}
+function leaveWelcome() {
+  if (history.state?.welcome) return history.back(); // popstate below closes it
+  closeWelcome();
+}
+function closeWelcome() {
+  welcomed = true;
+  try { localStorage.setItem("bingo-welcome", "1"); } catch {}
+  view = ""; render(); scrollTo(0, 0);
+}
+addEventListener("popstate", () => { if (!welcomed) closeWelcome(); });
 const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"];
 const welcomeView = () => `<section class="welcome">
   <div class="fam">${PLAYERS.map((p, k) => `<span style="--k:${k}">${emo(p)}</span>`).join("")}</div>
@@ -638,8 +655,8 @@ function fillEnded() {
 }
 
 function fillHistory() {
-  $("#histBox").hidden = !history.length;
-  $("#hist").innerHTML = history.map(h => `<li class="hist"><div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
+  $("#histBox").hidden = !pastGames.length;
+  $("#hist").innerHTML = pastGames.map(h => `<li class="hist"><div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
     <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
 }
 
@@ -691,9 +708,8 @@ async function toggle(id) {
 function bind() {
   const app = $("#app");
   const act = {
-    start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
+    start: leaveWelcome,
     howto: openHow,
-    home: showWelcome,
     allRaters: () => { raterSel = new Set(PLAYERS); render(); },
     noRaters: () => { raterSel.clear(); render(); },
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
@@ -762,11 +778,12 @@ function openSettings() {
   showInstall();
   $("#setDlg").showModal();
 }
+$("#logo").onclick = showWelcome;
 $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, home: showWelcome, free: openFree, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+  ({ look: openLooks, install, howto: openHow, free: openFree, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // admins release a name that is stuck on an old device
 function openFree() {
