@@ -14,7 +14,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, network-first service worker, icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
-| `tests/` | `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
+| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
 ## Stack and hard constraints
 
@@ -77,7 +77,7 @@ Old-format items that still have `text` in the item are migrated by their author
 - Anonymous Auth plus a family code. The code lives in `config/secret` (set by founders in the app) and, as a fallback, in the published console rules. It is never in the repo. When you give Matan rules to paste, remind him to replace `FAMILY_CODE`. He knows the code; ask him if needed.
 - **Trust model:** anyone who entered the code is a trusted family member. That's why any member can take over any name, including founders' names (accepted by Matan); whoever holds a founder's name has founder rights.
 - **Groups and general events:** a prediction is hidden from, never rated by, never suggested on and never put on the card of anyone in its `about` list. A general event (`[]`) can go on everyone's card.
-- **Rules `get()` limits:** at most 10 document reads per request (20 for batches), and `exists()` and `get()` on the same document count separately. `owns()` therefore uses a single `get()` (a missing doc just fails), and `isFounder()`/`isAdmin()` read `settings()` without `exists()`. The texts-in-rating path is the tightest; the rules suite covers it. Admin checks also come first in `||` chains (`isAdmin() || owns(...)`) so bulk admin batches (new trip) don't do one `get()` per document. Keep it that way; the rules suite has a 40-item bulk-delete case.
+- **Rules `get()` limits:** at most 10 document reads per request (20 for batches), and `exists()` and `get()` on the same document count separately. `owns()` therefore uses a single `get()` (a missing doc just fails), and `isFounder()`/`isAdmin()` read `settings()` without `exists()`. The texts-in-rating path is the tightest; the rules suite covers it. Admin checks also come first in `||` chains (`isAdmin() || owns(...)`) so bulk admin batches (new trip) don't do one `get()` per document. Keep it that way; the rules suite has a bulk-delete case (`BULK` in `tests/fixtures.mjs`).
 - Any change to what the client writes or reads must be checked against `firestore.rules`. If the rules must change:
   1. Update `firestore.rules`.
   2. Test it on the emulator (see below).
@@ -130,12 +130,13 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: 159 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
-| `npm run test:rules` | `rules/test.mjs`: 156 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
+| `npm run test:ui` | `ui/run.mjs`: serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:rules` | `rules/test.mjs`: allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
-- `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`, `cfg=1|2`, `sugg=1`). With no `cfg` the app seeds settings from `LEGACY`. Items `i0..i35` use the old single-name format, and `g1..g4` use the new list format (general and group). Extend it when the app reads or writes something new.
+- **No hardcoded test data.** Names, roles, titles, codes, predictions, ratings and history live only in `tests/fixtures.mjs` (made-up names, not the family), which the browser mock and both suites import. Values the app owns (`LEGACY`, `EMOJIS`, `SIZES`, the default title, the fallback code and the limits in the rules) are read from the source by `tests/source.mjs`. Every expectation (counts, who sees what) is computed from these, never typed in. Don't write test counts in the docs either.
+- `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `cfg=base|full|removed|none`, `claim=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`, `sugg=1`). With `cfg=none` the app seeds settings from `LEGACY`. `OLD_ITEMS` use the old single-name format, and `NEW_ITEMS` the list format (general and group). Extend the fixtures and the mock when the app reads or writes something new.
 - **Add or adjust checks for every behavior you change**: UI checks in `run.mjs`, and allow and deny cases in `rules/test.mjs` for every rule you touch.
 
 Before pushing:
