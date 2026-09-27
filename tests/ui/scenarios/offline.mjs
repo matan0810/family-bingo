@@ -22,6 +22,10 @@ await scenario(async () => {
   // wait for conditions, not for time: CI machines are slower
   await p.goto(`${ORIGIN}/#m=play`);
   await p.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 15000 });
+  // one more load while online, now through the service worker (like any phone that opened the app before),
+  // so everything the page loads is in its cache, not only in the browser's HTTP cache
+  await p.reload();
+  await p.waitForSelector(".cell", { timeout: 15000 });
   const want = ["/style.css", "/js/main.js", "/js/views.js", "firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"];
   const cachedUrls = () => p.evaluate(async () => (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat());
   await p.waitForFunction(async want => { const urls = (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat(); return want.every(x => urls.some(u => u.includes(x))); }, want, { timeout: 15000 }).catch(() => {});
@@ -31,6 +35,6 @@ await scenario(async () => {
   await context.setOffline(true);
   await p.reload();
   await p.waitForSelector(".cell", { timeout: 15000 }).catch(() => {});
-  check("offline: the app opens with the board, without reaching the CDNs", await p.locator(".cell").count() === SIZE * SIZE && !cdn.length, { cells: await p.locator(".cell").count(), cdn });
+  check("offline: the app opens with the board, without reaching the CDNs", await p.locator(".cell").count() === SIZE * SIZE && !cdn.length, { cells: await p.locator(".cell").count(), cdn, app: (await p.textContent("#app").catch(() => ""))?.slice(0, 120) });
   await done(p);
 });
