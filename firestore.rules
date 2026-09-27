@@ -162,7 +162,7 @@ service cloud.firestore {
           '🐱', '🐰', '🦈', '🌵', '🍕', '🍉', '🚀', '👽', '🤖', '👻'];
     }
 
-    // ratings/{item}_{player} = {item, player, stars}: only chosen raters, only in the rating phase,
+    // ratings/{item}_{player} = {item, player, stars}: only admins (the raters), only in the rating phase,
     // never on a prediction they are in or wrote
     match /ratings/{rid} {
       function item() { return get(/databases/$(db)/documents/items/$(d().item)).data; }
