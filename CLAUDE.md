@@ -49,7 +49,7 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 | Path | Fields | Notes |
 |---|---|---|
 | `members/{uid}` | `{code}` | Created once per device with the family code. The rules compare it to the code. |
-| `players/{name}` | `{uid}` | Which device owns a name. "Switch player" and logout delete it, and admins can release a stuck name. |
+| `players/{name}` | `{uid}` | Which device owns a name. "Switch player" and logout delete it. Any member may take a taken name over (the app asks "זה אתם?" first), and admins can also release one. |
 | `items/{id}` | `{about, author, weight: 1, at}` | Prediction metadata only, readable by all members. `id` is a 20-char auto ID. |
 | `texts/{id}` | `{text}` (≤140) | Created in the same batch as the item. Readable by the author always, by raters in `rate` (via `raterUids`) and by everyone in `play` and `ended`, but never by the person it is about. The client fetches texts one at a time with `getDoc` (no list queries). |
 | `game/state` | `{status, cards: {player: [ids]}, size, raters: [names], raterUids: [uids], at}` | Only admins write it. Admin devices auto-sync `raterUids` (`syncRaterUids`) when a rater joins later. |
@@ -106,8 +106,8 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:ui` | `ui/run.mjs`: 89 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
-| `npm run test:rules` | `rules/test.mjs`: 98 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
+| `npm run test:ui` | `ui/run.mjs`: 92 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:rules` | `rules/test.mjs`: 102 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | Both. |
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
