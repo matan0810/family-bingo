@@ -104,6 +104,11 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .star{background:var(--card);color:var(--line);border:2px solid var(--line);box-shadow:none;padding:2px 9px;font-size:18px;border-radius:10px;line-height:1.3}
 .star.on{color:var(--sun);border-color:var(--sun);background:color-mix(in srgb,var(--sun) 15%,var(--card))}
 .star:first-child:not(.on){filter:grayscale(1);opacity:.45}
+.step{font-weight:700;margin-top:12px}
+.step .muted{font-weight:400;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.toggle .box{display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:6px;border-radius:6px;border:2px solid var(--line);font-size:12px;font-weight:800;vertical-align:-3px}
+.toggle.on .box{background:var(--c);border-color:var(--c);color:#fff}
 button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background:color-mix(in srgb,var(--c,var(--me)) 18%,var(--card))}
 .admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
 .admin .row{flex-wrap:wrap}
@@ -177,6 +182,7 @@ body.intro header{display:none}
     <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
+    <button class="ghost" data-set="home">🏠 מסך הפתיחה</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
@@ -399,6 +405,15 @@ function setRaters(status) {
   if (!raters.length) return alert("צריך לבחור לפחות מדרג אחד");
   return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() }));
 }
+// raters are matched by device in the rules (raterUids); refresh the list when a chosen rater joins later
+let syncing = false;
+function syncRaterUids() {
+  if (game.status !== "rate" || syncing) return;
+  const uids = (game.raters || []).map(p => players[p]).filter(Boolean);
+  if (uids.length === (game.raterUids || []).length && uids.every(u => game.raterUids.includes(u))) return;
+  syncing = true;
+  setDoc(doc(db, "game", "state"), { raterUids: uids }, { merge: true }).catch(e => console.warn("raterUids", e)).finally(() => syncing = false);
+}
 function startRating() { if (confirm("לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate"); }
 function backToEntry() {
   if (!confirm("לחזור לשלב הניחושים? הדירוגים נשמרים.")) return;
@@ -448,6 +463,7 @@ function render() {
   const ab = $("#adminBtn");
   ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
   ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
+  if (live && !legacy && ADMINS.includes(me)) syncRaterUids();
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = PHASE[game.status] ?? "";
 
@@ -483,10 +499,11 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
-const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button><button class="ghost" data-act="home">🏠 מסך הפתיחה</button></p>`;
 
 // ---- welcome screen: once per device ----
 let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
+function showWelcome() { welcomed = false; view = ""; render(); scrollTo(0, 0); }
 const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"];
 const welcomeView = () => `<section class="welcome">
   <div class="fam">${PLAYERS.map((p, k) => `<span style="--k:${k}">${emo(p)}</span>`).join("")}</div>
@@ -617,14 +634,20 @@ function fillAdmin() {
   const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
     <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>`;
-  const noDevice = legacy ? [] : PLAYERS.filter(p => raterSel.has(p) && !players[p]);
-  const raters = `<p class="muted">מי מדרג?</p><div class="chips">${PLAYERS.map(p => `<button class="ghost pick${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}">${emo(p)} ${esc(p)}</button>`).join("")}</div>
-    ${noDevice.length ? `<p class="muted">⚠️ עוד לא נכנסו לאתר: ${noDevice.map(esc).join(", ")}. אחרי שייכנסו, לחצו "עדכן מדרגים".</p>` : ""}`;
+  const chosen = PLAYERS.filter(p => raterSel.has(p));
+  const noDevice = legacy ? [] : chosen.filter(p => !players[p]);
+  const dirty = st === "rate" && PLAYERS.some(p => raterSel.has(p) !== (game.raters || []).includes(p));
+  const raters = `<div class="step">${st === "rate" ? "מי מדרג?" : "1. מי ידרג את הניחושים?"} <span class="muted">לחיצה על שם מסמנת ✓ או מבטלת</span></div>
+    <div class="chips">${PLAYERS.map(p => `<button class="ghost pick toggle${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}" aria-pressed="${raterSel.has(p)}"><span class="box">${raterSel.has(p) ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`).join("")}</div>
+    <div class="row"><button class="ghost" data-act="allRaters">כולם</button><button class="ghost" data-act="noRaters">אף אחד</button>
+      <span class="muted">${chosen.length ? `ידרגו ${chosen.length}: ${chosen.map(esc).join(", ")}` : "⚠️ לא נבחרו מדרגים"}</span></div>
+    ${noDevice.length ? `<p class="muted">⚠️ ${noDevice.map(esc).join(", ")} עוד לא נכנסו לאתר. אחרי שייכנסו הם יוכלו לדרג.</p>` : ""}`;
   $("#adm").innerHTML = claims + ({
-    entry: `${raters}<p class="muted">כשכולם סיימו לכתוב: הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
-      <div class="row"><button data-act="rate">⭐ לשלב הדירוג</button></div>`,
-    rate: `${raters}<div class="row"><button class="ghost" data-act="raters">💾 עדכן מדרגים</button><button class="ghost" data-act="back">↩️ חזרה לניחושים</button></div>
-      <hr>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+    entry: `${raters}<hr><div class="step">2. כשכולם סיימו לכתוב</div>
+      <p class="muted">הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
+      <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>⭐ נעילה ומעבר לדירוג</button></div>`,
+    rate: `${raters}<div class="row">${dirty ? `<button data-act="raters">💾 שמירת השינוי במדרגים</button>` : ""}<button class="ghost" data-act="back">↩️ חזרה לניחושים</button></div>
+      <hr><div class="step">כשהמדרגים סיימו: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
       <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
     ended: `<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
@@ -650,7 +673,10 @@ function bind() {
   const act = {
     start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
     howto: openHow,
+    home: showWelcome,
     settings: openSettings,
+    allRaters: () => { raterSel = new Set(PLAYERS); render(); },
+    noRaters: () => { raterSel.clear(); render(); },
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
@@ -675,6 +701,9 @@ function bind() {
     $("#text").value = "";
     if (!await safe(addItem(about, text))) $("#text").value = text;
   });
+  // radio chips: tapping the chosen one again clears it
+  $("#add")?.addEventListener("pointerdown", e => { const i = e.target.closest(".chip")?.querySelector("input"); if (i) i.dataset.was = i.checked; });
+  $("#add")?.addEventListener("click", e => { const i = e.target; if (i.name === "about" && i.dataset.was === "true") { i.checked = false; i.dataset.was = "false"; } });
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
 }
 
@@ -715,7 +744,7 @@ $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+  ({ look: openLooks, install, howto: openHow, home: showWelcome, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // close a dialog from its close button or by tapping outside it
 document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
