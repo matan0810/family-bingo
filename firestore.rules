@@ -34,11 +34,10 @@ service cloud.firestore {
         && request.resource.data.code == 'FAMILY_CODE';
     }
 
-    // players/{name} = {uid}: which device owns each name. A member may also take a name over
-    // (e.g. after switching phones); the app asks "is this you?" first.
+    // players/{name} = {uid}: which device owns each name
     match /players/{name} {
       allow read: if isMember();
-      allow create, update: if isMember() && name in players()
+      allow create: if isMember() && name in players()
         && request.resource.data.keys().hasOnly(['uid'])
         && request.resource.data.uid == request.auth.uid;
       allow delete: if owns(name) || isAdmin();

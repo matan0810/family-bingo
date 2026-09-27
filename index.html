@@ -46,7 +46,7 @@ textarea{width:100%;background:var(--card);border:2px solid var(--line);border-r
 textarea:focus{border-color:var(--me);outline:0}
 .field{flex:1;min-width:0;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 12px}
 .field:focus{border-color:var(--me);outline:0}
-.names button.taken{filter:grayscale(.85);opacity:.6}
+.names button:disabled{filter:grayscale(1);opacity:.45;cursor:not-allowed}
 .names button small{font-size:13px;font-weight:500}
 .panel{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow)}
 .muted{color:var(--muted);font-size:15px}
@@ -524,7 +524,7 @@ const codeView = () => `<h2>🔐 קוד משפחתי</h2>
 
 const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS.map((p, k) => {
   const taken = !legacy && players[p] && players[p] !== uid;
-  return `<button data-me="${esc(p)}" class="${taken ? "taken" : ""}" style="${col(p)};animation-delay:${k * 60}ms"><span class="e">${emo(p)}</span>${esc(p)}${taken ? "<small>תפוס · זה אתם?</small>" : ""}</button>`;
+  return `<button data-me="${esc(p)}" style="${col(p)};animation-delay:${k * 60}ms"${taken ? " disabled" : ""}><span class="e">${emo(p)}</span>${esc(p)}${taken ? "<small>תפוס</small>" : ""}</button>`;
 }).join("")}</div>`;
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div>${legacy ? "" : `
@@ -731,7 +731,7 @@ function bind() {
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
-    else if (d.me) { if (!t.classList.contains("taken") || confirm(`${d.me} כבר מחובר/ת בטלפון אחר.\nזה אתם? השם יעבור לטלפון הזה, והטלפון השני יחזור למסך בחירת השם.`)) claim(d.me); }
+    else if (d.me) claim(d.me);
     else if (d.free) { if (confirm(`לשחרר את השם ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))).then(ok => ok && toast(`🔓 ${d.free} שוחרר`)); }
     else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
     else if (d.cell) toggle(d.cell);
