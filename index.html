@@ -129,7 +129,7 @@ button.av{padding:0;cursor:pointer;font-size:1em}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvZu7ozy2-NFuE1ysuIU_EnFbO12LntVE",
@@ -171,6 +171,8 @@ let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
 let legacy = false;
+const texts = {}; // item id -> text, fetched one by one (undefined = loading, null = not readable)
+const moved = new Set(); // old-format items (text inside the item) already migrated
 const got = new Set(); // snapshot sources that have delivered at least once
 const prev = {};
 let shown = null; // marked ids at last card render, to animate only new stamps
@@ -210,6 +212,40 @@ onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map
 }
 const SOURCES = 5;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
+
+// ---- texts: items/{id} holds only who/about; the text is in texts/{id}, readable by its author
+// before the game and by everyone it is not about during the game (enforced by the rules) ----
+function need(ids) {
+  const miss = ids.filter(id => !(id in texts));
+  if (!miss.length) return;
+  miss.forEach(id => texts[id] = undefined);
+  Promise.all(miss.map(id => getDoc(doc(db, "texts", id)).then(s => texts[id] = s.data()?.text ?? null, () => texts[id] = null))).then(render);
+}
+const textOf = i => i.text ?? texts[i.id];
+function addItem(about, text) {
+  const ref = doc(collection(db, "items")), b = writeBatch(db);
+  b.set(ref, { about, author: me, weight: 1, at: serverTimestamp() });
+  b.set(doc(db, "texts", ref.id), { text });
+  texts[ref.id] = text;
+  return b.commit();
+}
+function delItem(id) {
+  const b = writeBatch(db);
+  b.delete(doc(db, "items", id)); b.delete(doc(db, "texts", id));
+  return b.commit();
+}
+// predictions saved before the split still carry their text; their author moves them to the new format
+function migrate() {
+  items.filter(i => i.author === me && i.text && !moved.has(i.id)).forEach(i => {
+    moved.add(i.id);
+    const ref = doc(collection(db, "items")), b = writeBatch(db);
+    b.set(ref, { about: i.about, author: me, weight: 1, at: serverTimestamp() });
+    b.set(doc(db, "texts", ref.id), { text: i.text });
+    b.delete(doc(db, "items", i.id));
+    texts[ref.id] = i.text;
+    b.commit().catch(e => console.warn("migrate", e));
+  });
+}
 
 // ---- selection: weighted sample without replacement (weight defaults to 1) ----
 function pick(pool, k) {
@@ -316,7 +352,7 @@ const entryView = () => `${hello()}
     <div class="row"><button>הוסף ניחוש ✨</button></div>
   </form>
   <h2>🎯 כמה ניחושים על כל אחד</h2><div class="counts" id="counts"></div>
-  <h2>📜 הניחושים</h2><p class="muted">🤫 ניחושים שנכתבו עליך מוסתרים.</p><ul id="list"></ul>
+  <h2>📜 הניחושים שלי</h2><p class="muted">🤫 כל אחד רואה רק את הניחושים שהוא כתב. כולם יתגלו בטיול!</p><ul id="list"></ul>
   ${adminBox()}`;
 
 const playView = () => `
@@ -330,8 +366,10 @@ const playView = () => `
 
 function fillEntry() {
   $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
-  const vis = items.filter(i => i.about !== me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(i.text)}<br><span class="by">✍️ ${esc(i.author)}</span></span>${i.author === me ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד אין ניחושים. מי מתחיל? 🚀</li>`;
+  if (!legacy) migrate();
+  const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(textOf(i) ?? "…")}</span><button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button></li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  need(vis.filter(i => !i.text).map(i => i.id));
 }
 
 function fillPlay() {
@@ -342,14 +380,15 @@ function fillPlay() {
   const full = ids.length && on.size === ids.length;
   $("#card").classList.toggle("full", !!full);
   $("#card").innerHTML = ids.map((id, k) => {
-    const i = byId[id] || { text: "(נמחק)", about: "" };
+    const i = byId[id] || { text: "(נמחק)", about: "" }, txt = textOf(i);
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && shown && !shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
-    return `<div class="cell${cls}" role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}" data-stamp="${emo(me)}"><span class="txt">${esc(i.text)}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i>${esc(i.about)}</span>` : ""}</div>`;
+    return `<div class="cell${cls}" role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}" data-stamp="${emo(me)}"><span class="txt">${esc(txt === undefined ? "…" : txt ?? "🔒")}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i>${esc(i.about)}</span>` : ""}</div>`;
   }).join("");
   shown = on;
   $("#ring").style.setProperty("--p", on.size / N * 100);
   $("#cnt").textContent = `${on.size}/${N}`;
   $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופ/ה! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
+  need(ids.filter(id => byId[id] && !byId[id].text));
   $("#score").innerHTML = PLAYERS.map(p => [p, marks[p] || {}]).sort((a, b) => (b[1].marked?.length || 0) - (a[1].marked?.length || 0)).map(([p, m]) => {
     const n = (m.marked || []).length;
     return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${n / N * 100}%"></i></span><span class="n">${n}/${N}</span>${m.blackout ? `<span class="win">🏆 מלא</span>` : m.bingo ? `<span class="win">🎉 בינגו</span>` : ""}</li>`;
@@ -385,7 +424,7 @@ function bind() {
     if (t.hasAttribute("data-look")) openLooks();
     else if (t.dataset.me) claim(t.dataset.me);
     else if (t.dataset.free) { if (confirm(`לשחרר את ${t.dataset.free}?`)) safe(deleteDoc(doc(db, "players", t.dataset.free))); }
-    else if (t.dataset.del) { if (confirm("למחוק?")) safe(deleteDoc(doc(db, "items", t.dataset.del))); }
+    else if (t.dataset.del) { if (confirm("למחוק?")) safe(delItem(t.dataset.del)); }
     else if (t.dataset.cell) toggle(t.dataset.cell);
   };
   app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
@@ -394,7 +433,7 @@ function bind() {
     const text = $("#text").value.trim(), about = $("input[name=about]:checked")?.value;
     if (!text || !about) return;
     $("#text").value = "";
-    if (!await safe(addDoc(collection(db, "items"), { text, about, author: me, weight: 1, at: serverTimestamp() }))) $("#text").value = text;
+    if (!await safe(addItem(about, text))) $("#text").value = text;
   });
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
 }
