@@ -16,7 +16,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, service worker (own files network-first; Firebase modules and fonts cache-first, precached from the URLs in `index.html` and `js/`), icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
-| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `unit/logic.test.mjs` (unit suite), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
+| `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `unit/*.test.mjs` (unit suite), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
 ## Stack and hard constraints
 
@@ -95,7 +95,7 @@ Old-format items that still have `text` in the item are migrated by their author
   2. Test it on the emulator (see below).
   3. Give Matan the **full** rules text to paste into Firebase Console → Firestore → Rules → Publish.
   4. Tell him the order: code first, then rules, if the old rules would block the new code.
-- XSS: every interpolated value goes through `esc()`, including document IDs in `data-*` attributes.
+- XSS: all HTML is built with the `html` tagged template (`js/html.js`), which escapes every interpolated value (text, attributes, `data-*` IDs); only nested `html` results go in unescaped. Never assign a plain template string to `innerHTML`. A unit test checks the escaping, and a UI check renders a prediction whose text is HTML.
 - Accepted limitations: bingo and blackout are computed on the client (honor system), and admins are trusted.
 - `legacy` mode (Anonymous Auth disabled, so no code or name claims) is still in the code as a fallback. Auth is enabled in production.
 
@@ -120,14 +120,17 @@ Fixed page elements are wired by `init*()` functions that `main.js` calls once.
 | `logic.js` | **Pure** game logic, no DOM/Firebase/state: `aboutOf`, `subjectOf`, `isActive`, `autoEmoji`, `lines`, `bingoCells`, `isBlackout`, `withPlaces`/`scoreRows`, `avgStars`/`weightOf`, `draw`, `shuffle`, `makeCards`, `cardStats`, `enough`, `endStats`, `formerPlayers`. Randomness is injectable. Unit-tested. |
 | `firebase.js` | The only importer of the gstatic CDN: `db`, `auth` and the Firebase functions. |
 | `state.js` | `S`, the one state object (device, shared game data, screen), `setMe`, and selectors over it (`isAdmin`, `emo`, `poolFor`, `rateable`, `ranking`, `weight`, `tuned`, …). |
-| `ui.js` | `$`/`$$`, `esc`, HTML bits shared by views (`av`, `col`, `whoName`, `whoAv`, `countChips`, `medal`, `when`), `toast`, `confetti`. |
+| `html.js` | The `html` tagged template: escapes every interpolated value; nested `html` goes in as is, lists are joined, `null`/`undefined`/`false` leave nothing (so `${cond && html`…`}` works). Pure, unit-tested. |
+| `ui.js` | `$`/`$$`, `html`, HTML bits shared by views (`av`, `col`, `who`, `whoName`, `whoAv`, `countChips`, `medal`, `when`), `toast`, `confetti`. |
 | `data.js` | Firestore: `startAuth`, `join`, `listen()` (9 counted `onSnapshot` sources; `ready(k)` renders once all delivered; an `events` error is not fatal; two suggestion queries that don't block), `need(ids)` for texts, `safe`, and the shared writes (`addItem`, `delItem`, `migrate`, `rate`, `saveConfig`, `writeGame`, `clearMarks`, …). A missing `config/settings` is seeded from `LEGACY`; an unreadable one falls back to `LEGACY` in memory. |
 | `account.js` | The device's name: `claim` (one batch: `players/{name}` + `members/{uid}.name`), `checkMyName`, `recordName`, `release`, `logout`. |
 | `game.js` | Phase moves (each asks first), `generate`, `endGame`, `toggle` (mark + journal entry in one batch), the "גם אצלך!" nudge, `tuneStats`, `summary()` (= `endStats` over `S`). |
 | `wording.js` | Edit/suggest dialog, accept/reject suggestions, `cleanSuggestions`. |
 | `settings.js` | The founders' game settings dialog (draft, `saveCfg`, `leaveCfg`), `removePlayer`, backup/restore, wipes. |
 | `dialogs.js` | Settings menu (⚙️), emoji picker, how to play, admin mode, install; closing dialogs by ✕/backdrop. |
-| `views.js` | `render()`, the welcome flow, view templates, `fill*()` and the admin panel, and the one delegated click handler (`taps`: `data-*` attribute → action). |
+| `views.js` | `render()`, the welcome flow, view templates, `fill*()`, shared rows (`predRow`, `scoreRow`), and the one delegated click handler (`taps`: `data-*` attribute → action). |
+| `admin.js` | The admin panel: stepper, phase buttons, board size, card tuning (`initAdmin` keeps it open across renders), 📊 counts, stuck names. |
+| `summary.js` | The end-of-game summary (prophets, awards, reveal, journal) and the history list. |
 | `main.js` | Calls the `init*()` functions, registers `sw.js`, renders, starts auth. |
 
 - **State** lives in `S` (fields like `S.items`, `S.game`, `S.marks`, `S.claims` = `players/{name}`, `S.config`; `S.players` is the player list from the settings). Change it only through the listeners and the actions. **Never shadow browser globals** (a variable named `history` once broke `history.pushState`).
@@ -162,7 +165,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 | Command | What |
 |---|---|
-| `npm run test:unit` | `unit/logic.test.mjs`: `node:test` over `js/logic.js` (cards, caps, crossings, places, bingo, weights, end-of-game stats, auto emojis) with a seeded random, plus a check that `sw.js` lists every module. Fast, no browser. |
+| `npm run test:unit` | `unit/*.test.mjs`: `node:test` over the pure modules: `js/logic.js` (cards, caps, crossings, places, bingo, weights, end-of-game stats, auto emojis) with a seeded random, `js/html.js` (escaping), and a check that `sw.js` lists every module. Fast, no browser. |
 | `npm run test:ui` | `ui/run.mjs`: serves the repo, and again under `/mock/` with the gstatic imports in `js/firebase.js` swapped for `ui/mock.js`, and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode, and an offline reload through the service worker (real files, stand-in CDNs). |
 | `npm run test:rules` | `rules/test.mjs`: allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
 | `npm test` | All three. |

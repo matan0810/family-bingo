@@ -5,7 +5,7 @@ import { COLOR, MAX_PLAYERS } from "./config.js";
 import { S, emo, textOf } from "./state.js";
 import { aboutOf, without, formerPlayers } from "./logic.js";
 import { ref, batch, safe, saveConfig, saveCode, readSecret, getText, remove, clearMarks, newItemRef, serverTimestamp } from "./data.js";
-import { $, esc, col, toast } from "./ui.js";
+import { $, html, who, col, toast } from "./ui.js";
 
 let draft = null;
 // admins are kept in player order, so turning one off and on again is not a change
@@ -29,18 +29,18 @@ export async function openCfg() {
 export function fillCfg() {
   if (!draft) return;
   const entry = S.game.status === "entry", d = draft;
-  const chip = p => `<span class="fixed" style="${col(p)}">${emo(p)} ${esc(p)}${d.founders.includes(p) ? " 👑" : ""}</span>`;
-  const adminSwitch = p => { const on = d.admins.includes(p); return `<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="admin" data-p="${esc(p)}" style="${col(p)}" aria-pressed="${on}"><span class="box">${on ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`; };
-  $("#cfgPlayers").innerHTML = d.players.map(chip).join("");
+  const chip = p => html`<span class="fixed" style="${col(p)}">${who(p)}${d.founders.includes(p) && " 👑"}</span>`;
+  const adminSwitch = p => { const on = d.admins.includes(p); return html`<button class="ghost pick toggle${on ? " on" : ""}" data-cfg="admin" data-p="${p}" style="${col(p)}" aria-pressed="${String(on)}"><span class="box">${on && "✓"}</span>${who(p)}</button>`; };
+  $("#cfgPlayers").innerHTML = html`${d.players.map(chip)}`;
   $("#cfgPlayersNote").textContent = entry ? `${d.players.length} שחקנים (עד ${MAX_PLAYERS}). הסרת שחקן נמצאת באזור המסוכן למטה.` : "הוספה, החזרה והסרה של שחקנים רק בשלב הניחושים.";
   const former = formerPlayers(S.items, S.marks, S.looks, S.players).filter(p => !d.players.includes(p));
-  $("#cfgFormer").innerHTML = former.length ? `<span class="muted">הוסרו:</span>${former.map(p => `<button class="ghost" data-cfg="back" data-p="${esc(p)}"${entry ? "" : " disabled"}>↩️ ${esc(p)}</button>`).join("")}` : "";
+  $("#cfgFormer").innerHTML = former.length ? html`<span class="muted">הוסרו:</span>${former.map(p => html`<button class="ghost" data-cfg="back" data-p="${p}"${!entry && html` disabled`}>↩️ ${p}</button>`)}` : "";
   const sel = $("#cfgDel").value;
-  $("#cfgDel").innerHTML = `<option value="">בוחרים שחקן…</option>` + S.players.filter(p => !S.config.founders.includes(p)).map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join("");
+  $("#cfgDel").innerHTML = html`<option value="">בוחרים שחקן…</option>${S.players.filter(p => !S.config.founders.includes(p)).map(p => html`<option value="${p}">${p}</option>`)}`;
   $("#cfgDel").value = S.players.includes(sel) ? sel : "";
   $("#cfgNew").disabled = $("[data-cfg=add]").disabled = $("#cfgDel").disabled = $("[data-cfg=del]").disabled = !entry;
   $("#cfgFounders").textContent = d.founders.map(p => `${emo(p)} ${p}`).join(", ");
-  $("#cfgAdmins").innerHTML = d.players.filter(p => !d.founders.includes(p)).map(adminSwitch).join("");
+  $("#cfgAdmins").innerHTML = html`${d.players.filter(p => !d.founders.includes(p)).map(adminSwitch)}`;
   $("#cfgSave").disabled = !dirty();
 }
 

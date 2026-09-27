@@ -2,10 +2,10 @@
 // The site's own files: network first, so a new version shows up right away.
 // Firebase's code and the fonts (other origins): cached, so the app also starts offline; the game data itself
 // comes from Firestore's own cache on the device.
-const CACHE = "bingo-v4";
+const CACHE = "bingo-v5";
 // every file of the app (tests/unit checks that the js/ list matches the folder)
 const SHELL = ["./", "index.html", "style.css", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png",
-  ...["account", "config", "data", "dialogs", "firebase", "game", "logic", "main", "settings", "state", "ui", "views", "wording"].map(m => `js/${m}.js`)];
+  ...["account", "admin", "config", "data", "dialogs", "firebase", "game", "html", "logic", "main", "settings", "state", "summary", "ui", "views", "wording"].map(m => `js/${m}.js`)];
 // only code and fonts; never the Firestore or sign-in APIs
 const LIBS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 

@@ -3,7 +3,7 @@
 import { EMOJIS, STEPS } from "./config.js";
 import { S, emo, isAdminName, isFounderName } from "./state.js";
 import { setLook } from "./data.js";
-import { $, $$, esc, toast } from "./ui.js";
+import { $, $$, html, who, toast } from "./ui.js";
 import { render, showWelcome } from "./views.js";
 import { logout, release } from "./account.js";
 import { openCfg, leaveCfg } from "./settings.js";
@@ -23,15 +23,15 @@ async function install() {
 // ---- emoji picker: other players' emojis are taken ----
 export function openLooks() {
   const mine = emo(S.me);
-  $("#emojis").innerHTML = EMOJIS.map(([e, c]) => {
+  $("#emojis").innerHTML = html`${EMOJIS.map(([e, c]) => {
     const taken = e !== mine && S.players.some(p => p !== S.me && emo(p) === e);
-    return `<button data-e="${e}" style="--c:${c}"${e === mine ? ' class="on"' : ""}${taken ? " disabled" : ""}>${e}</button>`;
-  }).join("");
+    return html`<button data-e="${e}" style="--c:${c}"${e === mine && html` class="on"`}${taken && html` disabled`}>${e}</button>`;
+  })}`;
   $("#lookDlg").showModal();
 }
 
 export function openHow() {
-  $("#steps").innerHTML = STEPS.map(([e, t, d]) => `<li><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`).join("");
+  $("#steps").innerHTML = html`${STEPS.map(([e, t, d]) => html`<li><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`)}`;
   $("#howDlg").showModal();
 }
 
@@ -45,7 +45,7 @@ function toggleAdmin() {
 }
 
 function openSettings() {
-  $("#setTitle").innerHTML = `${emo(S.me)} ${esc(S.me)}`;
+  $("#setTitle").innerHTML = who(S.me);
   const ai = $("#adminItem");
   ai.hidden = !isAdminName(S.me);
   ai.textContent = S.adminOpen ? "🛠️ מצב מתכלל: פועל ✓ (לכיבוי)" : "🛠️ הפעלת מצב מתכלל";

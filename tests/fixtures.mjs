@@ -38,6 +38,8 @@ export const NEW_ITEMS = [
   { id: "g2", about: [ROLE.player, ROLE.admin], author: ROLE.founder2, text: "group event" },
   { id: "g3", about: [], author: ROLE.founder, text: "general event by me" },
   { id: "g4", about: [ROLE.player, ROLE.other], author: ROLE.founder, text: "group event by me" },
+  // text that is HTML must show as text (and never run)
+  { id: "g5", about: [ROLE.founder2], author: ROLE.other, text: `<img src=x onerror="window.XSS=1"><b>bold</b>` },
 ].map((it, k) => ({ ...it, at: OLD_COUNT + k }));
 export const ITEMS = [...OLD_ITEMS, ...NEW_ITEMS];
 export const aboutOf = i => Array.isArray(i.about) ? i.about : [i.about];

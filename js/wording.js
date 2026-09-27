@@ -2,7 +2,7 @@
 // Suggestions live only during the rating phase, and only for predictions that still exist.
 import { S, textOf } from "./state.js";
 import { ref, batch, safe, setText, add, remove, removeQuietly, serverTimestamp } from "./data.js";
-import { $, esc, toast, whoEmo, whoName } from "./ui.js";
+import { $, html, toast, whoEmo, whoName } from "./ui.js";
 import { render } from "./views.js";
 
 let editing = null;
@@ -12,7 +12,7 @@ export function openEdit(mode, id) {
   if (mode === "suggest" && !S.claims[i.author]) return toast("✋ למי שכתב את הניחוש עוד אין טלפון מחובר");
   editing = { mode, i };
   $("#editTitle").textContent = mode === "edit" ? "✏️ עריכת ניחוש" : "✏️ הצעת ניסוח";
-  $("#editSub").innerHTML = `על ${whoEmo(i)} ${esc(whoName(i))}` + (mode === "edit" ? "" : `. ההצעה תגיע ל${esc(i.author)} לאישור.`);
+  $("#editSub").innerHTML = html`על ${whoEmo(i)} ${whoName(i)}${mode === "suggest" && `. ההצעה תגיע ל${i.author} לאישור.`}`;
   $("#editText").value = textOf(i) ?? "";
   $("#editDlg").showModal();
 }

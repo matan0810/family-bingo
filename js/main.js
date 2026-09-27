@@ -1,6 +1,7 @@
 // Entry point: wires the page's fixed elements, registers the service worker, signs in and renders.
 import { startAuth } from "./data.js";
-import { render, initWelcome, initAdmin } from "./views.js";
+import { render, initWelcome } from "./views.js";
+import { initAdmin } from "./admin.js";
 import { initDialogs } from "./dialogs.js";
 import { initSettings } from "./settings.js";
 import { initWording } from "./wording.js";

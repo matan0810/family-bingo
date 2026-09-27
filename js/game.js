@@ -1,9 +1,9 @@
 // The game: moving between phases (admins; every step asks first), generating cards, marking cells,
 // "also on your card" nudges and the numbers behind the end-of-game summary.
-import { S, size, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText, emo } from "./state.js";
+import { S, size, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText } from "./state.js";
 import { makeCards, cardStats, endStats, lines } from "./logic.js";
 import { ref, batch, safe, writeGame, clearMarks, newItemRef, serverTimestamp } from "./data.js";
-import { $, esc } from "./ui.js";
+import { $, html, who } from "./ui.js";
 
 // ---- phases ----
 export function startRating() {
@@ -86,7 +86,7 @@ export function showNudge() {
   $("#nudge").hidden = !n;
   if (key === nudgeShown) return;
   nudgeShown = key;
-  if (n) $("#nudge").innerHTML = `<div>📣 אצל ${emo(n.p)} ${esc(n.p)} זה קרה:</div><div class="nt">${esc(i ? shownText(i) : "")}</div><div class="muted">וזה גם בכרטיס שלך!</div>
+  if (n) $("#nudge").innerHTML = html`<div>📣 אצל ${who(n.p)} זה קרה:</div><div class="nt">${i && shownText(i)}</div><div class="muted">וזה גם בכרטיס שלך!</div>
     <div class="row"><button data-nudge="yes">✅ לסמן גם אצלי</button><button class="ghost" data-nudge="no">לא עכשיו</button></div>`;
 }
 export function initNudge() {

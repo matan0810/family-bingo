@@ -4,7 +4,7 @@ import { LEGACY } from "./config.js";
 import { db, auth, onAuthStateChanged, signInAnonymously, collection, doc, setDoc, getDoc, deleteDoc, addDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "./firebase.js";
 import { S, emo } from "./state.js";
 import { aboutOf, secs } from "./logic.js";
-import { $, esc, toast, confetti } from "./ui.js";
+import { $, html, toast, confetti } from "./ui.js";
 import { render } from "./views.js";
 import { nudge } from "./game.js";
 
@@ -14,7 +14,7 @@ export const ref = (...path) => doc(db, ...path);
 export const batch = () => writeBatch(db);
 export { serverTimestamp };
 
-function fatal(e) { console.error(e); $("#app").innerHTML = `<p class="panel">⚠️ שגיאת חיבור (${esc(e.code || e.message)}). נסו לרענן.</p>`; }
+function fatal(e) { console.error(e); $("#app").innerHTML = html`<p class="panel">⚠️ שגיאת חיבור (${e.code || e.message}). נסו לרענן.</p>`; }
 
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 export function startAuth() {

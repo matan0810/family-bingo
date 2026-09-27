@@ -1,24 +1,25 @@
-// DOM helpers, bits of HTML shared by the views, toasts and confetti.
+// DOM helpers, the HTML bits shared by the views, toasts and confetti.
 import { GENERAL, MEDAL } from "./config.js";
 import { S, emo, colorOf } from "./state.js";
 import { aboutOf } from "./logic.js";
+import { html } from "./html.js";
 
 export const $ = s => document.querySelector(s);
 export const $$ = s => [...document.querySelectorAll(s)];
-// every interpolated value goes through esc(), including document IDs in data-* attributes
-export const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export { html };
 
-// ---- players and predictions as HTML ----
+// ---- players and predictions ----
 export const col = p => `--c:${colorOf(p)}`;
-export const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
-export const generalAv = `<span class="av" style="--c:${GENERAL}">🌍</span>`;
+export const av = p => html`<span class="av" style="${col(p)}">${emo(p)}</span>`;
+export const generalAv = html`<span class="av" style="--c:${GENERAL}">🌍</span>`;
 const listFmt = new Intl.ListFormat("he", { type: "conjunction" });
 export const whoName = i => { const [s, ...w] = aboutOf(i); return s ? s + (w.length ? ` (עם ${listFmt.format(w)})` : "") : "כללי"; };
 export const whoEmo = i => aboutOf(i).length ? aboutOf(i).map(emo).join("") : "🌍";
 export const whoCol = i => aboutOf(i).length ? col(aboutOf(i)[0]) : `--c:${GENERAL}`;
-export const whoAv = i => aboutOf(i).length ? aboutOf(i).map(av).join("") : generalAv;
+export const whoAv = i => aboutOf(i).length ? aboutOf(i).map(av) : generalAv;
+export const who = p => html`${emo(p)} ${p}`; // emoji and name, inline
 // a player chip with a number: how many predictions (about them, or available for their card)
-export const countChips = n => S.players.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${n(p)}</b></span>`).join("");
+export const countChips = n => S.players.map(p => html`<span style="${col(p)}">${av(p)}${p} <b>${n(p)}</b></span>`);
 export const medal = place => MEDAL[place - 1] ?? `${place}.`;
 export const when = t => t?.seconds ? new Date(t.seconds * 1000).toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "עכשיו";
 

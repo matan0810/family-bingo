@@ -241,6 +241,8 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=play&size=5");
+  const evil = NEW_ITEMS.find(i => i.text.includes("<"));
+  check("HTML in a prediction shows as text and never runs", (await p.textContent("#card")).includes(evil.text) && !(await p.evaluate(() => window.XSS)) && !(await p.locator("#card .txt *").count()));
   const tags = await p.locator(".cell .tag i").allTextContents();
   check("card tags: 🌍 for general, several emojis for a group", tags.includes("🌍") && tags.some(t => [...t].length >= 2), tags);
   await done(p);
