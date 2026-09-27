@@ -19,12 +19,18 @@ await scenario(async () => {
   const p = await context.newPage();
   p.errors = []; p.on("pageerror", e => p.errors.push(e.message));
   await p.addInitScript(me => { try { localStorage.setItem("bingo-welcome", "1"); localStorage.setItem("bingo-me", me); } catch {} }, ME);
-  await p.goto(`${ORIGIN}/#m=play`); await p.waitForTimeout(1500);
-  const cached = await p.evaluate(async () => (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat());
-  check("the service worker keeps the app's files, Firebase's code and the fonts", ["/style.css", "/js/main.js", "/js/views.js", "firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"].every(x => cached.some(u => u.includes(x))), cached);
+  // wait for conditions, not for time: CI machines are slower
+  await p.goto(`${ORIGIN}/#m=play`);
+  await p.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 15000 });
+  const want = ["/style.css", "/js/main.js", "/js/views.js", "firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"];
+  const cachedUrls = () => p.evaluate(async () => (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat());
+  await p.waitForFunction(async want => { const urls = (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat(); return want.every(x => urls.some(u => u.includes(x))); }, want, { timeout: 15000 }).catch(() => {});
+  const cached = await cachedUrls();
+  check("the service worker keeps the app's files, Firebase's code and the fonts", want.every(x => cached.some(u => u.includes(x))), cached);
   cdn.length = 0;
   await context.setOffline(true);
-  await p.reload(); await p.waitForTimeout(1500);
-  check("offline: the app opens with the board, without reaching the CDNs", await p.locator(".cell").count() === SIZE * SIZE && !cdn.length, cdn);
+  await p.reload();
+  await p.waitForSelector(".cell", { timeout: 15000 }).catch(() => {});
+  check("offline: the app opens with the board, without reaching the CDNs", await p.locator(".cell").count() === SIZE * SIZE && !cdn.length, { cells: await p.locator(".cell").count(), cdn });
   await done(p);
 });
