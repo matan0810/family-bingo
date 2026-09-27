@@ -137,9 +137,9 @@ const views = { welcome: welcomeView, load: () => html`<p class="muted">טוען
 // a prediction: who it is about, its text, and whatever comes after the text / after the row
 export const predRow = (i, rest = "", after = "") =>
   html`<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${whoName(i)}</span> · ${shownText(i)}${rest}</span>${after}</li>`;
-// a player with a place, a bar (0..1) and a number
+// a player with a place (if any), a bar (0..1) and a number
 export const scoreRow = (r, bar, n, extra = "") =>
-  html`<li style="${col(r.p)}"><span class="place">${medal(r.place)}</span>${av(r.p)}<span class="name">${r.p}</span><span class="bar"><i style="width:${bar * 100}%"></i></span><span class="n">${n}</span>${extra}</li>`;
+  html`<li style="${col(r.p)}">${r.place && html`<span class="place">${medal(r.place)}</span>`}${av(r.p)}<span class="name">${r.p}</span><span class="bar"><i style="width:${bar * 100}%"></i></span><span class="n">${n}</span>${extra}</li>`;
 
 // ---- filling the lists ----
 function fillEntry() {
@@ -167,7 +167,7 @@ function fillRate() {
   }
   $("#raters").innerHTML = html`${raters().map(p => {
     const total = rateable(p).length, done = S.ratings.filter(r => r.player === p).length;
-    return html`<li style="${col(p)}">${av(p)}<span class="name">${p}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
+    return scoreRow({ p }, total ? done / total : 1, `${done}/${total}`);
   })}`;
   // suggestions come by device, so also check the prediction is mine
   const byId = itemsById(), mine = S.sugIn.filter(x => byId[x.item]?.author === S.me);
