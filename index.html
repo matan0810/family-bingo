@@ -190,11 +190,7 @@ body.intro header{display:none}
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
-    <button class="ghost" data-set="free" id="freeBtn" hidden>🔓 שחרור שם של שחקן</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
-<dialog id="freeDlg"><div class="dlg"><h2>🔓 שחרור שם</h2>
-  <p class="muted">מי שהחליף טלפון או ניקה את הדפדפן: משחררים את השם שלו, והוא בוחר אותו מחדש.</p>
-  <div class="menu" id="freeList"></div><button class="ghost" data-close>סגירה</button></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
@@ -774,7 +770,6 @@ function openHow() {
 }
 function openSettings() {
   $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
-  $("#freeBtn").hidden = legacy || !ADMINS.includes(me);
   showInstall();
   $("#setDlg").showModal();
 }
@@ -783,17 +778,7 @@ $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, free: openFree, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
-};
-// admins release a name that is stuck on an old device
-function openFree() {
-  const taken = PLAYERS.filter(p => players[p] && p !== me);
-  $("#freeList").innerHTML = taken.map(p => `<button class="ghost" data-free="${esc(p)}">${emo(p)} ${esc(p)}</button>`).join("") || `<p class="muted">אין שמות תפוסים אחרים</p>`;
-  $("#freeDlg").showModal();
-}
-$("#freeList").onclick = e => {
-  const p = e.target.closest("[data-free]")?.dataset.free;
-  if (p && confirm(`לשחרר את ${p}?`)) { $("#freeDlg").close(); safe(deleteDoc(doc(db, "players", p))).then(ok => ok && toast(`🔓 ${p} שוחרר`)); }
+  ({ look: openLooks, install, howto: openHow, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // close a dialog from its close button or by tapping outside it
 document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
