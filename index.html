@@ -193,13 +193,14 @@ body.intro header{display:none}
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
+    <button class="ghost" data-set="logout">🚪 התנתקות</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -464,6 +465,14 @@ async function claim(p) {
     players[p] = uid; me = p; localStorage.setItem("bingo-me", p);
   } catch { toast("⚠️ השם תפוס"); me = null; localStorage.removeItem("bingo-me"); }
   claiming = false; render();
+}
+// full logout: free the name, drop this device's sign-in, back to the family-code screen
+async function logout() {
+  if (!confirm("להתנתק? כדי לחזור צריך להקליד שוב את הקוד המשפחתי ולבחור שם.")) return;
+  if (!legacy && players[me] === uid) await deleteDoc(doc(db, "players", me)).catch(() => {});
+  localStorage.removeItem("bingo-me");
+  if (!legacy) await signOut(auth).catch(() => {});
+  location.reload();
 }
 function release() {
   if (!legacy && players[me] === uid) safe(deleteDoc(doc(db, "players", me)));
@@ -785,7 +794,7 @@ $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+  ({ look: openLooks, install, howto: openHow, logout, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
 };
 // close a dialog from its close button or by tapping outside it
 document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
