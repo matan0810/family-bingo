@@ -514,7 +514,7 @@ const welcomeView = () => `<section class="welcome">
 </section>`;
 
 const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
-const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-act="settings">⚙️ הגדרות</button></div>`;
+const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span></div>`;
 
 const entryView = () => `${hello()}
   <h2>✍️ ניחוש חדש</h2>
@@ -674,7 +674,6 @@ function bind() {
     start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
     howto: openHow,
     home: showWelcome,
-    settings: openSettings,
     allRaters: () => { raterSel = new Set(PLAYERS); render(); },
     noRaters: () => { raterSel.clear(); render(); },
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
@@ -701,9 +700,12 @@ function bind() {
     $("#text").value = "";
     if (!await safe(addItem(about, text))) $("#text").value = text;
   });
-  // radio chips: tapping the chosen one again clears it
-  $("#add")?.addEventListener("pointerdown", e => { const i = e.target.closest(".chip")?.querySelector("input"); if (i) i.dataset.was = i.checked; });
-  $("#add")?.addEventListener("click", e => { const i = e.target; if (i.name === "about" && i.dataset.was === "true") { i.checked = false; i.dataset.was = "false"; } });
+  // radio chips: tapping the chosen one again clears it (the label's own click, before it re-selects the radio)
+  $("#add")?.addEventListener("click", e => {
+    const chip = e.target.closest("label.chip"), i = chip?.querySelector("input");
+    if (!i || e.target === i || !i.checked) return;
+    e.preventDefault(); i.checked = false;
+  });
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
 }
 
