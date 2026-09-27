@@ -28,7 +28,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 
 1. **entry**: each player adds predictions `{about, text}`: about one subject (optionally with involved people) or a general event, never about themselves. **Secrecy:** a player sees only the predictions they wrote. The rules enforce this, not just the UI. Authors can edit (✏️) and delete (🗑️) their own predictions.
 2. **rate** (fixed phase): **the admins (founders included) are the raters**; there is no rater picker. Each rater gives 0–3 stars (🥱 = 0) to predictions that are neither about them nor written by them. No adding or deleting, but authors can still edit their text, and raters can send the author a wording suggestion (✏️) that the author accepts or declines. Pending suggestions are dropped when the phase ends. From `play` on, texts are locked.
-3. **play**: the admin picks the board size (2×2, 3×3, 4×4 or 5×5) and generates the cards. Each card samples predictions not about its owner, weighted, without replacement. A row, column or diagonal is a bingo, and a full card is a blackout (the main win). Toasts and confetti show for everyone, and a live scoreboard shows places 🥇🥈🥉.
+3. **play**: the admin picks the board size (2×2, 3×3, 4×4 or 5×5) and generates the cards. Each card is built by `makeCards` (see "Cards" below). A row, column or diagonal is a bingo, and a full card is a blackout (the main win). Toasts and confetti show for everyone, and a live scoreboard shows places 🥇🥈🥉.
 4. **ended**: only the admin ends the game (a blackout does not end it). Results are written to `history`, and everyone sees the winner, the final table and their own card, read-only. "New game" goes back to entry, and predictions and ratings are kept.
 
 The admin can move backwards with a confirmation each time: rate → entry, entry → rate, and play → rate (which wipes the cards and marks). Ratings always survive.
@@ -36,6 +36,11 @@ The admin can move backwards with a confirmation each time: rate → entry, entr
 **Places:** a blackout comes first (earliest `blackoutAt` wins), then more marks, then having a bingo (earliest `bingoAt`). Ties share a place.
 
 **Card weights:** `weightOf(i) = (item.weight ?? 1) × (avgStars + 0.5)²`, where an unrated prediction counts as 1.5 stars. `item.weight` is the manual-priority hook; keep it.
+
+**Cards (`makeCards(N)`):** all weighted draws without replacement (`draw`), from `poolFor(p)` (active predictions not about or involving `p`):
+1. **Shared moments:** one "hot" set of N predictions is drawn from all active ones; each card first takes `ceil(N/4)` of them (those allowed for its owner), so some events hit several cards at once.
+2. **Variety:** the rest is drawn with a cap per subject (`bucket`: `subjectOf(i)`, general events as one bucket) of `ceil(N / subjects in the pool) + 1`. When nothing under the cap is left, the cap is ignored rather than leaving cells empty.
+3. **Shuffle:** positions are shuffled, since drawing by weight puts the strongest predictions first (they would crowd the top rows).
 
 ## People and game settings
 

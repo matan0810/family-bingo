@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { extname, join, normalize } from "path";
 import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, ME_UID, OTHER_UID, SETTINGS, SIZE, BINGO_AT,
-  ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor } from "../fixtures.mjs";
+  ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor, poolFor } from "../fixtures.mjs";
 import { LEGACY, EMOJIS, DEFAULT_TITLE } from "../source.mjs";
 
 const { chromium, devices } = await import("playwright").catch(() =>
@@ -464,6 +464,16 @@ await scenario(async () => {
   const g = await lastBatch(p);
   check("generate 4×4: 16 cells per card, marks reset", g[0][2].status === "play" && g[0][2].size === 4 && P.every(pl => g[0][2].cards[pl].length === 16) && g.length === 1 + P.length);
   check("cards never contain predictions about their owner", Object.entries(g[0][2].cards).every(([pl, ids]) => ids.every(id => !aboutOf(byId(id)).includes(pl))));
+  const cards = Object.entries(g[0][2].cards), N = 16;
+  check("no prediction twice on a card", cards.every(([, ids]) => new Set(ids).size === ids.length));
+  const subjectOver = cards.filter(([pl, ids]) => {
+    const subject = i => aboutOf(i)[0] ?? "", pool = poolFor(pl), cap = Math.ceil(N / new Set(pool.map(subject)).size) + 1;
+    const per = {}; ids.forEach(id => per[subject(byId(id))] = (per[subject(byId(id))] || 0) + 1);
+    return Math.max(...Object.values(per)) > cap;
+  }).map(([pl]) => pl);
+  check("variety: no subject goes over its share of a card", !subjectOver.length, subjectOver);
+  const onCards = id => cards.filter(([, ids]) => ids.includes(id)).length;
+  check("some predictions are shared by several cards", cards.some(([, ids]) => ids.some(id => onCards(id) > 1)));
   await p.click('[data-act="back"]'); await p.waitForTimeout(100);
   check("back to entry", (await writes(p)).filter(([r, d]) => d.status).at(-1)[1].status === "entry");
   await done(p);

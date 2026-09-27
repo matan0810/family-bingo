@@ -453,18 +453,32 @@ function weightOf(i) {
   const avg = rs.length ? rs.reduce((s, x) => s + x, 0) / rs.length : 1.5;
   return (i.weight ?? 1) * (avg + .5) ** 2;
 }
-function pick(pool, k) {
-  pool = pool.map(i => ({ id: i.id, w: weightOf(i) }));
-  const out = [];
-  while (out.length < k) {
-    let r = Math.random() * pool.reduce((s, p) => s + p.w, 0);
-    let j = pool.findIndex(p => (r -= p.w) < 0);
-    if (j < 0) j = pool.length - 1;
-    out.push(pool.splice(j, 1)[0].id);
-  }
-  return out;
-}
 const poolFor = p => items.filter(i => active(i) && !aboutOf(i).includes(p));
+const bucket = i => subjectOf(i) ?? ""; // "" = general events
+// draws k more predictions into card by weight, at most cap per subject while that is still possible
+function draw(pool, k, card, per, cap) {
+  const left = pool.filter(i => !card.includes(i.id)).map(i => ({ i, w: weightOf(i) }));
+  for (let n = 0; n < k && left.length; n++) {
+    const ok = left.filter(x => (per[bucket(x.i)] || 0) < cap), from = ok.length ? ok : left;
+    let r = Math.random() * from.reduce((s, x) => s + x.w, 0);
+    const x = from.find(x => (r -= x.w) < 0) ?? from.at(-1);
+    left.splice(left.indexOf(x), 1); card.push(x.i.id);
+    per[bucket(x.i)] = (per[bucket(x.i)] || 0) + 1;
+  }
+  return card;
+}
+const shuffle = a => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
+// a card = a few "hot" predictions shared across cards (so some moments make several players shout at once),
+// then the rest by weight, with a cap per subject so every card laughs at everyone; positions are shuffled
+// (drawing puts the strongest first, which would crowd them into the top rows)
+function makeCards(N) {
+  const hot = draw(items.filter(active), N, [], {}, Infinity);
+  return Object.fromEntries(PLAYERS.map(p => {
+    const pool = poolFor(p), per = {}, cap = Math.ceil(N / new Set(pool.map(bucket)).size) + 1;
+    const card = draw(pool.filter(i => hot.includes(i.id)), Math.ceil(N / 4), [], per, cap);
+    return [p, shuffle(draw(pool, N - card.length, card, per, cap))];
+  }));
+}
 
 // ---- board geometry ----
 const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
@@ -497,7 +511,7 @@ async function generate() {
   if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
-  const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
+  const cards = makeCards(N);
   b.set(doc(db, "game", "state"), { status: "play", cards, size: n, at: serverTimestamp() });
   clearMarks(b);
   await safe(b.commit());
