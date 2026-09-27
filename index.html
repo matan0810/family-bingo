@@ -146,13 +146,16 @@ const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, view = "";
 let uid = null, member = false, claiming = false;
+// Anonymous Auth not enabled in the console yet: run without the family code and name claims.
+// Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
+let legacy = false;
 const got = new Set(); // snapshot sources that have delivered at least once
 const prev = {};
 let shown = null; // marked ids at last card render, to animate only new stamps
 
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 onAuthStateChanged(auth, async u => {
-  if (!u) return signInAnonymously(auth).catch(fatal);
+  if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
   if (uid) return; // listeners already set up
   uid = u.uid;
   try { member = (await getDoc(doc(db, "members", uid))).exists(); } catch (e) { return fatal(e); }
@@ -169,7 +172,8 @@ const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "
 function listen() {
 onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready("items"); }, fatal);
 onSnapshot(doc(db, "game", "state"), s => { game = s.data() || { status: "entry", cards: {} }; ready("game"); }, fatal);
-onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
+if (legacy) got.add("players");
+else onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
 onSnapshot(collection(db, "marks"), s => {
   marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
   for (const [p, m] of Object.entries(marks)) {
@@ -217,6 +221,7 @@ async function reset() {
 
 // ---- player names: each name is claimed by one device (players/{name} = {uid}) ----
 async function claim(p) {
+  if (legacy) { me = p; localStorage.setItem("bingo-me", p); return render(); }
   if (claiming) return;
   claiming = true;
   try {
@@ -226,7 +231,7 @@ async function claim(p) {
   claiming = false; render();
 }
 function release() {
-  if (players[me] === uid) safe(deleteDoc(doc(db, "players", me)));
+  if (!legacy && players[me] === uid) safe(deleteDoc(doc(db, "players", me)));
   localStorage.removeItem("bingo-me"); me = null; render();
 }
 
@@ -235,7 +240,7 @@ function render() {
   const who = $("#who");
   const live = member && got.size >= 4;
   // a stored name must be claimed by this device; claim it if free (e.g. after this update), else forget it
-  if (live && me && players[me] !== uid && !claiming) {
+  if (live && me && !legacy && players[me] !== uid && !claiming) {
     if (players[me] || !PLAYERS.includes(me)) { me = null; localStorage.removeItem("bingo-me"); } else claim(me);
   }
   who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} · החלפה` : "";
@@ -262,7 +267,7 @@ const codeView = () => `<h2>🔐 קוד משפחתי</h2>
   <p class="muted" id="err" role="alert"></p></form>`;
 
 const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS.map((p, k) => {
-  const taken = players[p] && players[p] !== uid;
+  const taken = !legacy && players[p] && players[p] !== uid;
   return `<button data-me="${esc(p)}" style="${col(p)};animation-delay:${k * 60}ms"${taken ? " disabled" : ""}><span class="e">${emo(p)}</span>${esc(p)}${taken ? "<small>תפוס</small>" : ""}</button>`;
 }).join("")}</div>`;
 
@@ -319,7 +324,7 @@ function fillPlay() {
 }
 
 function fillAdmin() {
-  const claims = `<p class="muted">שמות תפוסים (שחרור מאפשר לבחור את השם ממכשיר אחר):</p>
+  const claims = legacy ? "" : `<p class="muted">שמות תפוסים (שחרור מאפשר לבחור את השם ממכשיר אחר):</p>
     <div class="counts">${PLAYERS.filter(p => players[p]).map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <button class="ghost" data-free="${esc(p)}">שחרר</button></span>`).join("") || `<span>אין</span>`}</div>`;
   $("#adm").innerHTML = claims + (game.status === "play"
     ? `<p class="muted">המשחק רץ.</p><button class="ghost" id="reset">אפס כרטיסים</button>`
