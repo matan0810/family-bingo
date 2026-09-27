@@ -1,0 +1,129 @@
+// Firestore security rules for family-bingo (project family-bingo-4c8e7).
+// Deploy: paste into Firebase Console -> Firestore -> Rules -> Publish.
+// Replace FAMILY_CODE with the real family code before publishing (the code is kept out of this public repo).
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function players() { return ['אבא', 'אמא', 'מתן', 'אורי', 'עדי', 'הדר']; }
+    function signedIn() { return request.auth != null; }
+    function isMember() {
+      return signedIn() && exists(/databases/$(db)/documents/members/$(request.auth.uid));
+    }
+    function owns(name) {
+      let p = /databases/$(db)/documents/players/$(name);
+      return isMember() && exists(p) && get(p).data.uid == request.auth.uid;
+    }
+    function isAdmin() { return owns('מתן') || owns('אורי'); }
+    function stateDoc() { return /databases/$(db)/documents/game/state; }
+    function state() { return get(stateDoc()).data; }
+    // entry -> rate (optional) -> play -> ended
+    function status() { return exists(stateDoc()) ? state().status : 'entry'; }
+    function isEntry() { return status() == 'entry'; }
+    function d() { return request.resource.data; }
+    // a timestamp field may be missing, null, set now, or left unchanged
+    function tsOk(f) {
+      return !(f in d()) || d()[f] == null || d()[f] == request.time
+        || (resource != null && f in resource.data && d()[f] == resource.data[f]);
+    }
+
+    // one doc per device; created only with the right family code
+    match /members/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['code'])
+        && request.resource.data.code == 'FAMILY_CODE';
+    }
+
+    // players/{name} = {uid}: which device owns each name
+    match /players/{name} {
+      allow read: if isMember();
+      allow create: if isMember() && name in players()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if owns(name) || isAdmin();
+    }
+
+    // items/{id}: who a prediction is about and who wrote it (no text), readable by all members
+    match /items/{id} {
+      allow read: if isMember();
+      allow create: if isEntry()
+        && id.matches('^[A-Za-z0-9]{20}$')
+        && existsAfter(/databases/$(db)/documents/texts/$(id))
+        && request.resource.data.keys().hasOnly(['about', 'author', 'weight', 'at'])
+        && request.resource.data.about in players()
+        && owns(request.resource.data.author)
+        && request.resource.data.about != request.resource.data.author
+        && request.resource.data.weight == 1
+        && request.resource.data.at == request.time;
+      allow delete: if isEntry() && (owns(resource.data.author) || isAdmin());
+    }
+
+    // texts/{id} = {text}: the author always; raters during the rating phase;
+    // everyone during and after the game; never the person it is about
+    match /texts/{id} {
+      function meta() { return get(/databases/$(db)/documents/items/$(id)).data; }
+      allow get: if isMember() && (owns(meta().author) || (!owns(meta().about) && (
+        status() in ['play', 'ended']
+        || (status() == 'rate' && request.auth.uid in state().raterUids))));
+      allow create: if isEntry()
+        && request.resource.data.keys().hasOnly(['text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 140
+        && owns(getAfter(/databases/$(db)/documents/items/$(id)).data.author);
+      allow delete: if isEntry() && (owns(meta().author) || isAdmin());
+    }
+
+    match /game/{docId} {
+      allow read: if isMember();
+      allow write: if docId == 'state' && isAdmin()
+        && d().keys().hasOnly(['status', 'cards', 'size', 'raters', 'raterUids', 'at'])
+        && d().status in ['entry', 'rate', 'play', 'ended']
+        && d().cards is map && d().cards.keys().hasOnly(players())
+        && (!('size' in d()) || d().size in [2, 3, 4, 5])
+        && (!('raters' in d()) || (d().raters is list && d().raters.hasOnly(players())))
+        && (!('raterUids' in d()) || (d().raterUids is list && d().raterUids.size() <= 6));
+    }
+
+    match /marks/{p} {
+      allow read: if isMember();
+      allow write: if p in players() && ((owns(p) && status() == 'play') || isAdmin())
+        && d().keys().hasOnly(['marked', 'bingo', 'blackout', 'bingoAt', 'blackoutAt'])
+        && d().marked is list && d().marked.size() <= 25
+        && d().bingo is bool && d().blackout is bool
+        && tsOk('bingoAt') && tsOk('blackoutAt');
+    }
+    // looks/{player} = {e}: the player's chosen emoji (must match EMOJIS in index.html)
+    match /looks/{p} {
+      allow read: if isMember();
+      allow write: if p in players() && (owns(p) || isAdmin())
+        && request.resource.data.keys().hasOnly(['e'])
+        && request.resource.data.e in ['🦁', '🦄', '🐬', '🐸', '🐙', '🐢', '🦊', '🐼', '🐯', '🐨',
+          '🐷', '🐵', '🐧', '🦉', '🐝', '🦋', '🐞', '🦖', '🐳', '🦩',
+          '🐱', '🐰', '🦈', '🌵', '🍕', '🍉', '🚀', '👽', '🤖', '👻'];
+    }
+    // ratings/{item}_{player} = {item, player, stars}: only chosen raters, only in the rating phase,
+    // never on a prediction about themselves or written by themselves
+    match /ratings/{rid} {
+      function item() { return get(/databases/$(db)/documents/items/$(d().item)).data; }
+      allow read: if isMember();
+      allow create, update: if status() == 'rate'
+        && d().keys().hasOnly(['item', 'player', 'stars'])
+        && d().item is string && rid == d().item + '_' + d().player
+        && owns(d().player) && d().player in state().raters
+        && d().stars in [0, 1, 2, 3]
+        && item().about != d().player && item().author != d().player;
+      allow delete: if isAdmin();
+    }
+
+    // history/{id}: results of finished games
+    match /history/{id} {
+      allow read: if isMember();
+      allow create: if isAdmin()
+        && d().keys().hasOnly(['at', 'size', 'results'])
+        && d().at == request.time && d().size in [2, 3, 4, 5]
+        && d().results is list && d().results.size() <= 6;
+      allow delete: if isAdmin();
+    }
+    // anything not matched above is denied
+  }
+}
