@@ -11,7 +11,8 @@
 //   legacy=1                  MIGRATED still holds its text (the first version's format) -> migration
 //   nohist=1                  no history
 //   sugg=1                    SUGGESTION waits for its author
-// Writes are recorded for assertions: window.W (setDoc), window.B (batches),
+//   pending=1                 the founder's bingo time is still pending (made offline): it reads as null
+// Writes are recorded for assertions: window.W (setDoc), window.B (batches), window.FS (Firestore options),
 // sessionStorage.claims / .del (survive the reload after logout).
 import { PLAYERS, ROLE, ITEMS, MIGRATED, SETTINGS, CODE, ME_UID, CLAIMS, SIZE, BINGO_AT, RATINGS, SUGGESTION, HISTORY, cardFor } from "../fixtures.mjs";
 
@@ -28,7 +29,7 @@ const state = {
 }[mode];
 // the founder has the main diagonal (a bingo); player k has k marks
 const diag = [...Array(n).keys()].map(k => cards[ROLE.founder][k * n + k]);
-const marks = PLAYERS.map((p, k) => ({ id: p, data: () => p === ROLE.founder ? { marked: diag, bingo: true, blackout: false, bingoAt: { seconds: BINGO_AT } } : { marked: cards[p].slice(0, k), bingo: false, blackout: false } }));
+const marks = PLAYERS.map((p, k) => ({ id: p, data: () => p === ROLE.founder ? { marked: diag, bingo: true, blackout: false, bingoAt: q.get("pending") ? null : { seconds: BINGO_AT } } : { marked: cards[p].slice(0, k), bingo: false, blackout: false } }));
 const config = SETTINGS[cfg];
 const sugIn = q.get("sugg") ? [SUGGESTION] : [];
 const asDocs = list => list.map(({ id, ...d }) => ({ id, data: () => d }));
@@ -39,7 +40,9 @@ let plCb = null;
 const emitPl = () => plCb && setTimeout(() => plCb({ docs: Object.entries(PL).map(([id, uid]) => ({ id, data: () => ({ uid }) })) }));
 const log = (k, v) => { try { sessionStorage[k] = (sessionStorage[k] || "") + v + ";"; } catch {} };
 
-export const initializeApp = () => ({}), getFirestore = () => ({}), serverTimestamp = () => "TS";
+export const initializeApp = () => ({}), serverTimestamp = () => "TS";
+export const persistentMultipleTabManager = () => "tabs", persistentLocalCache = o => ({ persistent: o });
+export const initializeFirestore = (_, o) => { window.FS = o; return {}; };
 let auto = 0;
 export const collection = (_, name) => name;
 export const where = field => field;

@@ -250,7 +250,7 @@ body.intro header{display:none}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, addDoc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvZu7ozy2-NFuE1ysuIU_EnFbO12LntVE",
@@ -277,7 +277,9 @@ const MEDAL = ["🥇", "🥈", "🥉"];
 const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app), auth = getAuth(app);
+// local cache on the device: the game opens without reception, and marks made offline are kept (even if the app is
+// closed) and sent when reception returns
+const db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }), auth = getAuth(app);
 // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
 let adminOpen = new URLSearchParams(location.search).has("admin") || (() => { try { return !!localStorage.getItem("bingo-admin"); } catch { return false; } })();
 const isFounderName = p => config.founders.includes(p);
@@ -1060,8 +1062,9 @@ async function toggle(id) {
   const bingo = lines(size()).some(l => l.every(k => on.has(ids[k]))), blackout = ids.every(x => on.has(x));
   await safe(setDoc(doc(db, "marks", me), {
     marked: [...on], bingo, blackout,
-    bingoAt: bingo ? (m.bingo ? m.bingoAt ?? null : serverTimestamp()) : null,
-    blackoutAt: blackout ? (m.blackout ? m.blackoutAt ?? null : serverTimestamp()) : null
+    // keep a time the server already set; one still pending (offline) reads as null, so ask for it again
+    bingoAt: bingo ? (m.bingo && m.bingoAt || serverTimestamp()) : null,
+    blackoutAt: blackout ? (m.blackout && m.blackoutAt || serverTimestamp()) : null
   }));
 }
 

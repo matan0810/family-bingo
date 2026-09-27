@@ -12,7 +12,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 |---|---|
 | `index.html` | The whole app: CSS, HTML shell and dialogs, one `<script type="module">`. No build step. |
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
-| `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, network-first service worker, icons (the header logo is `icons/icon-192.png`). |
+| `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, service worker (own files network-first; Firebase modules and fonts cache-first, precached from the URLs in `index.html`), icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
 | `tests/` | `fixtures.mjs` (shared test data), `source.mjs` (values read from the app), `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
@@ -22,6 +22,7 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 - Firebase v10.12.2 from the gstatic CDN: `firebase-app`, `firebase-auth` (anonymous), `firebase-firestore`. Project `family-bingo-4c8e7`; the config is inline, and the public API key is expected.
 - Fonts: Google Fonts (Secular One for display, Rubik for body).
 - Deployment = push to `master`. Pages caches files for about 10 minutes, and `sw.js` revalidates (`cache: "no-cache"`). Bump `CACHE` in `sw.js` when the shell file list changes.
+- **Offline (road trip):** Firestore uses `persistentLocalCache` (multi-tab), so the game opens without reception and offline writes survive the app being closed. `sw.js` never touches the Firestore or sign-in APIs, only `www.gstatic.com`, `fonts.googleapis.com` and `fonts.gstatic.com`. Server timestamps are set when a write reaches the server, so a pending `bingoAt` reads as `null`: `toggle()` asks for `serverTimestamp()` again instead of writing `null`. An offline bingo is timed when it syncs (accepted: the rules only trust `request.time`).
 - Work on the assigned feature branch, then fast-forward `master` (`git push origin <branch>:master`) when Matan says "merge". Matan does not want PRs unless he asks.
 
 ## The game (phases in `game/state.status`)

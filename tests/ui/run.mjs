@@ -8,6 +8,7 @@ import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, 
   ITEMS, NEW_ITEMS, MIGRATED, OTHERS_ITEM, NO_DEVICE_ITEM, RATINGS, SUGGESTION, HISTORY, aboutOf, byId, rateableFor, poolFor } from "../fixtures.mjs";
 import { LEGACY, EMOJIS, DEFAULT_TITLE, SIZES } from "../source.mjs";
 
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS ??= "1"; // lets routes see the service worker's requests (offline test)
 const { chromium, devices } = await import("playwright").catch(() =>
   import(join(execSync("npm root -g").toString().trim(), "playwright/index.mjs")));
 const CHROMIUM = ["/opt/pw-browsers/chromium", process.env.CHROMIUM_PATH].find(p => p && existsSync(p));
@@ -19,7 +20,8 @@ writeFileSync(join(root, "tests/ui/app.html"), html);
 
 const types = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".png": "image/png", ".webmanifest": "application/manifest+json" };
 const server = createServer((req, res) => {
-  const file = join(root, normalize(decodeURIComponent(req.url.split(/[?#]/)[0])));
+  let file = join(root, normalize(decodeURIComponent(req.url.split(/[?#]/)[0])));
+  if (file.endsWith("/")) file += "index.html";
   if (!file.startsWith(root) || !existsSync(file)) { res.writeHead(404); return res.end(); }
   res.writeHead(200, { "content-type": types[extname(file)] || "application/octet-stream" });
   res.end(readFileSync(file));
@@ -533,6 +535,14 @@ await scenario(async () => {
   await done(p);
 });
 await scenario(async () => {
+  const p = await open("m=play&pending=1");
+  check("Firestore keeps a local cache on the device (offline)", await p.evaluate(() => !!window.FS?.localCache?.persistent));
+  await p.click(".cell:not(.on) >> nth=0"); await p.waitForTimeout(100);
+  const [r, d] = (await writes(p)).at(-1);
+  check("a bingo whose time is still pending asks for the server time again (not null)", r === `marks/${ME}` && d.bingo && d.bingoAt === "TS", d);
+  await done(p);
+});
+await scenario(async () => {
   const p = await open("m=ended", { admin: true });
   check("ended: winner banner", (await p.textContent("#winner")).includes("🏆"));
   check("ended: card is read-only", await p.locator("[data-cell]").count() === 0);
@@ -543,6 +553,32 @@ await scenario(async () => {
 await scenario(async () => {
   const p = await open("m=play&size=4", { ctx: { colorScheme: "dark" } });
   check("dark mode renders", await p.locator(".cell").count() === 4 * 4);
+  await done(p);
+});
+
+console.log("— offline (service worker + Firestore cache)");
+await scenario(async () => {
+  // the real index.html; the CDNs are stood in for (Firebase = the mock, fonts = empty css), and every request that
+  // reaches them is counted, so after going offline nothing may get through
+  const context = await browser.newContext({ serviceWorkers: "allow" }), cdn = [];
+  const port = server.address().port;
+  await context.route(/^https:\/\/(www\.gstatic\.com|fonts\.googleapis\.com)\//, r => {
+    cdn.push(r.request().url());
+    const headers = { "access-control-allow-origin": "*" };
+    return r.request().url().includes("gstatic")
+      ? r.fulfill({ contentType: "text/javascript", headers, body: readFileSync(join(root, "tests/ui/mock.js"), "utf8").replaceAll("../fixtures.mjs", `http://localhost:${port}/tests/fixtures.mjs`) })
+      : r.fulfill({ contentType: "text/css", headers, body: "" });
+  });
+  const p = await context.newPage();
+  p.errors = []; p.on("pageerror", e => p.errors.push(e.message));
+  await p.addInitScript(me => { try { localStorage.setItem("bingo-welcome", "1"); localStorage.setItem("bingo-me", me); } catch {} }, ME);
+  await p.goto(`http://localhost:${port}/#m=play`); await p.waitForTimeout(1500);
+  const cached = await p.evaluate(async () => (await Promise.all((await caches.keys()).map(async k => (await (await caches.open(k)).keys()).map(r => r.url)))).flat());
+  check("the service worker keeps Firebase's code and the fonts", ["firebase-app.js", "firebase-auth.js", "firebase-firestore.js", "fonts.googleapis.com"].every(x => cached.some(u => u.includes(x))), cached);
+  cdn.length = 0;
+  await context.setOffline(true);
+  await p.reload(); await p.waitForTimeout(1500);
+  check("offline: the app opens with the board, without reaching the CDNs", await p.locator(".cell").count() === SIZE * SIZE && !cdn.length, cdn);
   await done(p);
 });
 

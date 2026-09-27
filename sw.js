@@ -1,10 +1,20 @@
-// Service worker: makes the site installable and opens the app shell offline.
-// Network first, so a new index.html shows up right away; Firebase and fonts pass through untouched.
-const CACHE = "bingo-v2";
+// Service worker: makes the site installable and lets the app open without reception.
+// The site's own files: network first, so a new index.html shows up right away.
+// Firebase's code and the fonts (other origins): cached, so the app also starts offline; the game data itself
+// comes from Firestore's own cache on the device.
+const CACHE = "bingo-v3";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+// only code and fonts; never the Firestore or sign-in APIs
+const LIBS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  e.waitUntil(caches.open(CACHE).then(async c => {
+    await c.addAll(SHELL);
+    // the Firebase modules and the font stylesheet named in index.html, so the first offline start works too
+    const html = await (await c.match("index.html")).text();
+    const urls = [...new Set(html.match(/https:\/\/(www\.gstatic\.com\/firebasejs|fonts\.googleapis\.com)\/[^"'\s]+/g) || [])];
+    await Promise.all(urls.map(u => c.add(new Request(u.replaceAll("&amp;", "&"), { mode: "cors" })).catch(() => {})));
+  }));
   self.skipWaiting();
 });
 self.addEventListener("activate", e => {
@@ -13,7 +23,16 @@ self.addEventListener("activate", e => {
 });
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  if (e.request.method !== "GET") return;
+  if (LIBS.includes(url.hostname)) {
+    // versioned code and fonts don't change: cache first
+    e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
+      if (r.ok || r.type === "opaque") { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+      return r;
+    })));
+    return;
+  }
+  if (url.origin !== location.origin) return;
   e.respondWith(
     fetch(e.request, { cache: "no-cache" }) // revalidate: GitHub Pages lets browsers cache files for 10 minutes
       .then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
