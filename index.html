@@ -184,7 +184,11 @@ body.intro header{display:none}
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
     <button class="ghost" data-set="home">🏠 מסך הפתיחה</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
+    <button class="ghost" data-set="free" id="freeBtn" hidden>🔓 שחרור שם של שחקן</button>
   </div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="freeDlg"><div class="dlg"><h2>🔓 שחרור שם</h2>
+  <p class="muted">מי שהחליף טלפון או ניקה את הדפדפן: משחררים את השם שלו, והוא בוחר אותו מחדש.</p>
+  <div class="menu" id="freeList"></div><button class="ghost" data-close>סגירה</button></div></dialog>
 <dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
@@ -628,8 +632,6 @@ function fillAdmin() {
   const st = game.status;
   sizeSel ??= game.size || 3;
   raterSel ??= new Set(game.raters || PLAYERS);
-  const claims = legacy ? "" : `<p class="muted">שמות תפוסים (שחרור מאפשר לבחור את השם ממכשיר אחר):</p>
-    <div class="counts">${PLAYERS.filter(p => players[p]).map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <button class="ghost" data-free="${esc(p)}">שחרר</button></span>`).join("") || `<span>אין</span>`}</div>`;
   const N = sizeSel * sizeSel;
   const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
@@ -642,7 +644,7 @@ function fillAdmin() {
     <div class="row"><button class="ghost" data-act="allRaters">כולם</button><button class="ghost" data-act="noRaters">אף אחד</button>
       <span class="muted">${chosen.length ? `ידרגו ${chosen.length}: ${chosen.map(esc).join(", ")}` : "⚠️ לא נבחרו מדרגים"}</span></div>
     ${noDevice.length ? `<p class="muted">⚠️ ${noDevice.map(esc).join(", ")} עוד לא נכנסו לאתר. אחרי שייכנסו הם יוכלו לדרג.</p>` : ""}`;
-  $("#adm").innerHTML = claims + ({
+  $("#adm").innerHTML = ({
     entry: `${raters}<hr><div class="step">2. כשכולם סיימו לכתוב</div>
       <p class="muted">הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
       <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>⭐ נעילה ומעבר לדירוג</button></div>`,
@@ -679,12 +681,11 @@ function bind() {
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
+    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
     else if (d.me) claim(d.me);
-    else if (d.free) { if (confirm(`לשחרר את ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))); }
     else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
     else if (d.cell) toggle(d.cell);
     else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
@@ -739,6 +740,7 @@ function openHow() {
 }
 function openSettings() {
   $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
+  $("#freeBtn").hidden = legacy || !ADMINS.includes(me);
   showInstall();
   $("#setDlg").showModal();
 }
@@ -746,7 +748,17 @@ $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;
   $("#setDlg").close();
-  ({ look: openLooks, install, howto: openHow, home: showWelcome, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+  ({ look: openLooks, install, howto: openHow, home: showWelcome, free: openFree, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+};
+// admins release a name that is stuck on an old device
+function openFree() {
+  const taken = PLAYERS.filter(p => players[p] && p !== me);
+  $("#freeList").innerHTML = taken.map(p => `<button class="ghost" data-free="${esc(p)}">${emo(p)} ${esc(p)}</button>`).join("") || `<p class="muted">אין שמות תפוסים אחרים</p>`;
+  $("#freeDlg").showModal();
+}
+$("#freeList").onclick = e => {
+  const p = e.target.closest("[data-free]")?.dataset.free;
+  if (p && confirm(`לשחרר את ${p}?`)) { $("#freeDlg").close(); safe(deleteDoc(doc(db, "players", p))).then(ok => ok && toast(`🔓 ${p} שוחרר`)); }
 };
 // close a dialog from its close button or by tapping outside it
 document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
