@@ -131,6 +131,23 @@ button.av{padding:0;cursor:pointer;font-size:1em}
 #toast.show{transform:translate(-50%,0) scale(1);opacity:1}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
 
+body.intro header{display:none}
+.welcome{text-align:center;padding-top:28px}
+.balls{display:flex;justify-content:center;gap:10px;margin-bottom:18px}
+.balls span{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;font-size:26px;background:radial-gradient(circle at 35% 30%,#fff 0 14%,var(--b) 15% 100%);box-shadow:inset -4px -6px 0 rgba(0,0,0,.15),0 6px 14px rgba(0,0,0,.12);animation:hop 1.6s ease-in-out calc(var(--k) * .15s) infinite}
+.balls span:nth-child(1){--b:#ff4f6d}.balls span:nth-child(2){--b:#3fc1f0}.balls span:nth-child(3){--b:#ffc23c}.balls span:nth-child(4){--b:#22c55e}.balls span:nth-child(5){--b:#8b5cf6}
+.wtitle{font-size:clamp(26px,7.5vw,36px);line-height:1.2}
+.wtitle .word{display:block;background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wsub{color:var(--muted);margin:8px 0 18px;font-size:18px}
+.steps{list-style:none;padding:0;margin:0 0 22px;text-align:start;counter-reset:s}
+.steps li{align-items:center;gap:12px;padding:12px 14px;border-radius:18px;box-shadow:var(--shadow);animation:rise .45s calc(.25s + var(--k) * .12s) backwards}
+.steps .se{display:grid;place-items:center;width:46px;height:46px;flex:none;border-radius:14px;font-size:24px;background:color-mix(in srgb,var(--sun) 30%,var(--card))}
+.steps li:nth-child(2) .se{background:color-mix(in srgb,var(--hot) 22%,var(--card))}
+.steps li:nth-child(3) .se{background:color-mix(in srgb,var(--sky) 28%,var(--card))}
+.steps li:nth-child(4) .se{background:color-mix(in srgb,#22c55e 25%,var(--card))}
+.go{font-size:22px;padding:16px 32px;border-radius:20px;animation:rise .45s .8s backwards}
+.howto{text-align:center;margin-top:28px}
+@keyframes hop{0%,60%,100%{transform:none}30%{transform:translateY(-14px) rotate(-10deg)}}
 @keyframes bob{50%{transform:translateY(-4px) rotate(12deg)}}
 @keyframes rise{from{opacity:0;transform:translateY(10px)}}
 @keyframes stamp{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
@@ -201,6 +218,7 @@ let shown = null; // marked ids at last card render, to animate only new stamps
 let sizeSel = null, raterSel = null; // admin's choices before starting a phase
 
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
+queueMicrotask(() => render());
 onAuthStateChanged(auth, async u => {
   if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
   if (uid) return; // listeners already set up
@@ -330,6 +348,7 @@ const medal = place => MEDAL[place - 1] ?? `${place}.`;
 // ---- admin actions ----
 const clearMarks = b => PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null }));
 async function generate() {
+  if (game.status !== "rate") return; // cards are generated only after the rating phase
   const n = sizeSel || size(), N = n * n;
   const short = PLAYERS.filter(p => poolFor(p).length < N);
   if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
@@ -397,16 +416,18 @@ function render() {
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = PHASE[game.status] ?? "";
 
-  const stage = !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
+  const stage = !welcomed ? "welcome" : !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
   const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
     const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
-    $("#app").innerHTML = { load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
+    document.body.classList.toggle("intro", stage === "welcome");
+    $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
     if (draft && $("#text")) $("#text").value = draft;
     if (about) $(`input[name=about][value="${about}"]`)?.click();
     bind();
   }
+  if (stage === "welcome") return;
   if (stage === "pick") $("#app").innerHTML = pickView();
   if (!me || !live) return;
   ({ entry: fillEntry, rate: fillRate, play: fillPlay, ended: fillEnded })[stage]();
@@ -426,7 +447,23 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
-const tail = () => histBox() + adminBox();
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
+
+// ---- welcome screen: once per device, and again from "איך משחקים?" ----
+let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
+const STEPS = [
+  ["🔮", "כותבים ניחושים", "מה כל אחד יגיד או יעשה בטיול? כל אחד רואה רק את מה שהוא כתב 🤫"],
+  ["⭐", "מדרגים", "המדרגים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
+  ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, אף פעם לא עם ניחושים עליו עצמו"],
+  ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת. שורה = בינגו 🎉, כרטיס מלא = ניצחון 🏆"]
+];
+const welcomeView = () => `<section class="welcome">
+  <div class="balls">${["🎲", "🚗", "⭐", "🎉", "🏆"].map((e, k) => `<span style="--k:${k}">${e}</span>`).join("")}</div>
+  <h2 class="wtitle">ברוכים הבאים <span class="word">לבינגו המשפחתי!</span></h2>
+  <p class="wsub">מנחשים מה יקרה בטיול, ומסמנים כשזה קורה 😄</p>
+  <ol class="steps">${STEPS.map(([e, t, d], k) => `<li style="--k:${k}"><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`).join("")}</ol>
+  <button class="go" data-act="start">יאללה, מתחילים! 🚀</button>
+</section>`;
 
 const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
 const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-look>🎨 אימוג׳י</button></div>`;
@@ -553,8 +590,8 @@ function fillAdmin() {
   const raters = `<p class="muted">מי מדרג?</p><div class="chips">${PLAYERS.map(p => `<button class="ghost pick${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}">${emo(p)} ${esc(p)}</button>`).join("")}</div>
     ${noDevice.length ? `<p class="muted">⚠️ עוד לא נכנסו לאתר: ${noDevice.map(esc).join(", ")}. אחרי שייכנסו, לחצו "עדכן מדרגים".</p>` : ""}`;
   $("#adm").innerHTML = claims + ({
-    entry: `${raters}<div class="row"><button data-act="rate">⭐ לשלב הדירוג</button></div>
-      <hr>${sizes}<div class="row"><button class="ghost" data-act="gen">🎲 צור כרטיסים בלי דירוג</button></div>`,
+    entry: `${raters}<p class="muted">כשכולם סיימו לכתוב: הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
+      <div class="row"><button data-act="rate">⭐ לשלב הדירוג</button></div>`,
     rate: `${raters}<div class="row"><button class="ghost" data-act="raters">💾 עדכן מדרגים</button><button class="ghost" data-act="back">↩️ חזרה לניחושים</button></div>
       <hr>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
@@ -579,7 +616,10 @@ async function toggle(id) {
 
 function bind() {
   const app = $("#app");
-  const act = { rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
+  const act = {
+    start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
+    howto: () => { welcomed = false; view = ""; render(); scrollTo(0, 0); },
+    rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
     const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
