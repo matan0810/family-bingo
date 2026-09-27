@@ -1,0 +1,831 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>בינגו משפחתי</title>
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ff4f6d">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="בינגו">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff6ea;--card:#fff;--ink:#26213d;--muted:#716b8a;--line:#efe5d6;--hot:#ff4f6d;--sun:#ffc23c;--sky:#3fc1f0;--shadow:0 6px 0 rgba(38,33,61,.08),0 10px 24px rgba(38,33,61,.08);--me:var(--hot)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15122a;--card:#221d3d;--ink:#f4f1ff;--muted:#a9a2c8;--line:#362f5c;--hot:#ff6882;--sun:#ffd166;--sky:#4cc9f0;--shadow:0 6px 0 rgba(0,0,0,.25),0 10px 24px rgba(0,0,0,.3)}}
+:root[data-theme="dark"]{--bg:#15122a;--card:#221d3d;--ink:#f4f1ff;--muted:#a9a2c8;--line:#362f5c;--hot:#ff6882;--sun:#ffd166;--sky:#4cc9f0;--shadow:0 6px 0 rgba(0,0,0,.25),0 10px 24px rgba(0,0,0,.3)}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:17px/1.5 Rubik,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 8% 4%,color-mix(in srgb,var(--sun) 40%,transparent),transparent 38%),
+    radial-gradient(circle at 100% 35%,color-mix(in srgb,var(--hot) 28%,transparent),transparent 42%),
+    radial-gradient(circle at 0% 100%,color-mix(in srgb,var(--sky) 32%,transparent),transparent 45%),
+    radial-gradient(color-mix(in srgb,var(--ink) 9%,transparent) 1.2px,transparent 1.6px) 0 0/22px 22px}
+main{max-width:560px;margin:0 auto;padding:8px 16px 40px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;max-width:560px;margin:0 auto;padding:18px 16px 4px}
+h1,h2,.display{font-family:"Secular One",Rubik,sans-serif;font-weight:400;margin:0}
+h1{font-size:clamp(22px,6.6vw,34px);white-space:nowrap;line-height:1.1;display:flex;align-items:center;gap:10px}
+.logo{all:unset;display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:12px}
+.logo:focus-visible{outline:3px solid var(--sky);outline-offset:4px}
+.logo:active{transform:scale(.96)}
+h1 .ball{width:1.35em;height:1.35em;border-radius:28%;box-shadow:0 3px 8px rgba(0,0,0,.18);animation:bob 2.4s ease-in-out infinite}
+h1 .word{background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tools{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+#adminBtn[aria-pressed="true"]{border-color:var(--me);color:var(--ink)}
+.sub{color:var(--muted);font-size:14px;font-weight:500}
+h2{font-size:21px;margin:28px 0 10px}
+button,select,textarea,input{font:inherit;color:inherit}
+button{border:0;border-radius:14px;padding:12px 20px;background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;font-weight:700;cursor:pointer;box-shadow:0 4px 0 color-mix(in srgb,var(--hot) 60%,#000);transition:transform .1s,box-shadow .1s}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 color-mix(in srgb,var(--hot) 60%,#000)}
+button.ghost{background:var(--card);color:var(--muted);border:2px solid var(--line);padding:6px 12px;font-weight:500;box-shadow:none;font-size:15px;white-space:nowrap}
+button:focus-visible,textarea:focus-visible,.cell:focus-visible,.chip:has(input:focus-visible){outline:3px solid var(--sky);outline-offset:2px}
+textarea{width:100%;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px;resize:vertical;min-height:84px}
+textarea:focus{border-color:var(--me);outline:0}
+.field{flex:1;min-width:0;background:var(--card);border:2px solid var(--line);border-radius:14px;padding:10px 12px}
+.field:focus{border-color:var(--me);outline:0}
+.names button:disabled{filter:grayscale(1);opacity:.45;cursor:not-allowed}
+.names button small{font-size:13px;font-weight:500}
+.panel{background:var(--card);border:2px solid var(--line);border-radius:22px;padding:16px;box-shadow:var(--shadow)}
+.muted{color:var(--muted);font-size:15px}
+.row{display:flex;gap:8px;align-items:center;margin-top:12px}
+.av{display:inline-grid;place-items:center;width:1.9em;height:1.9em;flex:none;border-radius:50%;background:color-mix(in srgb,var(--c) 22%,var(--card));box-shadow:inset 0 0 0 2px var(--c);font-size:1em;line-height:1}
+
+/* who are you */
+.names{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.names button{--c:var(--hot);display:flex;flex-direction:column;align-items:center;gap:4px;padding:18px 10px;font-size:22px;border-radius:22px;background:linear-gradient(160deg,color-mix(in srgb,var(--c) 85%,#fff),var(--c));box-shadow:0 6px 0 color-mix(in srgb,var(--c) 55%,#000);animation:rise .4s backwards}
+.names button .e{font-size:44px;line-height:1;filter:drop-shadow(0 3px 0 rgba(0,0,0,.15));transition:transform .2s}
+.names button:hover .e{transform:scale(1.15) rotate(-8deg)}
+.names button:active{box-shadow:0 2px 0 color-mix(in srgb,var(--c) 55%,#000)}
+
+/* entry */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px 5px 6px;border-radius:99px;border:2px solid var(--line);background:var(--card);cursor:pointer;font-weight:500;transition:transform .1s,background .15s}
+.chip input{position:absolute;opacity:0;pointer-events:none}
+.chip:has(input:checked){border-color:var(--c);background:color-mix(in srgb,var(--c) 20%,var(--card));transform:scale(1.05)}
+.counts{display:flex;flex-wrap:wrap;gap:8px}
+.counts span{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:2px solid var(--line);border-radius:99px;padding:3px 12px 3px 4px;font-size:15px}
+.counts b{font-weight:800;color:var(--c)}
+ul{list-style:none;margin:0;padding:0}
+li{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;animation:rise .3s backwards}
+li.pred{border-inline-start:6px solid var(--c)}
+li .t{flex:1;min-width:0;overflow-wrap:anywhere}
+li .who{font-weight:700;color:var(--c)}
+li.empty{justify-content:center;color:var(--muted);padding:24px}
+
+/* play */
+.status{display:flex;align-items:center;gap:14px}
+@property --p{syntax:"<number>";inherits:true;initial-value:0}
+.ring{width:64px;height:64px;flex:none;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--me) calc(var(--p)*1%),var(--line) 0);transition:--p .4s}
+.ring span{display:grid;place-items:center;width:50px;height:50px;border-radius:50%;background:var(--card);font-family:"Secular One",sans-serif;font-size:19px}
+.banner{margin-top:12px;padding:10px 14px;border-radius:16px;text-align:center;font-family:"Secular One",sans-serif;font-size:20px;color:#26213d;background:linear-gradient(90deg,var(--sun),#ffdf7e,var(--sun));background-size:200%;animation:shine 2.5s linear infinite}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:14px;padding:10px;border-radius:24px;background:color-mix(in srgb,var(--me) 16%,var(--card));border:2px solid color-mix(in srgb,var(--me) 40%,var(--line));box-shadow:var(--shadow)}
+.grid.full{background:linear-gradient(135deg,#ff4f6d,#ff8a3d,#ffc23c,#3fc1f0,#8b5cf6,#ff4f6d);background-size:300% 300%;animation:shine 5s linear infinite;border-color:transparent}
+.cell{position:relative;aspect-ratio:1;background:var(--card);border:2px solid var(--line);border-radius:16px;padding:6px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;text-align:center;font-size:clamp(12px,3.5vw,15px);font-weight:500;line-height:1.25;cursor:pointer;user-select:none;overflow:hidden;box-shadow:0 3px 0 var(--line);transition:transform .12s,background .2s,border-color .2s}
+.cell:active{transform:scale(.94)}
+.cell .txt{position:relative;z-index:1;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
+.cell .tag{position:relative;z-index:1;display:inline-flex;align-items:center;gap:3px;font-size:.78em;font-weight:700;padding:1px 7px 1px 3px;border-radius:99px;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--ink)}
+.cell .tag i{font-style:normal}
+.cell.on{background:color-mix(in srgb,var(--me) 26%,var(--card));border-color:var(--me);box-shadow:0 3px 0 color-mix(in srgb,var(--me) 60%,#000)}
+.cell.on::before{content:attr(data-stamp);position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(46px,15vw,74px);opacity:.28;transform:rotate(-14deg)}
+.cell.on::after{content:"✓";position:absolute;top:5px;left:6px;width:20px;height:20px;border-radius:50%;background:var(--me);color:#fff;font-size:13px;font-weight:800;display:grid;place-items:center}
+.cell.pop{animation:stamp .45s cubic-bezier(.2,1.6,.4,1)}
+.cell.line{border-color:var(--sun);animation:glow 1.4s ease-in-out infinite alternate}
+.score li{align-items:center;padding:10px 12px}
+.score .n{font-weight:700;min-width:2.5em;text-align:center}
+.bar{flex:1;height:12px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 70%,#fff),var(--c));transition:width .5s cubic-bezier(.2,1.4,.4,1)}
+.score .name{width:3.4em;font-weight:700}
+.win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
+
+/* rating, places, admin, history, board sizes */
+.place{width:1.8em;text-align:center;font-weight:800}
+.stars{display:flex;gap:4px;margin-top:6px}
+.star{background:var(--card);color:var(--line);border:2px solid var(--line);box-shadow:none;padding:2px 9px;font-size:18px;border-radius:10px;line-height:1.3}
+.star.on{color:var(--sun);border-color:var(--sun);background:color-mix(in srgb,var(--sun) 15%,var(--card))}
+.star:first-child:not(.on){filter:grayscale(1);opacity:.45}
+.step{font-weight:700;margin-top:12px}
+.free{margin-top:14px;font-size:14px}
+.free summary{cursor:pointer;color:var(--muted);width:fit-content}
+.free .chips{margin-bottom:0}
+.stepper{display:flex;gap:4px;margin:4px 0 8px;font-size:13px;font-weight:700}
+.stepper span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:5px 2px;border-radius:99px;background:var(--line);color:var(--muted);white-space:nowrap}
+.stepper .done{background:color-mix(in srgb,#22c55e 22%,var(--card));color:var(--ink)}
+.stepper .now{background:var(--hot);color:#fff}
+.step .muted{font-weight:400;font-size:13px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.toggle .box{display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:6px;border-radius:6px;border:2px solid var(--line);font-size:12px;font-weight:800;vertical-align:-3px}
+.toggle.on .box{background:var(--c);border-color:var(--c);color:#fff}
+button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background:color-mix(in srgb,var(--c,var(--me)) 18%,var(--card))}
+.admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
+.admin .row{flex-wrap:wrap}
+.hist{flex-direction:column;gap:4px}
+.res{display:inline-block;margin-inline-end:12px;white-space:nowrap}
+.res small{color:var(--muted)}
+.grid.done .cell{cursor:default}
+.grid[data-n="2"] .cell{font-size:clamp(15px,4.6vw,19px)}
+.grid[data-n="4"] .cell{font-size:clamp(10px,2.8vw,13px);padding:4px;gap:3px;border-radius:12px}
+.grid[data-n="5"]{gap:5px;padding:7px}
+.grid[data-n="5"] .cell{font-size:clamp(8.5px,2.3vw,11.5px);padding:3px;gap:2px;border-radius:9px;line-height:1.15}
+.grid[data-n="4"] .cell .tag b,.grid[data-n="5"] .cell .tag b{display:none}
+.grid[data-n="4"] .cell.on::before,.grid[data-n="5"] .cell.on::before{font-size:clamp(30px,9vw,48px)}
+.grid[data-n="4"] .cell.on::after,.grid[data-n="5"] .cell.on::after{width:14px;height:14px;font-size:9px;top:3px;left:3px}
+.admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
+.admin h2{margin-top:14px}
+
+/* dialogs: emoji picker, settings, how to play */
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:0;width:min(380px,calc(100% - 32px));box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(20,16,40,.55)}
+dialog h2{margin:0 0 12px}
+.dlg{padding:16px}
+.menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.menu button{text-align:start;font-size:17px;padding:12px 14px}
+.steps{list-style:none;padding:0;margin:0 0 14px}
+.steps li{align-items:center;gap:12px;box-shadow:none}
+.steps .se{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;font-size:22px;background:color-mix(in srgb,var(--sun) 28%,var(--card))}
+.emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.emojis button{aspect-ratio:1;padding:0;font-size:26px;border-radius:14px;background:color-mix(in srgb,var(--c) 18%,var(--card));box-shadow:inset 0 0 0 2px var(--c)}
+.emojis button.on{background:var(--c);transform:scale(1.08)}
+.emojis button:disabled{opacity:.25;cursor:not-allowed}
+.hello{display:flex;align-items:center;gap:10px;margin-top:12px}
+.hello .av{font-size:22px}
+.hello .t{flex:1;font-weight:500}
+button.av{padding:0;cursor:pointer;font-size:1em}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,200%) scale(.6);background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;padding:14px 24px;border-radius:18px;font-family:"Secular One",sans-serif;font-size:22px;box-shadow:0 8px 0 color-mix(in srgb,var(--hot) 55%,#000),0 16px 40px rgba(0,0,0,.25);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .2s;z-index:9;white-space:nowrap}
+#toast.show{transform:translate(-50%,0) scale(1);opacity:1}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
+
+/* welcome screen */
+body.intro header{display:none}
+.welcome{min-height:calc(100vh - 60px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:24px 0}
+.fam{display:flex;gap:6px;font-size:30px}
+.fam span{animation:wave 2.4s ease-in-out calc(var(--k) * .15s) infinite}
+.mini{position:relative;display:grid;grid-template-columns:repeat(3,62px);gap:8px;padding:12px;margin:22px 0 18px;border-radius:26px;background:var(--card);box-shadow:var(--shadow);transform:rotate(-5deg);animation:rise .5s backwards}
+.mini span{height:62px;display:grid;place-items:center;font-size:28px;border-radius:16px;background:color-mix(in srgb,var(--ink) 6%,var(--card))}
+.mini .hit{animation:dab .4s cubic-bezier(.2,1.6,.4,1) calc(.7s + var(--d) * .5s) both}
+.yay{position:absolute;top:-16px;left:-18px;padding:4px 14px;border-radius:99px;background:var(--hot);color:#fff;font-family:"Secular One",sans-serif;font-size:20px;font-weight:400;box-shadow:0 4px 0 color-mix(in srgb,var(--hot) 55%,#000);transform:rotate(-10deg);animation:yay .5s cubic-bezier(.2,1.6,.4,1) 2.3s both}
+.wtitle{font-size:clamp(36px,11vw,50px);line-height:1.05;background:linear-gradient(90deg,var(--hot),#ff8a3d,var(--sun));-webkit-background-clip:text;background-clip:text;color:transparent}
+.wsub{color:var(--muted);font-size:18px;margin:4px 0 20px}
+.go{font-size:22px;padding:14px 40px;border-radius:99px}
+.howto{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:28px}
+@keyframes wave{0%,70%,100%{transform:none}20%{transform:translateY(-8px) rotate(-12deg)}40%{transform:rotate(10deg)}}
+@keyframes dab{from{background:color-mix(in srgb,var(--ink) 6%,var(--card))}to{background:var(--sun);transform:scale(1.08) rotate(-4deg)}}
+@keyframes yay{from{opacity:0;transform:scale(0) rotate(-40deg)}}
+@keyframes bob{50%{transform:translateY(-4px) rotate(12deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}}
+@keyframes stamp{0%{transform:scale(1.25) rotate(-6deg)}100%{transform:none}}
+@keyframes glow{from{box-shadow:0 0 0 2px var(--sun),0 0 6px var(--sun)}to{box-shadow:0 0 0 3px var(--sun),0 0 20px var(--sun)}}
+@keyframes shine{to{background-position:200% 0}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><img class="ball" src="icons/icon-192.png" alt=""><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
+<main id="app"><p class="muted">טוען…</p></main>
+<div id="toast" role="status"></div>
+<dialog id="lookDlg"><div class="dlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="setDlg"><div class="dlg"><h2 id="setTitle"></h2>
+  <div class="menu" id="setMenu">
+    <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
+    <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
+    <button class="ghost" data-set="howto">❓ איך משחקים?</button>
+    <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
+    <button class="ghost" data-set="logout">🚪 התנתקות</button>
+  </div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, deleteDoc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCvZu7ozy2-NFuE1ysuIU_EnFbO12LntVE",
+  authDomain: "family-bingo-4c8e7.firebaseapp.com",
+  projectId: "family-bingo-4c8e7",
+  storageBucket: "family-bingo-4c8e7.firebasestorage.app",
+  messagingSenderId: "564240750544",
+  appId: "1:564240750544:web:706f367543d2903c660bd5"
+};
+
+const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
+// avatars a player can choose (looks/{player} = {e}); each emoji has a fixed color. Keep in sync with the rules.
+const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸","#22c55e"],["🐙","#8b5cf6"],["🐢","#14b8a6"],
+  ["🦊","#f97316"],["🐼","#64748b"],["🐯","#eab308"],["🐨","#78716c"],["🐷","#f472b6"],["🐵","#a16207"],
+  ["🐧","#0ea5e9"],["🦉","#b45309"],["🐝","#ca8a04"],["🦋","#6366f1"],["🐞","#ef4444"],["🦖","#16a34a"],
+  ["🐳","#0284c7"],["🦩","#fb7185"],["🐱","#d97706"],["🐰","#d946ef"],["🦈","#0891b2"],["🌵","#65a30d"],
+  ["🍕","#dc2626"],["🍉","#e11d48"],["🚀","#7c3aed"],["👽","#84cc16"],["🤖","#06b6d4"],["👻","#a78bfa"]];
+const COLOR = Object.fromEntries(EMOJIS);
+const DEFAULT = { "אבא": "🦁", "אמא": "🦄", "מתן": "🐬", "אורי": "🐸", "עדי": "🐙", "הדר": "🐢" };
+const ADMINS = ["מתן", "אורי"]; // must match isAdmin() in the Firestore rules
+const SIZES = [2, 3, 4, 5];
+const MEDAL = ["🥇", "🥈", "🥉"];
+const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app), auth = getAuth(app);
+let adminOpen = new URLSearchParams(location.search).has("admin");
+const isAdmin = () => adminOpen && ADMINS.includes(me);
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const emo = p => COLOR[looks[p]] ? looks[p] : DEFAULT[p] ?? "🙂";
+const colorOf = p => COLOR[emo(p)] ?? "#888";
+const col = p => `--c:${colorOf(p)}`;
+const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
+
+let me = localStorage.getItem("bingo-me");
+let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
+let uid = null, member = false, claiming = false;
+// Anonymous Auth not enabled in the console yet: run without the family code and name claims.
+// Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
+let legacy = false;
+const texts = {}; // item id -> text, fetched one by one (undefined = loading, null = not readable)
+const moved = new Set(); // old-format items (text inside the item) already migrated
+const got = new Set(); // snapshot sources that have delivered at least once
+const prev = {};
+let prevStatus = null;
+let shown = null; // marked ids at last card render, to animate only new stamps
+let sizeSel = null, raterSel = null; // admin's choices before starting a phase
+
+queueMicrotask(() => render());
+
+// ---- install as an app (PWA): Android shows the browser prompt, iPhone gets instructions ----
+let installEvt = null;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+function showInstall() { document.querySelectorAll(".install").forEach(b => b.hidden = standalone() || !(installEvt || isIOS)); }
+async function install() {
+  if (!installEvt) return alert("באייפון: בספארי לוחצים על כפתור השיתוף ⬆️ ואז על \"הוספה למסך הבית\" ➕");
+  installEvt.prompt();
+  await installEvt.userChoice;
+  installEvt = null; showInstall();
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; showInstall(); });
+addEventListener("appinstalled", () => { installEvt = null; showInstall(); toast("📲 הבינגו הותקן!"); });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e));
+
+// ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
+onAuthStateChanged(auth, async u => {
+  if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
+  if (uid) return; // listeners already set up
+  uid = u.uid;
+  try { member = (await getDoc(doc(db, "members", uid))).exists(); } catch (e) { return fatal(e); }
+  member ? listen() : render();
+});
+function fatal(e) { console.error(e); $("#app").innerHTML = `<p class="panel">⚠️ שגיאת חיבור (${esc(e.code || e.message)}). נסו לרענן.</p>`; }
+async function join(code) {
+  try { await setDoc(doc(db, "members", uid), { code }); member = true; welcomed = false; listen(); render(); }
+  catch { $("#err").textContent = "❌ קוד שגוי"; }
+}
+// wraps a write: reports failure with a toast, resolves to true/false
+const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "permission-denied" ? "⚠️ אין הרשאה" : "⚠️ שגיאה"); return false; });
+
+function listen() {
+onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready("items"); }, fatal);
+onSnapshot(doc(db, "game", "state"), s => {
+  game = s.data() || { status: "entry", cards: {} };
+  if (prevStatus === "play" && game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
+  prevStatus = game.status;
+  ready("game");
+}, fatal);
+if (legacy) got.add("players");
+else onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
+onSnapshot(collection(db, "marks"), s => {
+  marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
+  for (const [p, m] of Object.entries(marks)) {
+    const was = prev[p];
+    if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
+    else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === me ? 140 : 70); }
+    prev[p] = { bingo: m.bingo, blackout: m.blackout };
+  }
+  ready("marks");
+}, fatal);
+onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
+onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
+onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => d.data()).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
+}
+const SOURCES = 7;
+function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
+const secs = t => t?.seconds ?? Infinity; // pending server timestamps sort last
+
+// ---- texts: items/{id} holds only who/about; the text is in texts/{id}. The rules let the author read it
+// always, raters during the rating phase and everyone during the game, except the person it is about ----
+function need(ids) {
+  const miss = ids.filter(id => !(id in texts));
+  if (!miss.length) return;
+  miss.forEach(id => texts[id] = undefined);
+  Promise.all(miss.map(id => getDoc(doc(db, "texts", id)).then(s => texts[id] = s.data()?.text ?? null, () => texts[id] = null))).then(render);
+}
+const textOf = i => i.text ?? texts[i.id];
+const shownText = i => { const t = textOf(i); return t === undefined ? "…" : t ?? "🔒"; };
+function addItem(about, text) {
+  const ref = doc(collection(db, "items")), b = writeBatch(db);
+  b.set(ref, { about, author: me, weight: 1, at: serverTimestamp() });
+  b.set(doc(db, "texts", ref.id), { text });
+  texts[ref.id] = text;
+  return b.commit();
+}
+function delItem(id) {
+  const b = writeBatch(db);
+  b.delete(doc(db, "items", id)); b.delete(doc(db, "texts", id));
+  return b.commit();
+}
+// predictions saved before the split still carry their text; their author moves them to the new format
+function migrate() {
+  items.filter(i => i.author === me && i.text && !moved.has(i.id)).forEach(i => {
+    moved.add(i.id);
+    const ref = doc(collection(db, "items")), b = writeBatch(db);
+    b.set(ref, { about: i.about, author: me, weight: 1, at: serverTimestamp() });
+    b.set(doc(db, "texts", ref.id), { text: i.text });
+    b.delete(doc(db, "items", i.id));
+    texts[ref.id] = i.text;
+    b.commit().catch(e => console.warn("migrate", e));
+  });
+}
+
+// ---- rating: ratings/{item}_{player} = {item, player, stars 0..3}; nobody rates what is about them or by them ----
+const rateable = p => items.filter(i => i.about !== p && i.author !== p);
+const isRater = () => (game.raters || []).includes(me);
+const myStars = () => Object.fromEntries(ratings.filter(r => r.player === me).map(r => [r.item, r.stars]));
+const rate = (id, stars) => safe(setDoc(doc(db, "ratings", `${id}_${me}`), { item: id, player: me, stars }));
+
+// ---- selection: weighted sample without replacement ----
+// weight = item.weight (default 1, hook for manual priority) × rating factor (avg stars; unrated counts as 1.5)
+function weightOf(i) {
+  const rs = ratings.filter(r => r.item === i.id).map(r => Math.min(3, Math.max(0, +r.stars || 0)));
+  const avg = rs.length ? rs.reduce((s, x) => s + x, 0) / rs.length : 1.5;
+  return (i.weight ?? 1) * (avg + .5) ** 2;
+}
+function pick(pool, k) {
+  pool = pool.map(i => ({ id: i.id, w: weightOf(i) }));
+  const out = [];
+  while (out.length < k) {
+    let r = Math.random() * pool.reduce((s, p) => s + p.w, 0);
+    let j = pool.findIndex(p => (r -= p.w) < 0);
+    if (j < 0) j = pool.length - 1;
+    out.push(pool.splice(j, 1)[0].id);
+  }
+  return out;
+}
+const poolFor = p => items.filter(i => i.about !== p);
+
+// ---- board geometry ----
+const size = () => game.size || Math.round(Math.sqrt(game.cards?.[me]?.length || 9)) || 3;
+function lines(n) {
+  const r = [...Array(n).keys()], L = [];
+  r.forEach(i => { L.push(r.map(j => i * n + j)); L.push(r.map(j => j * n + i)); });
+  L.push(r.map(i => i * n + i), r.map(i => i * n + n - 1 - i));
+  return L;
+}
+
+// ---- places: full card first (earliest wins), then more marks, then bingo (earliest first) ----
+function ranking() {
+  const rows = PLAYERS.filter(p => game.cards?.[p]).map(p => {
+    const m = marks[p] || {};
+    return { p, n: (m.marked || []).length, bingo: !!m.bingo, blackout: !!m.blackout, bt: secs(m.bingoAt), ft: secs(m.blackoutAt) };
+  });
+  const cmp = (a, b) => (b.blackout - a.blackout) || (a.blackout && a.ft - b.ft) || (b.n - a.n) || (b.bingo - a.bingo) || (a.bingo && a.bt - b.bt) || 0;
+  rows.sort(cmp);
+  rows.forEach((r, k) => r.place = k && !cmp(rows[k - 1], r) ? rows[k - 1].place : k + 1);
+  return rows;
+}
+const medal = place => MEDAL[place - 1] ?? `${place}.`;
+
+// ---- admin actions ----
+const clearMarks = b => PLAYERS.forEach(p => b.set(doc(db, "marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null }));
+async function generate() {
+  if (game.status !== "rate") return; // cards are generated only after the rating phase
+  const n = sizeSel || size(), N = n * n;
+  const short = PLAYERS.filter(p => poolFor(p).length < N);
+  if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
+  if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
+  const b = writeBatch(db);
+  const cards = Object.fromEntries(PLAYERS.map(p => [p, pick(poolFor(p), N)]));
+  b.set(doc(db, "game", "state"), { status: "play", cards, size: n, raters: game.raters || [], raterUids: game.raterUids || [], at: serverTimestamp() });
+  clearMarks(b);
+  await safe(b.commit());
+}
+function setRaters(status) {
+  const raters = PLAYERS.filter(p => raterSel.has(p));
+  if (!raters.length) return alert("צריך לבחור לפחות מדרג אחד");
+  return safe(setDoc(doc(db, "game", "state"), { status, cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() }));
+}
+// raters are matched by device in the rules (raterUids); refresh the list when a chosen rater joins later
+let syncing = false;
+function syncRaterUids() {
+  if (game.status !== "rate" || syncing) return;
+  const uids = (game.raters || []).map(p => players[p]).filter(Boolean);
+  if (uids.length === (game.raterUids || []).length && uids.every(u => game.raterUids.includes(u))) return;
+  syncing = true;
+  setDoc(doc(db, "game", "state"), { raterUids: uids }, { merge: true }).catch(e => console.warn("raterUids", e)).finally(() => syncing = false);
+}
+// ---- moving between phases (every step asks first) ----
+function startRating() {
+  const again = ratings.length > 0;
+  if (confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?")) setRaters("rate");
+}
+function backToEntry() {
+  if (!confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.")) return;
+  safe(setDoc(doc(db, "game", "state"), { status: "entry", cards: {}, raters: game.raters || [], raterUids: game.raterUids || [] }));
+}
+async function backToRating() {
+  if (!confirm("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו! הדירוגים נשמרים.")) return;
+  const raters = game.raters?.length ? game.raters : PLAYERS, b = writeBatch(db);
+  b.set(doc(db, "game", "state"), { status: "rate", cards: {}, raters, raterUids: raters.map(p => players[p]).filter(Boolean), at: serverTimestamp() });
+  clearMarks(b);
+  await safe(b.commit());
+}
+async function endGame() {
+  if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
+  const n = size(), b = writeBatch(db);
+  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: n, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
+  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: n, at: serverTimestamp() });
+  await safe(b.commit());
+}
+async function reset(ask) {
+  if (!confirm(ask)) return;
+  const b = writeBatch(db);
+  b.set(doc(db, "game", "state"), { status: "entry", cards: {} });
+  clearMarks(b);
+  await safe(b.commit());
+}
+
+// ---- player names: each name is claimed by one device (players/{name} = {uid}) ----
+async function claim(p) {
+  if (legacy) { me = p; localStorage.setItem("bingo-me", p); return render(); }
+  if (claiming) return;
+  claiming = true;
+  try {
+    if (players[p] !== uid) await setDoc(doc(db, "players", p), { uid });
+    players[p] = uid; me = p; localStorage.setItem("bingo-me", p);
+  } catch { toast("⚠️ השם תפוס"); me = null; localStorage.removeItem("bingo-me"); }
+  claiming = false; render();
+}
+// full logout: free the name, drop this device's sign-in, back to the family-code screen
+async function logout() {
+  if (!confirm("להתנתק? כדי לחזור צריך להקליד שוב את הקוד המשפחתי ולבחור שם.")) return;
+  // forget the name first, or render() would see it free and claim it straight back
+  const name = me;
+  me = null; localStorage.removeItem("bingo-me");
+  if (!legacy && players[name] === uid) await deleteDoc(doc(db, "players", name)).catch(() => {});
+  if (!legacy) await signOut(auth).catch(() => {});
+  location.reload();
+}
+function release() {
+  const name = me;
+  me = null; localStorage.removeItem("bingo-me");
+  if (!legacy && players[name] === uid) safe(deleteDoc(doc(db, "players", name)));
+  render();
+}
+
+// ---- render ----
+function render() {
+  const who = $("#who");
+  const live = member && got.size >= SOURCES;
+  // a stored name must be claimed by this device; claim it if free (e.g. after this update), else forget it
+  if (live && me && !legacy && players[me] !== uid && !claiming) {
+    if (players[me] || !PLAYERS.includes(me)) { me = null; localStorage.removeItem("bingo-me"); } else claim(me);
+  }
+  who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} ⚙️` : "";
+  who.onclick = openSettings;
+  const ab = $("#adminBtn");
+  ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
+  ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
+  if (live && !legacy && ADMINS.includes(me)) syncRaterUids();
+  document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
+  $("#phase").textContent = PHASE[game.status] ?? "";
+
+  const stage = !uid ? "load" : !member ? "code" : !welcomed ? "welcome" : !live ? "load" : !me ? "pick" : game.status in PHASE ? game.status : "entry";
+  const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
+  if (key !== view) {
+    view = key; shown = null;
+    const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
+    document.body.classList.toggle("intro", stage === "welcome");
+    if (stage === "welcome") setTimeout(() => view.startsWith(`${me}|welcome`) && confetti(90), 2400);
+    $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
+    if (draft && $("#text")) $("#text").value = draft;
+    if (about) $(`input[name=about][value="${about}"]`)?.click();
+    bind();
+  }
+  if (stage === "welcome") return;
+  if (stage === "pick") $("#app").innerHTML = pickView();
+  if (!me || !live) return;
+  ({ entry: fillEntry, rate: fillRate, play: fillPlay, ended: fillEnded })[stage]();
+  fillHistory();
+  if (isAdmin()) fillAdmin();
+}
+
+const codeView = () => `<h2>🔐 קוד משפחתי</h2>
+  <form id="join" class="panel"><div class="muted">פעם אחת בכל מכשיר.</div>
+  <div class="row"><input class="field" id="code" required autocomplete="off" placeholder="הקוד"><button>כניסה</button></div>
+  <p class="muted" id="err" role="alert"></p></form>`;
+
+const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS.map((p, k) => {
+  const taken = !legacy && players[p] && players[p] !== uid;
+  return `<button data-me="${esc(p)}" style="${col(p)};animation-delay:${k * 60}ms"${taken ? " disabled" : ""}><span class="e">${emo(p)}</span>${esc(p)}${taken ? "<small>תפוס</small>" : ""}</button>`;
+}).join("")}</div>`;
+
+const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div>${legacy ? "" : `
+  <details class="free"><summary>🔓 שם תקוע?</summary>
+    <p class="muted">מי שהטלפון הישן שלו לא זמין: משחררים את השם, והוא בוחר אותו מחדש.</p><div class="chips" id="freeList"></div></details>`}</section>` : "";
+const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
+
+// ---- welcome screen: right after the family code, then only from the header logo ----
+let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
+// the header logo opens it again; the phone's back button (or "יאללה") returns to the game
+function showWelcome() {
+  if (!welcomed) return;
+  history.pushState({ welcome: 1 }, "");
+  welcomed = false; view = ""; render(); scrollTo(0, 0);
+}
+function leaveWelcome() {
+  if (history.state?.welcome) return history.back(); // popstate below closes it
+  closeWelcome();
+}
+function closeWelcome() {
+  welcomed = true;
+  try { localStorage.setItem("bingo-welcome", "1"); } catch {}
+  view = ""; render(); scrollTo(0, 0);
+}
+addEventListener("popstate", () => { if (!welcomed) closeWelcome(); });
+const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"];
+const welcomeView = () => `<section class="welcome">
+  <div class="fam">${PLAYERS.map((p, k) => `<span style="--k:${k}">${emo(p)}</span>`).join("")}</div>
+  <div class="mini" aria-hidden="true">${MINI.map((e, k) => `<span${k % 4 ? "" : ` class="hit" style="--d:${k / 4}"`}>${e}</span>`).join("")}<b class="yay">בינגו!</b></div>
+  <h2 class="wtitle">בינגו משפחתי</h2>
+  <p class="wsub">מנחשים מה יקרה בטיול 🔮<br>ומסמנים כשזה קורה ✅</p>
+  <button class="go" data-act="start">יאללה! 🚀</button>
+</section>`;
+
+const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
+const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span></div>`;
+
+const entryView = () => `${hello()}
+  <h2>✍️ ניחוש חדש</h2>
+  <form id="add" class="panel">
+    <div class="muted">על מי?</div>
+    <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
+      `<label class="chip" style="${col(p)}"><input type="radio" name="about" value="${esc(p)}" required>${av(p)}${esc(p)}</label>`).join("")}</div>
+    <textarea id="text" required maxlength="140" placeholder="למשל: &quot;עוד 5 דקות מגיעים&quot;"></textarea>
+    <div class="row"><button>הוסף ניחוש ✨</button></div>
+  </form>
+  <h2>🎯 כמה ניחושים על כל אחד</h2><div class="counts" id="counts"></div>
+  <h2>📜 הניחושים שלי</h2><p class="muted">🤫 כל אחד רואה רק את הניחושים שהוא כתב. כולם יתגלו בטיול!</p><ul id="list"></ul>
+  ${tail()}`;
+
+const rateView = () => `${hello()}
+  ${isRater()
+    ? `<h2>⭐ דרגו את הניחושים <span class="muted" id="rateCnt"></span></h2>
+       <p class="muted">כמה כיף יהיה לראות את זה בכרטיס? 🥱 = לא מעניין, ⭐⭐⭐ = חובה! ניחושים עליכם או שלכם לא מופיעים כאן.</p><ul id="rate"></ul>`
+    : `<div class="panel" style="margin-top:16px">⏳ עכשיו שלב הדירוג. המדרגים בוחרים את הניחושים הכי טובים, ואחר כך מתחילים!</div>`}
+  <h2>📊 התקדמות המדרגים</h2><ul class="score" id="raters"></ul>
+  ${tail()}`;
+
+const playView = () => `
+  <div class="panel status"><div class="ring" id="ring"><span id="cnt"></span></div>
+    <div><div class="display" style="font-size:22px">הכרטיס של ${esc(me)} ${lookBtn()}</div>
+    <div class="muted">שורה, עמודה או אלכסון = בינגו. כרטיס מלא = ניצחון 🏆</div></div></div>
+  <div id="banner"></div>
+  <div class="grid" id="card"></div>
+  <h2>🏁 טבלת המשחק</h2><ul class="score" id="score"></ul>
+  ${tail()}`;
+
+const endedView = () => `
+  <div class="banner" id="winner"></div>
+  <h2>🏆 התוצאות</h2><ul class="score" id="score"></ul>
+  <h2>🃏 הכרטיס שלי</h2><div class="grid done" id="card"></div>
+  ${tail()}`;
+
+function fillEntry() {
+  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => i.about === p).length}</b></span>`).join("");
+  if (!legacy) migrate();
+  const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}</span><button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button></li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  need(vis.filter(i => !i.text).map(i => i.id));
+}
+
+function fillRate() {
+  if (isRater()) {
+    const list = rateable(me).sort((a, b) => secs(a.at) - secs(b.at)), my = myStars();
+    need(list.filter(i => !i.text).map(i => i.id));
+    $("#rateCnt").textContent = `(${list.filter(i => i.id in my).length}/${list.length})`;
+    $("#rate").innerHTML = list.map(i => {
+      const s = my[i.id];
+      return `<li class="pred" style="${col(i.about)}">${av(i.about)}<span class="t"><span class="who">${esc(i.about)}</span> · ${esc(shownText(i))}
+        <span class="stars">${[0, 1, 2, 3].map(k => `<button class="star${k ? (s >= k ? " on" : "") : (s === 0 ? " on" : "")}" data-rate="${esc(i.id)}" data-k="${k}" aria-label="${k} כוכבים">${k ? "★" : "🥱"}</button>`).join("")}</span></span></li>`;
+    }).join("") || `<li class="empty">אין ניחושים לדרג</li>`;
+  }
+  $("#raters").innerHTML = (game.raters || []).map(p => {
+    const total = rateable(p).length, done = ratings.filter(r => r.player === p).length;
+    return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
+  }).join("");
+}
+
+function fillCard(interactive) {
+  const ids = game.cards?.[me] || [], n = size();
+  const byId = Object.fromEntries(items.map(i => [i.id, i]));
+  const on = new Set(marks[me]?.marked || []);
+  const hot = new Set(lines(n).filter(l => l.every(k => on.has(ids[k]))).flat());
+  const full = ids.length && ids.every(id => on.has(id));
+  const card = $("#card");
+  card.dataset.n = n; card.style.gridTemplateColumns = `repeat(${n},1fr)`;
+  card.classList.toggle("full", !!full);
+  card.innerHTML = ids.map((id, k) => {
+    const i = byId[id] || { text: "(נמחק)", about: "" };
+    const cls = `${on.has(id) ? " on" : ""}${on.has(id) && shown && !shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
+    return `<div class="cell${cls}"${interactive ? ` role="button" tabindex="0" aria-pressed="${on.has(id)}" data-cell="${esc(id)}"` : ""} data-stamp="${emo(me)}"><span class="txt">${esc(shownText(i))}</span>${i.about ? `<span class="tag" style="${col(i.about)}"><i>${emo(i.about)}</i><b>${esc(i.about)}</b></span>` : ""}</div>`;
+  }).join("");
+  shown = on;
+  need(ids.filter(id => byId[id] && !byId[id].text));
+  return { on, hot, full, N: ids.length };
+}
+
+function fillScore() {
+  $("#score").innerHTML = ranking().map(r => {
+    const N = game.cards[r.p].length;
+    return `<li style="${col(r.p)}"><span class="place">${medal(r.place)}</span>${av(r.p)}<span class="name">${esc(r.p)}</span><span class="bar"><i style="width:${r.n / N * 100}%"></i></span><span class="n">${r.n}/${N}</span>${r.blackout ? `<span class="win">🏆 מלא</span>` : r.bingo ? `<span class="win">🎉 בינגו</span>` : ""}</li>`;
+  }).join("");
+}
+
+function fillPlay() {
+  const { on, hot, full, N } = fillCard(true);
+  $("#ring").style.setProperty("--p", N ? on.size / N * 100 : 0);
+  $("#cnt").textContent = `${on.size}/${N}`;
+  $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופ/ה! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
+  fillScore();
+}
+
+function fillEnded() {
+  fillCard(false);
+  fillScore();
+  const winners = ranking().filter(r => r.place === 1).map(r => `${emo(r.p)} ${esc(r.p)}`);
+  $("#winner").innerHTML = winners.length ? `🏆 ${winners.length > 1 ? "המנצחים" : "המנצח/ת"}: ${winners.join(", ")} 🏆` : "🏁 המשחק נגמר";
+}
+
+function fillHistory() {
+  $("#histBox").hidden = !pastGames.length;
+  $("#hist").innerHTML = pastGames.map(h => `<li class="hist"><div class="muted">${h.at?.seconds ? new Date(h.at.seconds * 1000).toLocaleDateString("he-IL") : "עכשיו"} · ${h.size}×${h.size}</div>
+    <div>${(h.results || []).map(r => `<span class="res">${medal(r.place)} ${emo(r.p)} ${esc(r.p)} <small>${r.blackout ? "🏆" : r.bingo ? "🎉" : ""}${r.n}/${h.size * h.size}</small></span>`).join("")}</div></li>`).join("");
+}
+
+function fillAdmin() {
+  const st = game.status;
+  sizeSel ??= game.size || 3;
+  raterSel ??= new Set(game.raters || PLAYERS);
+  const N = sizeSel * sizeSel;
+  const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
+    <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
+    <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>`;
+  const chosen = PLAYERS.filter(p => raterSel.has(p));
+  const noDevice = legacy ? [] : chosen.filter(p => !players[p]);
+  const dirty = st === "rate" && PLAYERS.some(p => raterSel.has(p) !== (game.raters || []).includes(p));
+  const raters = `<div class="step">${st === "rate" ? "מי מדרג?" : "1. מי ידרג את הניחושים?"} <span class="muted">לחיצה על שם מסמנת ✓ או מבטלת</span></div>
+    <div class="chips">${PLAYERS.map(p => `<button class="ghost pick toggle${raterSel.has(p) ? " on" : ""}" data-rater="${esc(p)}" style="${col(p)}" aria-pressed="${raterSel.has(p)}"><span class="box">${raterSel.has(p) ? "✓" : ""}</span>${emo(p)} ${esc(p)}</button>`).join("")}</div>
+    <div class="row"><button class="ghost" data-act="allRaters">כולם</button><button class="ghost" data-act="noRaters">אף אחד</button>
+      <span class="muted">${chosen.length ? `ידרגו ${chosen.length}: ${chosen.map(esc).join(", ")}` : "⚠️ לא נבחרו מדרגים"}</span></div>
+    ${noDevice.length ? `<p class="muted">⚠️ ${noDevice.map(esc).join(", ")} עוד לא נכנסו לאתר. אחרי שייכנסו הם יוכלו לדרג.</p>` : ""}`;
+  const order = ["entry", "rate", "play", "ended"], at = order.indexOf(st);
+  const stepper = `<div class="stepper">${order.map((k, i) => `<span class="${i < at ? "done" : i === at ? "now" : ""}">${i < at ? "✓ " : ""}${{ entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" }[k]}</span>`).join("")}</div>`;
+  if ($("#freeList")) $("#freeList").innerHTML = PLAYERS.filter(p => players[p] && p !== me).map(p => `<button class="ghost" data-free="${esc(p)}">${emo(p)} ${esc(p)} ✕</button>`).join("") || `<span class="muted">אין שמות תפוסים</span>`;
+  $("#adm").innerHTML = stepper + ({
+    entry: `${raters}<hr><div class="step">2. כשכולם סיימו לכתוב</div>
+      <p class="muted">הניחושים ננעלים והמדרגים מתחילים לדרג. גודל הלוח בוחרים בשלב הבא.</p>
+      <div class="row"><button data-act="rate"${chosen.length ? "" : " disabled"}>${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
+    rate: `${raters}<div class="row">${dirty ? `<button data-act="raters">💾 שמירת השינוי במדרגים</button>` : ""}<button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
+      <hr><div class="step">כשהמדרגים סיימו: יצירת כרטיסים</div>${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+    play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
+      <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button></div>
+      <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
+    ended: `<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
+  })[st] ?? "";
+}
+
+async function toggle(id) {
+  if (game.status !== "play") return;
+  const ids = game.cards[me], m = marks[me] || {};
+  const on = new Set(m.marked || []);
+  on.has(id) ? on.delete(id) : on.add(id);
+  navigator.vibrate?.(25);
+  const bingo = lines(size()).some(l => l.every(k => on.has(ids[k]))), blackout = ids.every(x => on.has(x));
+  await safe(setDoc(doc(db, "marks", me), {
+    marked: [...on], bingo, blackout,
+    bingoAt: bingo ? (m.bingo ? m.bingoAt ?? null : serverTimestamp()) : null,
+    blackoutAt: blackout ? (m.blackout ? m.blackoutAt ?? null : serverTimestamp()) : null
+  }));
+}
+
+function bind() {
+  const app = $("#app");
+  const act = {
+    start: leaveWelcome,
+    howto: openHow,
+    allRaters: () => { raterSel = new Set(PLAYERS); render(); },
+    noRaters: () => { raterSel.clear(); render(); },
+    rate: startRating, raters: () => setRaters("rate"), back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
+    reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
+  app.onclick = e => {
+    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look],[data-rate],[data-size],[data-rater],[data-act]");
+    if (!t) return;
+    const d = t.dataset;
+    if (t.hasAttribute("data-look")) openLooks();
+    else if (d.me) claim(d.me);
+    else if (d.free) { if (confirm(`לשחרר את השם ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))).then(ok => ok && toast(`🔓 ${d.free} שוחרר`)); }
+    else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
+    else if (d.cell) toggle(d.cell);
+    else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
+    else if (d.size) { sizeSel = +d.size; render(); }
+    else if (d.rater) { raterSel.has(d.rater) ? raterSel.delete(d.rater) : raterSel.add(d.rater); render(); }
+    else if (d.act) act[d.act]?.();
+  };
+  app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
+  $("#add")?.addEventListener("submit", async e => {
+    e.preventDefault();
+    const text = $("#text").value.trim(), about = $("input[name=about]:checked")?.value;
+    if (!text || !about) return;
+    $("#text").value = "";
+    if (!await safe(addItem(about, text))) $("#text").value = text;
+  });
+  // radio chips: tapping the chosen one again clears it (the label's own click, before it re-selects the radio)
+  $("#add")?.addEventListener("click", e => {
+    const chip = e.target.closest("label.chip"), i = chip?.querySelector("input");
+    if (!i || e.target === i || !i.checked) return;
+    e.preventDefault(); i.checked = false;
+  });
+  $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
+}
+
+// ---- emoji picker ----
+function openLooks() {
+  const mine = emo(me);
+  $("#emojis").innerHTML = EMOJIS.map(([e, c]) => {
+    const taken = e !== mine && PLAYERS.some(p => p !== me && emo(p) === e);
+    return `<button data-e="${e}" style="--c:${c}"${e === mine ? ' class="on"' : ""}${taken ? " disabled" : ""}>${e}</button>`;
+  }).join("");
+  $("#lookDlg").showModal();
+}
+$("#emojis").onclick = e => {
+  const b = e.target.closest("[data-e]");
+  if (!b) return;
+  $("#lookDlg").close();
+  safe(setDoc(doc(db, "looks", me), { e: b.dataset.e }));
+};
+
+// ---- settings and how-to dialogs ----
+const STEPS = [
+  ["🔮", "כותבים ניחושים", "מה כל אחד יגיד או יעשה בטיול? כל אחד רואה רק את מה שהוא כתב 🤫"],
+  ["⭐", "מדרגים", "המדרגים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
+  ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, בלי ניחושים עליו עצמו"],
+  ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת. שורה, עמודה או אלכסון = בינגו 🎉"],
+  ["🏆", "מנצחים", "כרטיס מלא = ניצחון! המתכלל מסיים את המשחק, והתוצאות נשמרות בהיסטוריה"]
+];
+function openHow() {
+  $("#steps").innerHTML = STEPS.map(([e, t, d]) => `<li><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`).join("");
+  $("#howDlg").showModal();
+}
+function openSettings() {
+  $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
+  showInstall();
+  $("#setDlg").showModal();
+}
+$("#logo").onclick = showWelcome;
+$("#setMenu").onclick = e => {
+  const b = e.target.closest("[data-set]");
+  if (!b) return;
+  $("#setDlg").close();
+  ({ look: openLooks, install, howto: openHow, logout, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+};
+// close a dialog from its close button or by tapping outside it
+document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
+
+let tt;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 4000); }
+
+// ---- confetti ----
+const fx = $("#fx"), cx = fx.getContext("2d"), bits = [];
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function confetti(n) {
+  if (calm) return;
+  const dpr = devicePixelRatio || 1, cols = PLAYERS.map(colorOf).concat("#ffc23c", "#ff4f6d");
+  fx.width = innerWidth * dpr; fx.height = innerHeight * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const idle = !bits.length;
+  for (let k = 0; k < n; k++) bits.push({ x: innerWidth * (k % 2 ? .15 : .85), y: innerHeight * .9, vx: (Math.random() - .5) * 10 + (k % 2 ? 4 : -4), vy: -Math.random() * 16 - 10, r: Math.random() * 6, vr: (Math.random() - .5) * .4, s: 7 + Math.random() * 7, c: cols[k % cols.length] });
+  if (idle) requestAnimationFrame(tick);
+}
+function tick() {
+  cx.clearRect(0, 0, innerWidth, innerHeight);
+  for (let k = bits.length - 1; k >= 0; k--) {
+    const b = bits[k];
+    b.vy += .4; b.vx *= .985; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+    if (b.y > innerHeight + 30) { bits.splice(k, 1); continue; }
+    cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.fillStyle = b.c; cx.fillRect(-b.s / 2, -b.s / 4, b.s, b.s / 2); cx.restore();
+  }
+  if (bits.length) requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>

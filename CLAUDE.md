@@ -14,10 +14,11 @@ A family road-trip bingo web app (Hebrew, RTL, mobile-first). Before the trip, p
 | `firestore.rules` | Source of truth for the Firestore security rules. `FAMILY_CODE` is a placeholder (see Security). |
 | `manifest.webmanifest`, `sw.js`, `icons/` | PWA: installable app, network-first service worker, icons (the header logo is `icons/icon-192.png`). |
 | `README.md` | Hebrew usage guide for the family plus the admin guide. |
+| `tests/` | `ui/run.mjs` + `ui/mock.js` (UI suite), `rules/test.mjs` (rules suite), `package.json`, `firebase.json` (emulator). See "Verifying changes". |
 
 ## Stack and hard constraints
 
-- Vanilla JS ES module, single file. **No frameworks, bundlers or build tooling** unless Matan asks.
+- Vanilla JS ES module, single file. **No frameworks, bundlers or build tooling** in the app unless Matan asks (the dev-only `tests/` package is the exception).
 - Firebase v10.12.2 from the gstatic CDN: `firebase-app`, `firebase-auth` (anonymous), `firebase-firestore`. Project `family-bingo-4c8e7`; the config is inline, and the public API key is expected.
 - Fonts: Google Fonts (Secular One for display, Rubik for body).
 - Deployment = push to `master`. Pages caches files for about 10 minutes, and `sw.js` revalidates (`cache: "no-cache"`). Bump `CACHE` in `sw.js` when the shell file list changes.
@@ -101,13 +102,20 @@ Old-format items that still have `text` in the item are migrated by their author
 
 ## Verifying changes (do this before every push)
 
-1. **Syntax:** extract the module and run `node --check`:
-   ```sh
-   python3 -c "s=open('index.html').read();a=s.index('<script type=\"module\">')+22;b=s.index('</script>',a);open('/tmp/x.mjs','w').write(s[a:b])" && node --check /tmp/x.mjs
-   ```
-2. **UI (Playwright, Chromium at `/opt/pw-browsers/chromium`):**
-   - Serve a copy of `index.html` whose three gstatic imports are replaced (with `sed`) by a local `mock.js`. The mock exports the same functions: `onSnapshot` feeds fixture data per collection, `setDoc` and batches record writes on `window`, and URL hash params pick the phase and size.
-   - Drive every affected phase, dialog and admin action. Check light and dark mode screenshots, touch (`devices['Pixel 7']`), and `scrollWidth - innerWidth == 0`.
-   - Set `localStorage['bingo-welcome']='1'` to skip the welcome screen.
-3. **Rules:** in a scratch directory, `npm i firebase-tools @firebase/rules-unit-testing firebase`, then run `npx firebase emulators:exec --only firestore --project demo-bingo "node test.mjs"` against `firestore.rules` (with the code set to a test value). Cover both allow and deny paths for every rule you touch. The current suite had 98 passing cases: membership and code, name claims, text secrecy per phase, ratings, marks timestamps, history and admins.
-4. Re-read the diff, update `README.md` when behavior changes, commit with a clear message, push the branch, and fast-forward `master` if asked.
+Tests live in `tests/` (run from there, after `npm install`):
+
+| Command | What |
+|---|---|
+| `npm run test:ui` | `ui/run.mjs`: 81 checks. It serves `index.html` with the Firebase imports swapped for `ui/mock.js` and drives it with Playwright/Chromium: entering (code → welcome → name), entry, settings and dialogs, emoji, logo and back button, logout and switch player, admin phases, rating, generating cards 2×2 to 5×5, play, end and history, overflow at 360px, dark mode. |
+| `npm run test:rules` | `rules/test.mjs`: 98 allow/deny cases for `../firestore.rules` on the Firestore emulator (needs Java). |
+| `npm test` | Both. |
+
+- The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
+- `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`). Extend it when the app reads or writes something new.
+- **Add or adjust checks for every behavior you change**: UI checks in `run.mjs`, and allow and deny cases in `rules/test.mjs` for every rule you touch.
+
+Before pushing:
+1. Syntax: `python3 -c "s=open('index.html').read();a=s.index('<script type=\"module\">')+22;b=s.index('</script>',a);open('/tmp/x.mjs','w').write(s[a:b])" && node --check /tmp/x.mjs`
+2. `npm test` in `tests/`: everything must pass.
+3. For visual changes, take Playwright screenshots in light and dark mode at 360–390px and look at them.
+4. Re-read the diff, update `README.md` if behavior changed, commit with a clear message, push the branch, and fast-forward `master` if asked.

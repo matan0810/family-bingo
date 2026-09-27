@@ -1,0 +1,17 @@
+{
+  "name": "family-bingo-tests",
+  "private": true,
+  "type": "module",
+  "description": "Tests for family-bingo: Firestore rules (emulator) and UI (Playwright + mocked Firebase)",
+  "scripts": {
+    "test": "npm run test:rules && npm run test:ui",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-bingo \"node rules/test.mjs\"",
+    "test:ui": "node ui/run.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.0",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^14.0.0",
+    "playwright": "^1.48.0"
+  }
+}

@@ -104,6 +104,7 @@
 - PWA: `manifest.webmanifest`, `sw.js` (network-first, עם גיבוי מהמטמון כשאין רשת) ואייקונים ב־`icons/`.
 - Firebase Firestore + Anonymous Auth. החוקים נמצאים ב־`firestore.rules` ומודבקים בקונסול. הקוד המשפחתי מופיע שם כ־`FAMILY_CODE`, ומחליפים אותו בקוד האמיתי לפני ההדבקה.
 - `CLAUDE.md`: הנחיות ומידע על הפרויקט לעבודה עם Claude Code.
+- בדיקות ב־`tests/`: `npm install`, ואז `npm test`. יש בדיקות ממשק (Playwright מול Firebase מדומה) ובדיקות חוקים (אמולטור Firestore, דורש Java).
 - מבנה נתונים: `items` (על מי ומי כתב, בלי הטקסט), `texts/{id}` (הטקסט, נקרא רק לפי החוקים), `game/state` (שלב, גודל, כרטיסים, מדרגים), `marks/{player}` (כולל זמני בינגו), `ratings/{item}_{player}`, `history`, `looks/{player}` = `{e}`, `players/{player}` = `{uid}`, `members/{uid}`.
 - רשימת השחקנים, המתכללים (`ADMINS`) והאימוג׳ים (`EMOJIS`) מופיעה גם ב־`index.html` וגם בחוקים. משנים? מעדכנים בשני המקומות.
 - הבחירה לכרטיס היא דגימה משוקללת: `weight` של הניחוש (ברירת מחדל 1) × (ממוצע כוכבים + 0.5)². ניחוש שלא דורג נחשב 1.5 כוכבים.
