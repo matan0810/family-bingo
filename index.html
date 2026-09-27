@@ -96,6 +96,17 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
 .admin h2{margin-top:14px}
 
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:16px;width:min(380px,calc(100% - 32px));box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(20,16,40,.55)}
+dialog h2{margin:0 0 12px}
+.emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.emojis button{aspect-ratio:1;padding:0;font-size:26px;border-radius:14px;background:color-mix(in srgb,var(--c) 18%,var(--card));box-shadow:inset 0 0 0 2px var(--c)}
+.emojis button.on{background:var(--c);transform:scale(1.08)}
+.emojis button:disabled{opacity:.25;cursor:not-allowed}
+.hello{display:flex;align-items:center;gap:10px;margin-top:12px}
+.hello .av{font-size:22px}
+.hello .t{flex:1;font-weight:500}
+button.av{padding:0;cursor:pointer;font-size:1em}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,200%) scale(.6);background:linear-gradient(135deg,var(--hot),#ff8a3d);color:#fff;padding:14px 24px;border-radius:18px;font-family:"Secular One",sans-serif;font-size:22px;box-shadow:0 8px 0 color-mix(in srgb,var(--hot) 55%,#000),0 16px 40px rgba(0,0,0,.25);opacity:0;transition:transform .45s cubic-bezier(.2,1.6,.4,1),opacity .2s;z-index:9;white-space:nowrap}
 #toast.show{transform:translate(-50%,0) scale(1);opacity:1}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
@@ -112,6 +123,7 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 <header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
+<dialog id="lookDlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" id="lookClose">סגירה</button></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
@@ -130,7 +142,14 @@ const firebaseConfig = {
 
 const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
 // per-player avatar + color
-const LOOK = { "אבא": ["🦁", "#f59e0b"], "אמא": ["🦄", "#ec4899"], "מתן": ["🐬", "#3b82f6"], "אורי": ["🐸", "#22c55e"], "עדי": ["🐙", "#8b5cf6"], "הדר": ["🐢", "#14b8a6"] };
+// avatars a player can choose (looks/{player} = {e}); each emoji has a fixed color. Keep in sync with the rules.
+const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸","#22c55e"],["🐙","#8b5cf6"],["🐢","#14b8a6"],
+  ["🦊","#f97316"],["🐼","#64748b"],["🐯","#eab308"],["🐨","#78716c"],["🐷","#f472b6"],["🐵","#a16207"],
+  ["🐧","#0ea5e9"],["🦉","#b45309"],["🐝","#ca8a04"],["🦋","#6366f1"],["🐞","#ef4444"],["🦖","#16a34a"],
+  ["🐳","#0284c7"],["🦩","#fb7185"],["🐱","#d97706"],["🐰","#d946ef"],["🦈","#0891b2"],["🌵","#65a30d"],
+  ["🍕","#dc2626"],["🍉","#e11d48"],["🚀","#7c3aed"],["👽","#84cc16"],["🤖","#06b6d4"],["👻","#a78bfa"]];
+const COLOR = Object.fromEntries(EMOJIS);
+const DEFAULT = { "אבא": "🦁", "אמא": "🦄", "מתן": "🐬", "אורי": "🐸", "עדי": "🐙", "הדר": "🐢" };
 const ADMINS = ["מתן", "אורי"]; // must match isAdmin() in the Firestore rules
 const N = 9;
 const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -141,12 +160,13 @@ let adminOpen = new URLSearchParams(location.search).has("admin");
 const isAdmin = () => adminOpen && ADMINS.includes(me);
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const emo = p => LOOK[p]?.[0] ?? "🙂";
-const col = p => `--c:${LOOK[p]?.[1] ?? "#888"}`;
+const emo = p => COLOR[looks[p]] ? looks[p] : DEFAULT[p] ?? "🙂";
+const colorOf = p => COLOR[emo(p)] ?? "#888";
+const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
 
 let me = localStorage.getItem("bingo-me");
-let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, view = "";
+let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, view = "";
 let uid = null, member = false, claiming = false;
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
@@ -186,8 +206,10 @@ onSnapshot(collection(db, "marks"), s => {
   }
   ready("marks");
 }, fatal);
+onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
 }
-function ready(k) { got.add(k); if (got.size >= 4) render(); }
+const SOURCES = 5;
+function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
 
 // ---- selection: weighted sample without replacement (weight defaults to 1) ----
 function pick(pool, k) {
@@ -240,7 +262,7 @@ function release() {
 // ---- render ----
 function render() {
   const who = $("#who");
-  const live = member && got.size >= 4;
+  const live = member && got.size >= SOURCES;
   // a stored name must be claimed by this device; claim it if free (e.g. after this update), else forget it
   if (live && me && !legacy && players[me] !== uid && !claiming) {
     if (players[me] || !PLAYERS.includes(me)) { me = null; localStorage.removeItem("bingo-me"); } else claim(me);
@@ -250,14 +272,17 @@ function render() {
   const ab = $("#adminBtn");
   ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
   ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
-  document.documentElement.style.setProperty("--me", LOOK[me]?.[1] ?? "var(--hot)");
+  document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
   $("#phase").textContent = game.status === "play" ? "🚗 המשחק רץ!" : "🔮 שלב הניחושים";
 
   const stage = !uid ? "load" : !member ? "code" : !live ? "load" : !me ? "pick" : game.status;
-  const key = `${me}|${stage}`;
+  const key = `${me}|${stage}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
+    const draft = $("#text")?.value, about = $("input[name=about]:checked")?.value;
     $("#app").innerHTML = { load: `<p class="muted">טוען…</p>`, code: codeView(), pick: "" , play: playView() }[stage] ?? entryView();
+    if (draft && $("#text")) $("#text").value = draft;
+    if (about) $(`input[name=about][value="${about}"]`)?.click();
     bind();
   }
   if (stage === "pick") $("#app").innerHTML = pickView();
@@ -278,7 +303,10 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 
-const entryView = () => `
+const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
+const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-look>🎨 אימוג׳י</button></div>`;
+
+const entryView = () => `${hello()}
   <h2>✍️ ניחוש חדש</h2>
   <form id="add" class="panel">
     <div class="muted">על מי?</div>
@@ -293,7 +321,7 @@ const entryView = () => `
 
 const playView = () => `
   <div class="panel status"><div class="ring" id="ring"><span id="cnt"></span></div>
-    <div><div class="display" style="font-size:22px">הכרטיס של ${esc(me)} ${emo(me)}</div>
+    <div><div class="display" style="font-size:22px">הכרטיס של ${esc(me)} ${lookBtn()}</div>
     <div class="muted">שורה, עמודה או אלכסון = בינגו. כל 9 = ניצחון 🏆</div></div></div>
   <div id="banner"></div>
   <div class="grid" id="card"></div>
@@ -352,9 +380,10 @@ async function toggle(id) {
 function bind() {
   const app = $("#app");
   app.onclick = e => {
-    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free]");
+    const t = e.target.closest("[data-me],[data-del],[data-cell],[data-free],[data-look]");
     if (!t) return;
-    if (t.dataset.me) claim(t.dataset.me);
+    if (t.hasAttribute("data-look")) openLooks();
+    else if (t.dataset.me) claim(t.dataset.me);
     else if (t.dataset.free) { if (confirm(`לשחרר את ${t.dataset.free}?`)) safe(deleteDoc(doc(db, "players", t.dataset.free))); }
     else if (t.dataset.del) { if (confirm("למחוק?")) safe(deleteDoc(doc(db, "items", t.dataset.del))); }
     else if (t.dataset.cell) toggle(t.dataset.cell);
@@ -370,6 +399,23 @@ function bind() {
   $("#join")?.addEventListener("submit", e => { e.preventDefault(); join($("#code").value.trim()); });
 }
 
+// ---- emoji picker ----
+function openLooks() {
+  const mine = emo(me);
+  $("#emojis").innerHTML = EMOJIS.map(([e, c]) => {
+    const taken = e !== mine && PLAYERS.some(p => p !== me && emo(p) === e);
+    return `<button data-e="${e}" style="--c:${c}"${e === mine ? ' class="on"' : ""}${taken ? " disabled" : ""}>${e}</button>`;
+  }).join("");
+  $("#lookDlg").showModal();
+}
+$("#emojis").onclick = e => {
+  const b = e.target.closest("[data-e]");
+  if (!b) return;
+  $("#lookDlg").close();
+  safe(setDoc(doc(db, "looks", me), { e: b.dataset.e }));
+};
+$("#lookClose").onclick = () => $("#lookDlg").close();
+
 let tt;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 4000); }
 
@@ -378,7 +424,7 @@ const fx = $("#fx"), cx = fx.getContext("2d"), bits = [];
 const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function confetti(n) {
   if (calm) return;
-  const dpr = devicePixelRatio || 1, cols = Object.values(LOOK).map(l => l[1]).concat("#ffc23c", "#ff4f6d");
+  const dpr = devicePixelRatio || 1, cols = PLAYERS.map(colorOf).concat("#ffc23c", "#ff4f6d");
   fx.width = innerWidth * dpr; fx.height = innerHeight * dpr; cx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const idle = !bits.length;
   for (let k = 0; k < n; k++) bits.push({ x: innerWidth * (k % 2 ? .15 : .85), y: innerHeight * .9, vx: (Math.random() - .5) * 10 + (k % 2 ? 4 : -4), vy: -Math.random() * 16 - 10, r: Math.random() * 6, vr: (Math.random() - .5) * .4, s: 7 + Math.random() * 7, c: cols[k % cols.length] });
