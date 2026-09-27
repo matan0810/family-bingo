@@ -115,7 +115,7 @@ Matan chose the simple trust model for now. When it's time to harden it, ideas i
   - Otherwise it calls `fill*()` functions that update lists in place.
   - Set `view = ""` to force a rebuild.
 - **Events:** one delegated `#app.onclick` on `data-*` attributes (`data-act`, `data-cell`, `data-rate`, `data-size`, `data-free`, `data-del`, `data-edit`, `data-suggest`, `data-accept`, `data-reject`, `data-me`, `data-look`). Admin actions live in the `act` map in `bind()`. Game settings use `data-cfg` inside `#cfgBox`.
-- **Dialogs:** native `<dialog>` with an inner `.dlg`. Tapping the backdrop or `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, admin mode for admins, game settings for founders, how to play, switch player, logout), edit or suggest wording (`#editDlg`), game settings (`#cfgDlg`), how to play (`#howDlg`).
+- **Dialogs:** native `<dialog>` with an inner `.dlg` that starts with a sticky `.dlg-head` (title + ✕ `.x[data-close]`); a save button sits in a sticky `.row.save`. Tapping the backdrop or any `[data-close]` closes it. Emoji picker (`#lookDlg`), settings (`#setDlg`: emoji, install, admin mode for admins, game settings for founders, how to play, switch player, logout), edit or suggest wording (`#editDlg`), game settings (`#cfgDlg`), how to play (`#howDlg`).
 - **Welcome screen:** shown right after the family code, and again from the header logo. The back button or "יאללה" returns via `history.pushState`/`popstate`.
 - **Writes:** wrap them in `safe(promise)`, which shows a toast on failure and resolves true or false. Use `writeBatch` for multi-document changes.
 - **Install:** `beforeinstallprompt` on Android, instructions on iOS. The install item appears only in settings.

@@ -101,7 +101,7 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .score .name{width:3.4em;font-weight:700}
 .win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
 
-/* rating, places, admin, history, board sizes */
+/* rating, places, phases, history, board sizes */
 .place{width:1.8em;text-align:center;font-weight:800}
 .stars{display:flex;gap:4px;margin-top:6px}
 .star{background:var(--card);color:var(--line);border:2px solid var(--line);box-shadow:none;padding:2px 9px;font-size:18px;border-radius:10px;line-height:1.3}
@@ -120,8 +120,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .toggle .box{display:inline-grid;place-items:center;width:18px;height:18px;margin-inline-end:6px;border-radius:6px;border:2px solid var(--line);font-size:12px;font-weight:800;vertical-align:-3px}
 .toggle.on .box{background:var(--c);border-color:var(--c);color:#fff}
 button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background:color-mix(in srgb,var(--c,var(--me)) 18%,var(--card))}
-.admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
-.admin .row{flex-wrap:wrap}
 .hist{flex-direction:column;gap:4px}
 .res{display:inline-block;margin-inline-end:12px;white-space:nowrap}
 .res small{color:var(--muted)}
@@ -133,38 +131,25 @@ button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background
 .grid[data-n="4"] .cell .tag b,.grid[data-n="5"] .cell .tag b{display:none}
 .grid[data-n="4"] .cell.on::before,.grid[data-n="5"] .cell.on::before{font-size:clamp(30px,9vw,48px)}
 .grid[data-n="4"] .cell.on::after,.grid[data-n="5"] .cell.on::after{width:14px;height:14px;font-size:9px;top:3px;left:3px}
+/* admin panel */
 .admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
 .admin h2{margin-top:14px}
-
-/* dialogs: emoji picker, settings, how to play */
-dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:0;width:min(380px,calc(100% - 32px));box-shadow:var(--shadow)}
-dialog::backdrop{background:rgba(20,16,40,.55)}
-dialog h2{margin:0 0 12px}
-.dlg{padding:16px}
-dialog{max-height:90vh;overflow:auto}
-dialog h3{font-size:16px;margin:18px 0 6px}
-#editText{margin:4px 0 0}
-.sugg{flex-direction:column;align-items:stretch;gap:6px}
-.sugg .old{color:var(--muted);text-decoration:line-through}
-.sugg .new{font-weight:700}
-.mine{margin-top:22px}
-.mine summary{cursor:pointer;font-family:"Secular One",Rubik,sans-serif;font-size:19px}
-.mine ul{margin-top:10px}
-.sent{font-size:12px;color:var(--muted);align-self:center}
-.danger{margin-top:22px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
-.danger summary{cursor:pointer;color:var(--muted);font-size:14px}
-.danger .row{flex-wrap:wrap}
-.danger select.field{flex:1 1 100%;min-height:44px}
+.admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
+.admin .row{flex-wrap:wrap}
 .tune{margin:10px 0;border:2px solid var(--line);border-radius:14px;padding:6px 12px}
 .tune summary{cursor:pointer;font-weight:700;padding:10px 0}
-.danger[open] summary{color:var(--hot);font-weight:700}
-button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
+
+/* dialogs: a sticky header with the title and ✕, and a sticky save row where there is one */
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:0;width:min(380px,calc(100% - 32px));max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
+dialog::backdrop{background:rgba(20,16,40,.55)}
+dialog h3{font-size:16px;margin:18px 0 6px}
+.dlg{padding:16px}
+.dlg-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);margin:-16px -16px 8px;padding:12px 16px 8px}
+.dlg-head h2{margin:0}
+.dlg-head .x{flex:none;min-width:44px;min-height:44px;padding:0;font-size:18px;border-radius:50%}
 .row.save{position:sticky;bottom:-16px;background:var(--card);padding:10px 0;margin-top:18px}
 .row.save button{flex:1}
-.dlg-head{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);margin:-16px -16px 0;padding:12px 16px 8px}
-.dlg-head h2{margin:0}
-.dlg-head .x{min-width:44px;min-height:44px;padding:0;font-size:18px;border-radius:50%}
-.fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
+#editText{margin:4px 0 0}
 .menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .menu button{text-align:start;font-size:17px;padding:12px 14px}
 .steps{list-style:none;padding:0;margin:0 0 14px}
@@ -174,6 +159,23 @@ button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));col
 .emojis button{aspect-ratio:1;padding:0;font-size:26px;border-radius:14px;background:color-mix(in srgb,var(--c) 18%,var(--card));box-shadow:inset 0 0 0 2px var(--c)}
 .emojis button.on{background:var(--c);transform:scale(1.08)}
 .emojis button:disabled{opacity:.25;cursor:not-allowed}
+/* game settings */
+.fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
+.danger{margin-top:22px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
+.danger summary{cursor:pointer;color:var(--muted);font-size:14px}
+.danger[open] summary{color:var(--hot);font-weight:700}
+.danger .row{flex-wrap:wrap}
+.danger select.field{flex:1 1 100%;min-height:44px}
+button.ghost.warn{border-color:color-mix(in srgb,var(--hot) 55%,var(--line));color:var(--hot)}
+/* suggestions and my predictions in the rating phase */
+.sugg{flex-direction:column;align-items:stretch;gap:6px}
+.sugg .old{color:var(--muted);text-decoration:line-through}
+.sugg .new{font-weight:700}
+.mine{margin-top:22px}
+.mine summary{cursor:pointer;font-family:"Secular One",Rubik,sans-serif;font-size:19px}
+.mine ul{margin-top:10px}
+.sent{font-size:12px;color:var(--muted);align-self:center}
+/* misc */
 .hello{display:flex;align-items:center;gap:10px;margin-top:12px}
 .hello .av{font-size:22px}
 .hello .t{flex:1;font-weight:500}
@@ -210,8 +212,8 @@ body.intro header{display:none}
 <header><div><h1><button class="logo" id="logo" aria-label="למסך הפתיחה"><img class="ball" src="icons/icon-192.png" alt=""><span class="word">בינגו משפחתי</span></button></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
-<dialog id="lookDlg"><div class="dlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" data-close>סגירה</button></div></dialog>
-<dialog id="setDlg"><div class="dlg"><h2 id="setTitle"></h2>
+<dialog id="lookDlg"><div class="dlg"><div class="dlg-head"><h2>🎨 בחרו אימוג׳י</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><div class="emojis" id="emojis"></div></div></dialog>
+<dialog id="setDlg"><div class="dlg"><div class="dlg-head"><h2 id="setTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
   <div class="menu" id="setMenu">
     <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
@@ -220,10 +222,10 @@ body.intro header{display:none}
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
     <button class="ghost" data-set="logout">🚪 התנתקות</button>
-  </div><button class="ghost" data-close>סגירה</button></div></dialog>
-<dialog id="editDlg"><div class="dlg"><h2 id="editTitle"></h2><p class="muted" id="editSub"></p>
+  </div></div></dialog>
+<dialog id="editDlg"><div class="dlg"><div class="dlg-head"><h2 id="editTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><p class="muted" id="editSub"></p>
   <textarea id="editText" maxlength="140"></textarea>
-  <div class="row"><button id="editSave">שמירה</button><button class="ghost" data-close>ביטול</button></div></div></dialog>
+  <div class="row save"><button id="editSave">שמירה</button></div></div></dialog>
 <dialog id="cfgDlg"><div class="dlg" id="cfgBox"><div class="dlg-head"><h2>👑 הגדרות משחק</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
   <p class="muted">שינויים נשמרים רק בלחיצה על "💾 שמירת שינויים" למטה.</p>
   <h3>🏷️ שם התחרות</h3>
@@ -244,7 +246,7 @@ body.intro header{display:none}
     <p class="muted"><b>🧹 טיול חדש</b> מוחק את כל הניחושים, הדירוגים וההצעות ומאפס סימונים (רק בשלב הניחושים). לפני המחיקה יורד גיבוי אוטומטית. צריך להקליד "מחיקה" כדי לאשר.</p>
     <div class="row"><button class="ghost warn" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost warn" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
   </details></div></dialog>
-<dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
+<dialog id="howDlg"><div class="dlg"><div class="dlg-head"><h2>❓ איך משחקים?</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
@@ -314,6 +316,8 @@ const whoAv = i => aboutOf(i).length ? aboutOf(i).map(av).join("") : `<span clas
 const colorOf = p => COLOR[emo(p)] ?? "#888";
 const col = p => `--c:${colorOf(p)}`;
 const av = p => `<span class="av" style="${col(p)}">${emo(p)}</span>`;
+// a player chip with a number: how many predictions (about them, or available for their card)
+const countChips = n => PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${n(p)}</b></span>`).join("");
 
 let me = localStorage.getItem("bingo-me");
 let items = [], game = { status: "entry", cards: {} }, marks = {}, players = {}, looks = {}, ratings = [], pastGames = [], view = "";
@@ -321,13 +325,14 @@ let config = LEGACY, PLAYERS = LEGACY.players;
 let memberName = null; // the name this device has recorded in members/{uid} (the rules identify players by it)
 let sugIn = [], sugOut = []; // wording suggestions for my predictions / that I sent
 let uid = null, member = false, claiming = false;
+let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })(); // welcome screen seen
 // Anonymous Auth not enabled in the console yet: run without the family code and name claims.
 // Works only while the Firestore rules are still open; turns off by itself once Auth is enabled.
 let legacy = false;
 const texts = {}; // item id -> text, fetched one by one (undefined = loading, null = not readable)
 const moved = new Set(); // old-format items (text inside the item) already migrated
 const got = new Set(); // snapshot sources that have delivered at least once
-const prev = {};
+const lastMarks = {}; // bingo/blackout per player at the last snapshot, to announce only new ones
 let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
 let sizeSel = null; // admin's board size choice before generating cards
@@ -366,44 +371,44 @@ async function join(code) {
 const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "permission-denied" ? "⚠️ אין הרשאה" : "⚠️ שגיאה"); return false; });
 
 function listen() {
-onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready("items"); }, fatal);
-onSnapshot(doc(db, "game", "state"), s => {
-  game = s.data() || { status: "entry", cards: {} };
-  if (prevStatus === "play" && game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
-  prevStatus = game.status;
-  ready("game");
-}, fatal);
-if (legacy) got.add("players");
-else onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
-onSnapshot(collection(db, "marks"), s => {
-  marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
-  for (const [p, m] of Object.entries(marks)) {
-    const was = prev[p];
-    if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
-    else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === me ? 140 : 70); }
-    prev[p] = { bingo: m.bingo, blackout: m.blackout };
+  onSnapshot(collection(db, "items"), s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); ready("items"); }, fatal);
+  onSnapshot(doc(db, "game", "state"), s => {
+    game = s.data() || { status: "entry", cards: {} };
+    if (prevStatus === "play" && game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
+    prevStatus = game.status;
+    ready("game");
+  }, fatal);
+  if (legacy) got.add("players");
+  else onSnapshot(collection(db, "players"), s => { players = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
+  onSnapshot(collection(db, "marks"), s => {
+    marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
+    for (const [p, m] of Object.entries(marks)) {
+      const was = lastMarks[p];
+      if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
+      else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === me ? 140 : 70); }
+      lastMarks[p] = { bingo: m.bingo, blackout: m.blackout };
+    }
+    ready("marks");
+  }, fatal);
+  onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
+  onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
+  onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
+  // game settings; if they don't exist yet (first run after the upgrade), create them from LEGACY
+  let seeded = false;
+  const setConfig = c => {
+    const src = c?.players?.length ? c : LEGACY;
+    config = { title: src.title || "", players: src.players, founders: src.founders || [], admins: src.admins || [] };
+    PLAYERS = config.players;
+    ready("config");
+  };
+  onSnapshot(doc(db, "config", "settings"), s => {
+    if (!s.data() && !legacy && !seeded) { seeded = true; setDoc(doc(db, "config", "settings"), LEGACY).catch(e => console.warn("seed settings", e)); }
+    setConfig(s.data());
+  }, e => { console.warn("settings", e); setConfig(null); });
+  if (!legacy) {
+    onSnapshot(query(collection(db, "suggestions"), where("toUid", "==", uid)), s => { sugIn = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
+    onSnapshot(query(collection(db, "suggestions"), where("fromUid", "==", uid)), s => { sugOut = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
   }
-  ready("marks");
-}, fatal);
-onSnapshot(collection(db, "looks"), s => { looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
-onSnapshot(collection(db, "ratings"), s => { ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
-onSnapshot(collection(db, "history"), s => { pastGames = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
-// game settings; if they don't exist yet (first run after the upgrade), create them from LEGACY
-let seeded = false;
-const setConfig = c => {
-  const src = c?.players?.length ? c : LEGACY;
-  config = { title: src.title || "", players: src.players, founders: src.founders || [], admins: src.admins || [] };
-  PLAYERS = config.players;
-  ready("config");
-};
-onSnapshot(doc(db, "config", "settings"), s => {
-  if (!s.data() && !legacy && !seeded) { seeded = true; setDoc(doc(db, "config", "settings"), LEGACY).catch(e => console.warn("seed settings", e)); }
-  setConfig(s.data());
-}, e => { console.warn("settings", e); setConfig(null); });
-if (!legacy) {
-  onSnapshot(query(collection(db, "suggestions"), where("toUid", "==", uid)), s => { sugIn = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
-  onSnapshot(query(collection(db, "suggestions"), where("fromUid", "==", uid)), s => { sugOut = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, e => console.warn("suggestions", e));
-}
 }
 const SOURCES = 8;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
@@ -418,6 +423,7 @@ function need(ids) {
   Promise.all(miss.map(id => getDoc(doc(db, "texts", id)).then(s => texts[id] = s.data()?.text ?? null, () => texts[id] = null))).then(render);
 }
 const textOf = i => i.text ?? texts[i.id];
+const itemsById = () => Object.fromEntries(items.map(i => [i.id, i]));
 const shownText = i => { const t = textOf(i); return t === undefined ? "…" : t ?? "🔒"; };
 function addItem(about, text) {
   const ref = doc(collection(db, "items")), b = writeBatch(db);
@@ -499,7 +505,7 @@ function makeCards(N) {
 // preview for the admin, averaged over a few dry runs of the current settings: cells two cards share,
 // and the most cells one person gets on a card
 function cardStats(N, runs = 12) {
-  const byId = Object.fromEntries(items.map(i => [i.id, i]));
+  const byId = itemsById();
   let shared = 0, pairs = 0, top = 0, cardsN = 0;
   for (let r = 0; r < runs; r++) {
     const cards = Object.values(makeCards(N));
@@ -541,7 +547,7 @@ async function generate() {
   if (game.status !== "rate") return; // cards are generated only after the rating phase
   const n = sizeSel || size(), N = n * n;
   const short = PLAYERS.filter(p => poolFor(p).length < N);
-  if (short.length) return alert(`חסרים משפטים שאינם על: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
+  if (short.length) return alert(`חסרים ניחושים לכרטיס של: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
   const b = writeBatch(db);
   const cards = makeCards(N);
@@ -556,10 +562,10 @@ let editing = null;
 function openEdit(mode, id) {
   const i = items.find(x => x.id === id);
   if (!i) return;
-  if (mode === "suggest" && !players[i.author]) return toast("✋ הכותב/ת עוד לא מחובר/ת");
+  if (mode === "suggest" && !players[i.author]) return toast("✋ למי שכתב את הניחוש עוד אין טלפון מחובר");
   editing = { mode, i };
   $("#editTitle").textContent = mode === "edit" ? "✏️ עריכת ניחוש" : "✏️ הצעת ניסוח";
-  $("#editSub").innerHTML = mode === "edit" ? `על ${whoEmo(i)} ${esc(whoName(i))}` : `על ${whoEmo(i)} ${esc(whoName(i))}. ההצעה תגיע ל${esc(i.author)}, שיחליט/תחליט אם לאשר.`;
+  $("#editSub").innerHTML = mode === "edit" ? `על ${whoEmo(i)} ${esc(whoName(i))}` : `על ${whoEmo(i)} ${esc(whoName(i))}. ההצעה תגיע ל${esc(i.author)} לאישור.`;
   $("#editText").value = textOf(i) ?? "";
   $("#editDlg").showModal();
 }
@@ -665,9 +671,9 @@ async function removePlayer(p) {
   if (cfgDirty()) return alert("יש שינויים שלא נשמרו. שומרים אותם קודם (או סוגרים בלי לשמור), ואז מסירים.");
   if (PLAYERS.length <= 2) return alert("צריך לפחות 2 שחקנים");
   const wrote = items.filter(i => i.author === p).length, about = items.filter(i => aboutOf(i).includes(p)).length;
-  const lines = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} או שהוא מעורב בהם יצאו מהדירוג ומהכרטיסים`,
+  const impact = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} או שהוא מעורב בהם יצאו מהדירוג ומהכרטיסים`,
     config.admins.includes(p) && `${p} כבר לא בין המתכללים`, players[p] && `הטלפון של ${p} יתנתק מהשם`].filter(Boolean);
-  const typed = prompt(`🚪 הסרת ${p}\n\n• ${lines.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
+  const typed = prompt(`🚪 הסרת ${p}\n\n• ${impact.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
   if (typed === null) return;
   if (typed.trim() !== p) return alert("השם לא תואם. לא הוסר אף אחד.");
   if (!await saveConfig({ players: without(config.players, p), admins: without(config.admins, p) })) return;
@@ -715,10 +721,10 @@ $("#cfgFile").onchange = async e => {
   if (await safe(b.commit())) { draft = draftOf(); fillCfg(); toast("♻️ שוחזר מהגיבוי"); }
 };
 // the typed word makes wiping a deliberate act
-const typed = what => prompt(`${what}\nכדי לאשר, הקלידו: מחיקה`)?.trim() === "מחיקה";
+const confirmWipe = what => prompt(`${what}\nכדי לאשר, הקלידו: מחיקה`)?.trim() === "מחיקה";
 async function wipeTrip() {
   if (game.status !== "entry") return alert("ניקוי אפשרי רק בשלב הניחושים. קודם מחזירים את המשחק לשלב הניחושים.");
-  if (!typed(`לנקות הכול לטיול חדש?\n${items.length} ניחושים, ${ratings.length} דירוגים והצעות יימחקו, והסימונים יתאפסו. ההיסטוריה נשארת.\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  if (!confirmWipe(`לנקות הכול לטיול חדש?\n${items.length} ניחושים, ${ratings.length} דירוגים והצעות יימחקו, והסימונים יתאפסו. ההיסטוריה נשארת.\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
   await downloadBackup();
   const ops = [...items.flatMap(i => [["items", i.id], ["texts", i.id]]), ...ratings.map(r => ["ratings", `${r.item}_${r.player}`]), ...[...sugIn, ...sugOut].map(x => ["suggestions", x.id])];
   let ok = true;
@@ -728,7 +734,7 @@ async function wipeTrip() {
 }
 async function wipeHistory() {
   if (!pastGames.length) return alert("אין היסטוריה");
-  if (!typed(`למחוק את כל ההיסטוריה (${pastGames.length} משחקים)?\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  if (!confirmWipe(`למחוק את כל ההיסטוריה (${pastGames.length} משחקים)?\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
   await downloadBackup();
   const b = writeBatch(db); pastGames.forEach(h => b.delete(doc(db, "history", h.id)));
   if (await safe(b.commit())) toast("🗑️ ההיסטוריה נמחקה");
@@ -752,9 +758,9 @@ async function backToRating() {
 }
 async function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
-  const n = size(), b = writeBatch(db);
-  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: n, title: config.title, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
-  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: n, at: serverTimestamp() });
+  const board = size(), b = writeBatch(db);
+  b.set(doc(collection(db, "history")), { at: serverTimestamp(), size: board, title: config.title, results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })) });
+  b.set(doc(db, "game", "state"), { status: "ended", cards: game.cards, size: board, at: serverTimestamp() });
   await safe(b.commit());
 }
 async function reset(ask) {
@@ -813,7 +819,6 @@ function render() {
     if (players[me] || !PLAYERS.includes(me)) { me = null; localStorage.removeItem("bingo-me"); } else claim(me);
   }
   who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} ⚙️` : "";
-  who.onclick = openSettings;
   if (live && !legacy && me && players[me] === uid && memberName !== me) recordName();
   if (live && !legacy) cleanSuggestions();
   document.documentElement.style.setProperty("--me", me ? colorOf(me) : "var(--hot)");
@@ -824,11 +829,11 @@ function render() {
   const key = `${me}|${stage}|${stage === "rate" && isRater()}|${JSON.stringify(looks)}`;
   if (key !== view) {
     view = key; shown = null;
-    const draft = $("#text")?.value, chosen = [...document.querySelectorAll("#add input:checked")].map(i => i.name + ":" + i.value);
+    const typing = $("#text")?.value, chosen = [...document.querySelectorAll("#add input:checked")].map(i => i.name + ":" + i.value);
     document.body.classList.toggle("intro", stage === "welcome");
     if (stage === "welcome") setTimeout(() => view.startsWith(`${me}|welcome`) && confetti(90), 2400);
     $("#app").innerHTML = { welcome: welcomeView, load: () => `<p class="muted">טוען…</p>`, code: codeView, pick: () => "", entry: entryView, rate: rateView, play: playView, ended: endedView }[stage]();
-    if (draft && $("#text")) $("#text").value = draft;
+    if (typing && $("#text")) $("#text").value = typing;
     document.querySelectorAll("#add input").forEach(i => i.checked = chosen.includes(i.name + ":" + i.value));
     syncWith();
     bind();
@@ -859,7 +864,6 @@ const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h
 const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
 
 // ---- welcome screen: right after the family code, then only from the header logo ----
-let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
 // the header logo opens it again; the phone's back button (or "יאללה") returns to the game
 function showWelcome() {
   if (!welcomed) return;
@@ -899,7 +903,7 @@ const entryView = () => `${hello()}
     <div class="chips">${PLAYERS.filter(p => p !== me).map(p =>
       `<label class="chip" style="${col(p)}"><input type="checkbox" name="with" value="${esc(p)}">${av(p)}${esc(p)}</label>`).join("")}</div></div>
     <textarea id="text" required maxlength="140" placeholder="למשל: &quot;עוד 5 דקות מגיעים&quot;"></textarea>
-    <div class="row"><button>הוסף ניחוש ✨</button></div>
+    <div class="row"><button>הוספת ניחוש ✨</button></div>
   </form>
   <h2>🎯 כמה ניחושים על כל אחד</h2><div class="counts" id="counts"></div>
   <h2>📜 הניחושים שלי</h2><p class="muted">🤫 כל אחד רואה רק את הניחושים שהוא כתב. כולם יתגלו בטיול!</p><ul id="list"></ul>
@@ -931,7 +935,7 @@ const endedView = () => `
   ${tail()}`;
 
 function fillEntry() {
-  $("#counts").innerHTML = PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${items.filter(i => subjectOf(i) === p).length}</b></span>`).join("")
+  $("#counts").innerHTML = countChips(p => items.filter(i => subjectOf(i) === p).length)
     + `<span style="--c:${GENERAL}"><span class="av" style="--c:${GENERAL}">🌍</span>כללי <b>${items.filter(i => !aboutOf(i).length).length}</b></span>`;
   if (!legacy) migrate();
   fillMine(true);
@@ -940,7 +944,7 @@ function fillEntry() {
 // my predictions: editable until the rating phase ends, deletable only while writing
 function fillMine(canDelete) {
   const vis = items.filter(i => i.author === me).sort((a, b) => (b.at?.seconds ?? 9e9) - (a.at?.seconds ?? 9e9));
-  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${esc(whoName(i))}</span> · ${esc(shownText(i))}</span><button class="ghost" data-edit="${esc(i.id)}" aria-label="עריכה">✏️</button>${canDelete ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחק">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד לא כתבת ניחושים. קדימה! 🚀</li>`;
+  $("#list").innerHTML = vis.map(i => `<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${esc(whoName(i))}</span> · ${esc(shownText(i))}</span><button class="ghost" data-edit="${esc(i.id)}" aria-label="עריכה">✏️</button>${canDelete ? `<button class="ghost" data-del="${esc(i.id)}" aria-label="מחיקה">🗑️</button>` : ""}</li>`).join("") || `<li class="empty">עוד אין פה ניחושים שלך. קדימה! 🚀</li>`;
   need(vis.filter(i => !i.text).map(i => i.id));
 }
 
@@ -960,7 +964,7 @@ function fillRate() {
     const total = rateable(p).length, done = ratings.filter(r => r.player === p).length;
     return `<li style="${col(p)}">${av(p)}<span class="name">${esc(p)}</span><span class="bar"><i style="width:${total ? done / total * 100 : 100}%"></i></span><span class="n">${done}/${total}</span></li>`;
   }).join("");
-  const byId = Object.fromEntries(items.map(i => [i.id, i])), mine = sugIn.filter(x => byId[x.item]?.author === me); // by device, so also check it is my prediction
+  const byId = itemsById(), mine = sugIn.filter(x => byId[x.item]?.author === me); // by device, so also check it is my prediction
   $("#sugBox").hidden = !mine.length;
   $("#sugList").innerHTML = mine.map(x => `<li class="pred sugg" style="${whoCol(byId[x.item])}">
     <span>${whoAv(byId[x.item])} <span class="who">${esc(whoName(byId[x.item]))}</span> · <span class="old">${esc(shownText(byId[x.item]))}</span></span>
@@ -972,7 +976,7 @@ function fillRate() {
 
 function fillCard(interactive) {
   const ids = game.cards?.[me] || [], n = size();
-  const byId = Object.fromEntries(items.map(i => [i.id, i]));
+  const byId = itemsById();
   const on = new Set(marks[me]?.marked || []);
   const hot = new Set(lines(n).filter(l => l.every(k => on.has(ids[k]))).flat());
   const full = ids.length && ids.every(id => on.has(id));
@@ -1000,7 +1004,7 @@ function fillPlay() {
   const { on, hot, full, N } = fillCard(true);
   $("#ring").style.setProperty("--p", N ? on.size / N * 100 : 0);
   $("#cnt").textContent = `${on.size}/${N}`;
-  $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופ/ה! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
+  $("#banner").innerHTML = full ? `<div class="banner">🏆 כרטיס מלא! אלופים! 🏆</div>` : hot.size ? `<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
   fillScore();
 }
 
@@ -1008,7 +1012,7 @@ function fillEnded() {
   fillCard(false);
   fillScore();
   const winners = ranking().filter(r => r.place === 1).map(r => `${emo(r.p)} ${esc(r.p)}`);
-  $("#winner").innerHTML = winners.length ? `🏆 ${winners.length > 1 ? "המנצחים" : "המנצח/ת"}: ${winners.join(", ")} 🏆` : "🏁 המשחק נגמר";
+  $("#winner").innerHTML = winners.length ? `🏆 במקום הראשון: ${winners.join(", ")} 🏆` : "🏁 המשחק נגמר";
 }
 
 function fillHistory() {
@@ -1029,7 +1033,7 @@ function fillAdmin() {
   const N = sizeSel * sizeSel;
   const sizes = `<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => `<button class="ghost pick${n === sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`).join("")}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
-    <div class="counts">${PLAYERS.map(p => `<span style="${col(p)}">${av(p)}${esc(p)} <b>${poolFor(p).length}</b></span>`).join("")}</div>
+    <div class="counts">${countChips(p => poolFor(p).length)}</div>
     <details class="tune"${tuneOpen ? " open" : ""}><summary>🎛️ כוונון הכרטיסים</summary>
       ${Object.entries(TUNE).map(([k, [label, opts]]) => `<p class="muted">${label}:</p><div class="chips">${opts.map(([name], x) => `<button class="ghost pick${x === tune[k] ? " on" : ""}" data-tune="${k}:${x}">${name}</button>`).join("")}</div>`).join("")}
       <p class="muted" id="tuneStats">${tuneStats(N)}</p></details>`;
@@ -1045,10 +1049,10 @@ function fillAdmin() {
       <p class="muted">הניחושים ננעלים והמתכללים מדרגים אותם. גודל הלוח בוחרים בשלב הבא.</p>${enough}${who}
       <div class="row"><button data-act="rate">${ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
     rate: `${who}<div class="row"><button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
-      <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${enough}${sizes}<div class="row"><button data-act="gen">🎲 צור כרטיסים והתחל</button></div>`,
+      <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${enough}${sizes}<div class="row"><button data-act="gen">🎲 יצירת כרטיסים והתחלה</button></div>`,
     play: `<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
-      <div class="row"><button data-act="end">🏁 סיים משחק ושמור</button></div>
-      <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">אפס בלי לשמור</button></div>`,
+      <div class="row"><button data-act="end">🏁 סיום המשחק ושמירה</button></div>
+      <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">איפוס בלי שמירה</button></div>`,
     ended: `<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
   })[st] ?? "";
 }
@@ -1086,13 +1090,13 @@ function bind() {
     if (!t) return;
     const d = t.dataset;
     if (t.hasAttribute("data-look")) openLooks();
-    else if (d.me) { if (!t.classList.contains("taken") || confirm(`${d.me} כבר מחובר/ת בטלפון אחר.\nזה אתם? השם יעבור לטלפון הזה, והטלפון השני יחזור למסך בחירת השם.`)) claim(d.me); }
-    else if (d.free) { if (confirm(`לשחרר את השם ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))).then(ok => ok && toast(`🔓 ${d.free} שוחרר`)); }
+    else if (d.me) { if (!t.classList.contains("taken") || confirm(`השם ${d.me} כבר תפוס בטלפון אחר.\nזה אתם? השם יעבור לטלפון הזה, והטלפון השני יחזור למסך בחירת השם.`)) claim(d.me); }
+    else if (d.free) { if (confirm(`לשחרר את השם ${d.free}?`)) safe(deleteDoc(doc(db, "players", d.free))).then(ok => ok && toast(`🔓 השם ${d.free} פנוי`)); }
     else if (d.edit) openEdit("edit", d.edit);
     else if (d.suggest) openEdit("suggest", d.suggest);
     else if (d.accept) acceptSuggestion(d.accept);
     else if (d.reject) safe(deleteDoc(doc(db, "suggestions", d.reject)));
-    else if (d.del) { if (confirm("למחוק?")) safe(delItem(d.del)); }
+    else if (d.del) { if (confirm("למחוק את הניחוש?")) safe(delItem(d.del)); }
     else if (d.cell) toggle(d.cell);
     else if (d.rate) rate(d.rate, myStars()[d.rate] === +d.k && +d.k > 0 ? +d.k - 1 : +d.k);
     else if (d.size) { sizeSel = +d.size; render(); }
@@ -1174,6 +1178,7 @@ function openSettings() {
   $("#setDlg").showModal();
 }
 $("#logo").onclick = showWelcome;
+$("#who").onclick = openSettings;
 $("#setMenu").onclick = e => {
   const b = e.target.closest("[data-set]");
   if (!b) return;

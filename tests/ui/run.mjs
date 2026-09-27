@@ -134,6 +134,10 @@ await scenario(async () => {
   check("settings items (founder)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "🛠️ הפעלת מצב מתכלל", "👑 הגדרות משחק", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
   await p.mouse.click(5, 5);
   check("tapping outside closes a dialog", !(await p.evaluate(() => setDlg.open)));
+  const noX = await p.evaluate(() => [...document.querySelectorAll("dialog")].filter(d => !d.querySelector(".dlg-head .x[data-close]")).map(d => d.id));
+  check("every dialog has a ✕ in its header", !noX.length, noX);
+  await p.click("#who"); await p.click("#setDlg .dlg-head .x");
+  check("✕ closes the dialog", !(await p.evaluate(() => setDlg.open)));
   await p.click(".hello .av");
   check("emoji picker: every emoji is an option", await p.locator("#emojis button").count() === EMOJIS.length);
   check("emojis of other players are disabled", await p.locator("#emojis button:disabled").count() === P.length - 1);
@@ -142,7 +146,7 @@ await scenario(async () => {
   check("emoji saved to looks/{me}", (await writes(p)).some(([r, d]) => r === `looks/${ME}` && d.e === free));
   await p.click('[data-act="howto"]');
   check("how-to opens as a dialog with steps", await p.evaluate(() => howDlg.open) && await p.locator("#steps li").count() > 0);
-  await p.click("#howDlg [data-close]");
+  await p.click("#howDlg .dlg-head .x");
   await p.click("#logo"); await p.waitForTimeout(200);
   check("logo opens the welcome screen", await p.isVisible(".welcome"));
   await p.goBack(); await p.waitForTimeout(200);
@@ -258,7 +262,7 @@ await scenario(async () => {
   const [r, d] = (await writes(p)).at(-1);
   check("suggestion goes to the author's device", r.startsWith("suggestions/") && d.item === OTHERS_ITEM.id && d.from === ME && d.fromUid === ME_UID && d.toUid === OTHER_UID && d.text === typed, d);
   await p.click(`[data-suggest="${NO_DEVICE_ITEM.id}"]`); await p.waitForTimeout(200);
-  check("no suggestion when the author has no device", (await p.textContent("#toast")).includes("לא מחובר") && !(await p.evaluate(() => editDlg.open)));
+  check("no suggestion when the author has no device", (await p.textContent("#toast")).includes("אין טלפון מחובר") && !(await p.evaluate(() => editDlg.open)));
   await p.click(".mine summary");
   check("rate: my predictions are editable, not deletable", await p.locator("#list [data-edit]").count() > 0 && !(await p.locator("#list [data-del]").count()));
   await done(p);
