@@ -71,7 +71,6 @@ li{background:var(--card);border:2px solid var(--line);border-radius:18px;paddin
 li.pred{border-inline-start:6px solid var(--c)}
 li .t{flex:1;min-width:0;overflow-wrap:anywhere}
 li .who{font-weight:700;color:var(--c)}
-li .by{color:var(--muted);font-size:13px}
 li.empty{justify-content:center;color:var(--muted);padding:24px}
 
 /* play */
@@ -99,6 +98,7 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .score .name{width:3.4em;font-weight:700}
 .win{font-size:13px;font-weight:800;padding:2px 8px;border-radius:99px;background:var(--sun);color:#26213d;white-space:nowrap}
 
+/* rating, places, admin, history, board sizes */
 .place{width:1.8em;text-align:center;font-weight:800}
 .stars{display:flex;gap:4px;margin-top:6px}
 .star{background:var(--card);color:var(--line);border:2px solid var(--line);box-shadow:none;padding:2px 9px;font-size:18px;border-radius:10px;line-height:1.3}
@@ -113,7 +113,6 @@ button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background
 .grid.done .cell{cursor:default}
 .grid[data-n="2"] .cell{font-size:clamp(15px,4.6vw,19px)}
 .grid[data-n="4"] .cell{font-size:clamp(10px,2.8vw,13px);padding:4px;gap:3px;border-radius:12px}
-.grid[data-n="4"] .cell .txt{-webkit-line-clamp:4}
 .grid[data-n="5"]{gap:5px;padding:7px}
 .grid[data-n="5"] .cell{font-size:clamp(8.5px,2.3vw,11.5px);padding:3px;gap:2px;border-radius:9px;line-height:1.15}
 .grid[data-n="4"] .cell .tag b,.grid[data-n="5"] .cell .tag b{display:none}
@@ -122,9 +121,16 @@ button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background
 .admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
 .admin h2{margin-top:14px}
 
-dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:16px;width:min(380px,calc(100% - 32px));box-shadow:var(--shadow)}
+/* dialogs: emoji picker, settings, how to play */
+dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:0;width:min(380px,calc(100% - 32px));box-shadow:var(--shadow)}
 dialog::backdrop{background:rgba(20,16,40,.55)}
 dialog h2{margin:0 0 12px}
+.dlg{padding:16px}
+.menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.menu button{text-align:start;font-size:17px;padding:12px 14px}
+.steps{list-style:none;padding:0;margin:0 0 14px}
+.steps li{align-items:center;gap:12px;box-shadow:none}
+.steps .se{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;font-size:22px;background:color-mix(in srgb,var(--sun) 28%,var(--card))}
 .emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
 .emojis button{aspect-ratio:1;padding:0;font-size:26px;border-radius:14px;background:color-mix(in srgb,var(--c) 18%,var(--card));box-shadow:inset 0 0 0 2px var(--c)}
 .emojis button.on{background:var(--c);transform:scale(1.08)}
@@ -137,6 +143,7 @@ button.av{padding:0;cursor:pointer;font-size:1em}
 #toast.show{transform:translate(-50%,0) scale(1);opacity:1}
 #fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8}
 
+/* welcome screen */
 body.intro header{display:none}
 .welcome{min-height:calc(100vh - 60px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:24px 0}
 .fam{display:flex;gap:6px;font-size:30px}
@@ -164,7 +171,15 @@ body.intro header{display:none}
 <header><div><h1><span class="ball">B</span><span class="word">בינגו משפחתי</span></h1><div class="sub" id="phase"></div></div><div class="tools"><button class="ghost" id="adminBtn" hidden>🛠️ מתכלל</button><button class="ghost" id="who" hidden></button></div></header>
 <main id="app"><p class="muted">טוען…</p></main>
 <div id="toast" role="status"></div>
-<dialog id="lookDlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" id="lookClose">סגירה</button></dialog>
+<dialog id="lookDlg"><div class="dlg"><h2>🎨 בחרו אימוג׳י</h2><div class="emojis" id="emojis"></div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="setDlg"><div class="dlg"><h2 id="setTitle"></h2>
+  <div class="menu" id="setMenu">
+    <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
+    <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
+    <button class="ghost" data-set="howto">❓ איך משחקים?</button>
+    <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
+  </div><button class="ghost" data-close>סגירה</button></div></dialog>
+<dialog id="howDlg"><div class="dlg"><h2>❓ איך משחקים?</h2><ol class="steps" id="steps"></ol><button data-close>הבנתי! 👍</button></div></dialog>
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script type="module">
@@ -182,7 +197,6 @@ const firebaseConfig = {
 };
 
 const PLAYERS = ["אבא", "אמא", "מתן", "אורי", "עדי", "הדר"];
-// per-player avatar + color
 // avatars a player can choose (looks/{player} = {e}); each emoji has a fixed color. Keep in sync with the rules.
 const EMOJIS = [["🦁","#f59e0b"],["🦄","#ec4899"],["🐬","#3b82f6"],["🐸","#22c55e"],["🐙","#8b5cf6"],["🐢","#14b8a6"],
   ["🦊","#f97316"],["🐼","#64748b"],["🐯","#eab308"],["🐨","#78716c"],["🐷","#f472b6"],["🐵","#a16207"],
@@ -221,7 +235,7 @@ let prevStatus = null;
 let shown = null; // marked ids at last card render, to animate only new stamps
 let sizeSel = null, raterSel = null; // admin's choices before starting a phase
 
-// ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
+// first render right away: the welcome screen needs no data
 queueMicrotask(() => render());
 
 // ---- install as an app (PWA): Android shows the browser prompt, iPhone gets instructions ----
@@ -238,6 +252,8 @@ async function install() {
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; showInstall(); });
 addEventListener("appinstalled", () => { installEvt = null; showInstall(); toast("📲 הבינגו הותקן!"); });
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e));
+
+// ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 onAuthStateChanged(auth, async u => {
   if (!u) return signInAnonymously(auth).catch(e => { console.warn("Auth unavailable, running without code:", e.code); legacy = true; uid = "legacy"; member = true; listen(); });
   if (uid) return; // listeners already set up
@@ -427,8 +443,8 @@ function render() {
   if (live && me && !legacy && players[me] !== uid && !claiming) {
     if (players[me] || !PLAYERS.includes(me)) { me = null; localStorage.removeItem("bingo-me"); } else claim(me);
   }
-  who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} · החלפה` : "";
-  who.onclick = release;
+  who.hidden = !me || !live; who.innerHTML = me ? `${emo(me)} ${esc(me)} ⚙️` : "";
+  who.onclick = openSettings;
   const ab = $("#adminBtn");
   ab.hidden = !live || !ADMINS.includes(me); ab.setAttribute("aria-pressed", adminOpen);
   ab.onclick = () => { adminOpen = !adminOpen; view = ""; render(); if (adminOpen) $(".admin")?.scrollIntoView({ behavior: "smooth" }); };
@@ -447,7 +463,6 @@ function render() {
     if (about) $(`input[name=about][value="${about}"]`)?.click();
     bind();
   }
-  showInstall();
   if (stage === "welcome") return;
   if (stage === "pick") $("#app").innerHTML = pickView();
   if (!me || !live) return;
@@ -468,9 +483,9 @@ const pickView = () => `<h2>מי משחק? 👋</h2><div class="names">${PLAYERS
 
 const adminBox = () => isAdmin() ? `<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div></section>` : "";
 const histBox = () => `<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>`;
-const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button><button class="ghost install" data-act="install" hidden>📲 התקנה בטלפון</button></p>`;
+const tail = () => histBox() + adminBox() + `<p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
 
-// ---- welcome screen: once per device, and again from "איך משחקים?" ----
+// ---- welcome screen: once per device ----
 let welcomed = (() => { try { return !!localStorage.getItem("bingo-welcome"); } catch { return true; } })();
 const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"];
 const welcomeView = () => `<section class="welcome">
@@ -479,11 +494,10 @@ const welcomeView = () => `<section class="welcome">
   <h2 class="wtitle">בינגו משפחתי</h2>
   <p class="wsub">מנחשים מה יקרה בטיול 🔮<br>ומסמנים כשזה קורה ✅</p>
   <button class="go" data-act="start">יאללה! 🚀</button>
-  <p class="howto"><button class="ghost install" data-act="install" hidden>📲 התקנה בטלפון</button></p>
 </section>`;
 
 const lookBtn = () => `<button class="av" data-look style="${col(me)}" aria-label="בחירת אימוג׳י">${emo(me)}</button>`;
-const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-look>🎨 אימוג׳י</button></div>`;
+const hello = () => `<div class="panel hello">${lookBtn()}<span class="t">היי ${esc(me)}! 👋</span><button class="ghost" data-act="settings">⚙️ הגדרות</button></div>`;
 
 const entryView = () => `${hello()}
   <h2>✍️ ניחוש חדש</h2>
@@ -635,8 +649,8 @@ function bind() {
   const app = $("#app");
   const act = {
     start: () => { welcomed = true; try { localStorage.setItem("bingo-welcome", "1"); } catch {} view = ""; render(); scrollTo(0, 0); },
-    install,
-    howto: () => { welcomed = false; view = ""; render(); scrollTo(0, 0); },
+    howto: openHow,
+    settings: openSettings,
     rate: startRating, raters: () => setRaters("rate"), back: backToEntry, gen: generate, end: endGame,
     reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.") };
   app.onclick = e => {
@@ -679,7 +693,32 @@ $("#emojis").onclick = e => {
   $("#lookDlg").close();
   safe(setDoc(doc(db, "looks", me), { e: b.dataset.e }));
 };
-$("#lookClose").onclick = () => $("#lookDlg").close();
+
+// ---- settings and how-to dialogs ----
+const STEPS = [
+  ["🔮", "כותבים ניחושים", "מה כל אחד יגיד או יעשה בטיול? כל אחד רואה רק את מה שהוא כתב 🤫"],
+  ["⭐", "מדרגים", "המדרגים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
+  ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, בלי ניחושים עליו עצמו"],
+  ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת. שורה, עמודה או אלכסון = בינגו 🎉"],
+  ["🏆", "מנצחים", "כרטיס מלא = ניצחון! המתכלל מסיים את המשחק, והתוצאות נשמרות בהיסטוריה"]
+];
+function openHow() {
+  $("#steps").innerHTML = STEPS.map(([e, t, d]) => `<li><span class="se">${e}</span><span><b>${t}</b><br><span class="muted">${d}</span></span></li>`).join("");
+  $("#howDlg").showModal();
+}
+function openSettings() {
+  $("#setTitle").innerHTML = `${emo(me)} ${esc(me)}`;
+  showInstall();
+  $("#setDlg").showModal();
+}
+$("#setMenu").onclick = e => {
+  const b = e.target.closest("[data-set]");
+  if (!b) return;
+  $("#setDlg").close();
+  ({ look: openLooks, install, howto: openHow, switch: () => confirm("להחליף שחקן? השם שלך ישוחרר ותוכלו לבחור מחדש.") && release() })[b.dataset.set]();
+};
+// close a dialog from its close button or by tapping outside it
+document.querySelectorAll("dialog").forEach(d => d.addEventListener("click", e => { if (e.target === d || e.target.closest("[data-close]")) d.close(); }));
 
 let tt;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("show"), 4000); }
