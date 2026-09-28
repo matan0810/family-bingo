@@ -39,14 +39,22 @@ const without = (list, x) => list.filter(y => y !== x);
 const chip = (value, name = "about") => `label.chip:has(input[name=${name}]${name === "general" ? "" : `[value="${value}"]`})`;
 const check = (name, ok, got) => { ok ? pass++ : fail++; console.log(`${ok ? "✓" : "✗"} ${name}${ok ? "" : `  (got: ${JSON.stringify(got)})`}`); };
 
-// opens the app; `me` = stored player (null = none), welcome skipped unless welcome:true
+// the settings sheet (⚙️ by the name), on one of its tabs: me, admin (admins) or game (founders)
+async function sheet(p, tab = "me") {
+  if (!await p.evaluate(() => setDlg.open)) await p.click("#who");
+  if (await p.isVisible(`[data-tab="${tab}"]`)) await p.click(`[data-tab="${tab}"]`);
+  await p.waitForTimeout(150);
+}
+const closeSheet = async p => { await p.click("#setDlg .dlg-head .x"); await p.waitForTimeout(100); };
+// opens the app; `me` = stored player (null = none), welcome skipped unless welcome:true, admin:true = on the admin tab
 async function open(hash = "", { me = ME, admin = false, welcome = false, ctx = {}, once = false } = {}) {
   // no service worker here: it would cache the mocked files (the offline test below covers it)
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", ...ctx });
   const page = await context.newPage();
   page.errors = []; page.dialogs = [];
   page.on("pageerror", e => page.errors.push(e.message));
-  page.on("dialog", d => { page.dialogs.push(d.message()); d.type() === "prompt" ? d.accept(page.promptAnswer ?? "") : d.accept(); });
+  // prompts get page.promptAnswer; page.refuse = true answers the next confirm with "cancel"
+  page.on("dialog", d => { page.dialogs.push(d.message()); d.type() === "prompt" ? d.accept(page.promptAnswer ?? "") : page.refuse ? (page.refuse = false, d.dismiss()) : d.accept(); });
   await page.addInitScript(({ me, welcome, once }) => {
     try {
       if (once && sessionStorage.init) return; // keep storage across the reload after logout
@@ -56,8 +64,9 @@ async function open(hash = "", { me = ME, admin = false, welcome = false, ctx = 
       if (me) localStorage.setItem("bingo-me", me);
     } catch {}
   }, { me, welcome, once });
-  await page.goto(`${URL_}${admin ? "?admin" : ""}#${hash}`);
+  await page.goto(`${URL_}#${hash}`);
   await page.waitForTimeout(600);
+  if (admin) await sheet(page, "admin");
   return page;
 }
 const writes = p => p.evaluate(() => window.W || []);
@@ -74,7 +83,7 @@ const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth - 
 async function scenario(fn) { try { await fn(); } catch (e) { check(`scenario crashed: ${e.message.split("\n")[0]}`, false); } }
 const done = async p => { check(`no page errors`, !p.errors.length, p.errors); await p.context().close(); };
 
-export { browser, root, ORIGIN, devices, check, ME, whoName, general, group, typed, without, chip, open, writes, batchOps, picked, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done };
+export { browser, root, ORIGIN, devices, check, sheet, closeSheet, ME, whoName, general, group, typed, without, chip, open, writes, batchOps, picked, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done };
 export async function finish() {
   await browser.close(); server.close();
   console.log(`\n${pass} passed, ${fail} failed`);

@@ -1,6 +1,6 @@
 // UI checks: game settings (founders)
 import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, NEW_PLAYER, TITLE, TITLE2, TITLE3, CODE, NEW_CODE, SETTINGS, ITEMS, RATINGS, HISTORY } from "../../fixtures.mjs";
-import { check, open, writes, batchOps, lastBatch, scenario, done } from "../harness.mjs";
+import { check, open, writes, batchOps, lastBatch, sheet, scenario, done } from "../harness.mjs";
 
 console.log("— game settings (founders)");
 await scenario(async () => {
@@ -8,24 +8,25 @@ await scenario(async () => {
   const cfgWrites = async () => (await writes(p)).filter(w => w[0] === "config/settings");
   check("title from settings in the header and tab", (await p.textContent("#logo .word")) === TITLE && (await p.title()) === TITLE);
   check("extra player from settings appears", (await p.locator("label.chip").allTextContents()).some(t => t.includes(EXTRA_PLAYER)));
-  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
-  check("settings dialog opens for a founder", await p.evaluate(() => cfgDlg.open));
+  await sheet(p, "game");
+  check("game settings open for a founder, on their own tab", await p.isVisible("#cfgTitle") && !(await p.isVisible("#setMenu")));
   check("the player list has no quick remove buttons", !(await p.locator("#cfgPlayers button").count()));
   check("current family code is shown", (await p.textContent("#cfgCodeNote")).includes(CODE));
   check("save is disabled until something changes", await p.locator("#cfgSave").isDisabled());
   for (const x of [ROLE.admin, ROLE.player]) { await p.click(`[data-cfg=admin][data-p="${x}"]`); await p.click(`[data-cfg=admin][data-p="${x}"]`); }
   check("turning an admin off and on again (or on and off) is not a change", await p.locator("#cfgSave").isDisabled());
-  const closeTop = async () => { const [x, d] = await Promise.all([p.locator("#cfgDlg .dlg-head [data-close]").boundingBox(), p.locator("#cfgDlg").boundingBox()]); return x && x.y - d.y < 60; };
+  const closeTop = async () => { const [x, d] = await Promise.all([p.locator("#setDlg .dlg-head [data-close]").boundingBox(), p.locator("#setDlg").boundingBox()]); return x && x.y - d.y < 60; };
   check("close (✕) is at the top of the dialog", await closeTop());
-  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = d.scrollHeight); await p.waitForTimeout(100);
+  await p.locator("#setDlg").evaluate(d => d.scrollTop = d.scrollHeight); await p.waitForTimeout(100);
   check("…and stays there while scrolling", await closeTop() && await p.isVisible("#cfgSave"));
-  await p.locator("#cfgDlg").evaluate(d => d.scrollTop = 0);
+  await p.locator("#setDlg").evaluate(d => d.scrollTop = 0);
   await p.fill("#cfgTitle", TITLE2);
   await p.fill("#cfgNew", NEW_PLAYER); await p.click("[data-cfg=add]");
   await p.click(`[data-cfg=admin][data-p="${ROLE.player}"]`);
   const shown = await p.textContent("#cfgFounders");
   check("founders are fixed: shown, no toggles", FOUNDERS.every(f => shown.includes(f)) && !(await p.locator("[data-cfg=founder]").count()) && !(await p.locator(FOUNDERS.map(f => `#cfgAdmins [data-p="${f}"]`).join()).count()));
-  await p.fill("#cfgCode", NEW_CODE);
+  check("the family code is folded away", !(await p.isVisible("#cfgCode")));
+  await p.click("#cfgCodeBox summary"); await p.fill("#cfgCode", NEW_CODE);
   check("changes are only a draft until saved", !(await cfgWrites()).length && !(await writes(p)).some(([r]) => r === "config/secret"));
   check("save button lights up", !(await p.locator("#cfgSave").isDisabled()));
   await p.click("#cfgSave"); await p.waitForTimeout(300);
@@ -35,15 +36,15 @@ await scenario(async () => {
   check("the new family code is saved", (await writes(p)).some(([r, d]) => r === "config/secret" && d.code === NEW_CODE));
   await p.click(`[data-cfg=admin][data-p="${ROLE.admin}"]`);
   const before = p.dialogs.length;
-  await p.click("#cfgDlg [data-close]"); await p.waitForTimeout(200);
+  await p.click("#setDlg .dlg-head .x"); await p.waitForTimeout(200);
   check("closing with unsaved changes asks first", p.dialogs.length === before + 1 && p.dialogs.at(-1).includes("בלי לשמור"));
   await done(p);
 });
 await scenario(async () => {
   const p = await open("m=entry&cfg=full");
-  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  await sheet(p, "game");
   check("danger zone is collapsed", !(await p.isVisible("[data-cfg=wipe]")));
-  await p.click(".danger summary");
+  await p.click("#cfgBox .danger summary");
   p.promptAnswer = "לא";
   await p.click("[data-cfg=wipe]"); await p.waitForTimeout(300);
   check("wipe without typing 'מחיקה' deletes nothing", !(await batchOps(p)).some(([op]) => op === "del"));

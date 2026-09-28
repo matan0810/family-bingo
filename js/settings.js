@@ -1,12 +1,11 @@
-// Game settings (founders only): title, players, extra admins and the family code, edited as a draft and written
-// by "💾 שמירת שינויים". Below it, tools that act at once: a new card for one player (during the game), and in the
-// collapsed danger zone backup, restore, removing a player, the new-trip wipe and the history wipe.
+// The "👑 הגדרות משחק" tab of the settings sheet (founders only): title, players, extra admins and the family code,
+// edited as a draft and written by "💾 שמירת שינויים". The collapsed danger zone below it acts at once: backup,
+// restore, removing a player, the new-trip wipe and the history wipe.
 import { COLOR, MAX_PLAYERS } from "./config.js";
-import { S, emo, textOf, size } from "./state.js";
+import { S, emo, textOf } from "./state.js";
 import { aboutOf, without, formerPlayers } from "./logic.js";
 import { ref, batch, safe, saveConfig, saveCode, readSecret, getText, remove, clearMarks, newItemRef, serverTimestamp } from "./data.js";
-import { $, html, who, col, toast } from "./ui.js";
-import { newCard } from "./game.js";
+import { $, html, who, col, toast, typed } from "./ui.js";
 
 let draft = null;
 // admins are kept in player order, so turning one off and on again is not a change
@@ -16,13 +15,13 @@ const refresh = () => { draft = draftOf(); fillCfg(); };
 // leaving with unsaved changes asks first (close button, tap outside, Esc)
 export const leaveCfg = () => !dirty() || confirm("לצאת בלי לשמור את השינויים?");
 
-export async function openCfg() {
+// a fresh draft each time the settings sheet opens
+export async function startCfg() {
   draft = draftOf();
   $("#cfgTitle").value = draft.title; $("#cfgCode").value = $("#cfgNew").value = "";
-  $("#cfgBox .danger").open = $("#cfgCards").open = false; $("#cfgDel").value = "";
+  $("#cfgBox .danger").open = $("#cfgCodeBox").open = false; $("#cfgDel").value = "";
   fillCfg();
   $("#cfgCodeNote").textContent = "טוען…";
-  $("#cfgDlg").showModal();
   const secret = await readSecret();
   $("#cfgCodeNote").textContent = (secret?.exists() ? `הקוד הנוכחי: ${secret.data().code}.` : "עכשיו בתוקף הקוד שמוגדר בחוקים.") + " טלפונים שכבר מחוברים לא יצטרכו קוד חדש.";
 }
@@ -43,20 +42,6 @@ export function fillCfg() {
   $("#cfgFounders").textContent = d.founders.map(p => `${emo(p)} ${p}`).join(", ");
   $("#cfgAdmins").innerHTML = html`${d.players.filter(p => !d.founders.includes(p)).map(adminSwitch)}`;
   $("#cfgSave").disabled = !dirty();
-  fillCards();
-}
-// opened from the admin panel: straight to the players' cards
-export function openCards() {
-  openCfg();
-  $("#cfgCards").open = true;
-  $("#cfgCards").scrollIntoView({ block: "start" });
-}
-
-function fillCards() {
-  const play = S.game.status === "play", N = size() ** 2, has = S.players.filter(p => S.game.cards?.[p]);
-  $("#cfgCardsNote").textContent = play ? "כרטיס קשה מדי, או יותר מדי משבצות על אדם אחד? נותנים לשחקן כרטיס חדש. זה קורה מיד, בלי שמירה, והסימונים של השחקן מתאפסים. הכרטיסים של השאר לא משתנים."
-    : "בזמן המשחק אפשר לתת כאן לשחקן כרטיס חדש.";
-  $("#cfgCardList").innerHTML = play ? html`${has.map(p => html`<li style="${col(p)}"><span class="name">${who(p)} <small class="muted">${S.marks[p]?.marked?.length || 0}/${N}</small></span><button class="ghost" data-cfg="card" data-p="${p}">🔄 כרטיס חדש</button></li>`)}` : "";
 }
 
 function addPlayer(name) {
@@ -71,7 +56,6 @@ const actions = {
   back: p => { addPlayer(p); },
   admin: p => { draft.admins = draft.players.filter(x => x === p ? !draft.admins.includes(p) : draft.admins.includes(x)); },
   save: saveCfg, del: () => removePlayer($("#cfgDel").value),
-  card: p => newCard(p).then(ok => ok && toast(`🎲 ל־${p} יש כרטיס חדש`)),
   backup: downloadBackup, restore: () => $("#cfgFile").click(), wipe: wipeTrip, wipeHist: wipeHistory,
 };
 // actions that change the draft redraw it; the others (save, backup, …) do their own thing
@@ -87,7 +71,6 @@ export function initSettings() {
     actions[kind]?.(b.dataset.p);
     if (drafting.includes(kind)) fillCfg();
   };
-  $("#cfgDlg").addEventListener("cancel", e => { if (!leaveCfg()) e.preventDefault(); });
   $("#cfgFile").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) restore(f); };
 }
 
@@ -110,9 +93,9 @@ async function removePlayer(p) {
   const wrote = S.items.filter(i => i.author === p).length, about = S.items.filter(i => aboutOf(i).includes(p)).length;
   const impact = [`${wrote} ניחושים של ${p} ו־${about} ניחושים על ${p} או שהוא מעורב בהם יצאו מהדירוג ומהכרטיסים`,
     S.config.admins.includes(p) && `${p} כבר לא בין המתכללים`, S.claims[p] && `הטלפון של ${p} יתנתק מהשם`].filter(Boolean);
-  const typed = prompt(`🚪 הסרת ${p}\n\n• ${impact.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
-  if (typed === null) return;
-  if (typed.trim() !== p) return alert("השם לא תואם. לא הוסר אף אחד.");
+  const answer = prompt(`🚪 הסרת ${p}\n\n• ${impact.join("\n• ")}\n\nשום דבר לא נמחק: מחזירים ב"↩️ ${p}" והכל חוזר.\nכדי לאשר, מקלידים את השם: ${p}`);
+  if (answer === null) return;
+  if (answer.trim() !== p) return alert("השם לא תואם. לא הוסר אף אחד.");
   if (!await saveConfig({ players: without(S.config.players, p), admins: without(S.config.admins, p) })) return;
   if (S.claims[p]) await remove("players", p);
   refresh();
@@ -151,10 +134,9 @@ async function restore(file) {
 }
 
 // ---- wipes: the typed word makes it a deliberate act, and a backup downloads first ----
-const confirmWipe = what => prompt(`${what}\nכדי לאשר, הקלידו: מחיקה`)?.trim() === "מחיקה";
 async function wipeTrip() {
   if (S.game.status !== "entry") return alert("ניקוי אפשרי רק בשלב הניחושים. קודם מחזירים את המשחק לשלב הניחושים.");
-  if (!confirmWipe(`לנקות הכול לטיול חדש?\n${S.items.length} ניחושים, ${S.ratings.length} דירוגים והצעות יימחקו, והסימונים יתאפסו. ההיסטוריה נשארת.\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  if (!typed(`לנקות הכול לטיול חדש?\n${S.items.length} ניחושים, ${S.ratings.length} דירוגים והצעות יימחקו, והסימונים יתאפסו. ההיסטוריה נשארת.\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
   await downloadBackup();
   const ops = [...S.items.flatMap(i => [["items", i.id], ["texts", i.id]]), ...S.ratings.map(r => ["ratings", `${r.item}_${r.player}`]), ...[...S.sugIn, ...S.sugOut].map(x => ["suggestions", x.id])];
   let ok = true;
@@ -165,7 +147,7 @@ async function wipeTrip() {
 }
 async function wipeHistory() {
   if (!S.pastGames.length) return alert("אין היסטוריה");
-  if (!confirmWipe(`למחוק את כל ההיסטוריה (${S.pastGames.length} משחקים)?\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
+  if (!typed(`למחוק את כל ההיסטוריה (${S.pastGames.length} משחקים)?\nלפני המחיקה יירד קובץ גיבוי.`)) return toast("לא נמחק כלום");
   await downloadBackup();
   const b = batch(); S.pastGames.forEach(h => b.delete(ref("history", h.id)));
   if (await safe(b.commit())) toast("🗑️ ההיסטוריה נמחקה");

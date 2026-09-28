@@ -21,41 +21,41 @@
 <div id="toast" role="status"></div>
 <div id="nudge" role="status" hidden></div>
 <dialog id="lookDlg"><div class="dlg"><div class="dlg-head"><h2>🎨 בחרו אימוג׳י</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><div class="emojis" id="emojis"></div></div></dialog>
-<dialog id="setDlg"><div class="dlg"><div class="dlg-head"><h2 id="setTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
-  <div class="menu" id="setMenu">
+<dialog id="setDlg"><div class="dlg" id="setBox"><div class="dlg-head"><h2 id="setTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button>
+    <div class="tabs" id="setTabs" role="tablist" hidden>
+      <button role="tab" data-tab="me">👤 שלי</button><button role="tab" data-tab="admin">🛠️ ניהול</button><button role="tab" data-tab="game">👑 הגדרות</button>
+    </div></div>
+  <section class="pane menu" data-pane="me" id="setMenu">
     <button class="ghost" data-set="look">🎨 שינוי אימוג׳י</button>
     <button class="ghost install" data-set="install" hidden>📲 התקנה בטלפון</button>
-    <button class="ghost" data-set="admin" id="adminItem" hidden></button>
-    <button class="ghost" data-set="cfg" id="cfgItem" hidden>👑 הגדרות משחק</button>
     <button class="ghost" data-set="howto">❓ איך משחקים?</button>
+    <hr>
     <button class="ghost" data-set="switch">🔄 החלפת שחקן</button>
     <button class="ghost" data-set="logout">🚪 התנתקות</button>
-  </div></div></dialog>
-<dialog id="editDlg"><div class="dlg"><div class="dlg-head"><h2 id="editTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><p class="muted" id="editSub"></p>
-  <textarea id="editText" maxlength="140"></textarea>
-  <div class="row save"><button id="editSave">שמירה</button></div></div></dialog>
-<dialog id="cfgDlg"><div class="dlg" id="cfgBox"><div class="dlg-head"><h2>👑 הגדרות משחק</h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
-  <p class="muted">שינויים נשמרים רק בלחיצה על "💾 שמירת שינויים" למטה.</p>
+  </section>
+  <section class="pane" data-pane="admin" id="adm" hidden></section>
+  <section class="pane" data-pane="game" id="cfgBox" hidden>
   <h3>🏷️ שם התחרות</h3>
   <input class="field" id="cfgTitle" maxlength="40" placeholder="למשל: טיול צפון 2026">
   <h3>👥 שחקנים</h3><div class="chips" id="cfgPlayers"></div>
   <div class="row"><input class="field" id="cfgNew" maxlength="12" placeholder="שם של שחקן חדש"><button class="ghost" data-cfg="add">הוספה</button></div>
   <p class="muted" id="cfgPlayersNote"></p><div class="chips" id="cfgFormer"></div>
-  <h3>👑 מייסדים</h3><p class="muted"><span id="cfgFounders"></span>. המייסדים קבועים: הם תמיד מתכללים והיחידים שרואים את ההגדרות האלה.</p>
-  <h3>🛠️ מתכללים ומדרגים</h3><p class="muted">מתכללים מנהלים את המשחק (שלבים, כרטיסים, סיום) ומדרגים את הניחושים בשלב הדירוג. המייסדים תמיד בפנים.</p><div class="chips" id="cfgAdmins"></div>
-  <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
-  <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)">
+  <h3>🛠️ מתכללים</h3><p class="muted">מנהלים את המשחק ומדרגים את הניחושים. 👑 <span id="cfgFounders"></span> (המייסדים) תמיד בפנים.</p><div class="chips" id="cfgAdmins"></div>
+  <details class="fold" id="cfgCodeBox"><summary>🔐 קוד משפחתי</summary><p class="muted" id="cfgCodeNote"></p>
+    <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)"></details>
   <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button></div>
-  <details class="cards" id="cfgCards"><summary>🎲 כרטיסי השחקנים</summary>
-    <p class="muted" id="cfgCardsNote"></p><ul class="score" id="cfgCardList"></ul></details>
   <details class="danger"><summary>⚠️ אזור מסוכן</summary>
-    <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
+    <p class="muted">כל פעולה כאן מבקשת אישור. מחיקות מורידות קודם קובץ גיבוי ודורשות להקליד "מחיקה".</p>
     <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>
-    <p class="muted"><b>🚪 הסרת שחקן</b> (רק בשלב הניחושים) מוציאה מהמשחק את כל הניחושים שהשחקן כתב ואת כל הניחושים עליו או שהוא מעורב בהם, והטלפון שלו מתנתק מהשם. שום דבר לא נמחק, ומחזירים שחקן ב"↩️" שליד השחקנים. צריך להקליד את שם השחקן כדי לאשר.</p>
-    <div class="row"><select class="field" id="cfgDel"></select><button class="ghost warn" data-cfg="del">🚪 הסרת שחקן</button></div>
-    <p class="muted"><b>🧹 טיול חדש</b> מוחק את כל הניחושים, הדירוגים וההצעות ומאפס סימונים (רק בשלב הניחושים). לפני המחיקה יורד גיבוי אוטומטית. צריך להקליד "מחיקה" כדי לאשר.</p>
+    <p class="muted">🚪 הסרת שחקן (רק בשלב הניחושים): הניחושים שלו ועליו יוצאים מהמשחק, אבל שום דבר לא נמחק ואפשר להחזיר ב"↩️".</p>
+    <div class="row"><select class="field" id="cfgDel"></select><button class="ghost warn" data-cfg="del">🚪 הסרה</button></div>
+    <p class="muted">🧹 טיול חדש (רק בשלב הניחושים) מוחק ניחושים, דירוגים והצעות. ההיסטוריה נמחקת בנפרד.</p>
     <div class="row"><button class="ghost warn" data-cfg="wipe">🧹 ניקוי לטיול חדש</button><button class="ghost warn" data-cfg="wipeHist">🗑️ מחיקת היסטוריה</button></div>
-  </details></div></dialog>
+  </details></section></div></dialog>
+<dialog id="editDlg"><div class="dlg"><div class="dlg-head"><h2 id="editTitle"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div><p class="muted" id="editSub"></p>
+  <textarea id="editText" maxlength="140"></textarea>
+  <div class="row save"><button id="editSave">שמירה</button></div></div></dialog>
+
 <dialog id="cellDlg"><div class="dlg"><div class="dlg-head"><h2 id="cellWho"></h2><button class="ghost x" data-close aria-label="סגירה">✕</button></div>
   <p class="cell-text" id="cellText"></p><p class="muted" id="cellNote"></p>
   <div class="row save"><button id="cellMark"></button></div></div></dialog>

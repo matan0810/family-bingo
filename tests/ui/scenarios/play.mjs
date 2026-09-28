@@ -1,6 +1,6 @@
 // UI checks: play and ended
 import { PLAYERS as P, ROLE, SIZE, aboutOf, cardFor, BINGO_AT, PLAY_AT, HISTORY, byId, marksFor, eventsFor } from "../../fixtures.mjs";
-import { check, ME, open, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done } from "../harness.mjs";
+import { check, ME, open, lastBatch, sheet, markOp, eventOp, mark, noOverflow, scenario, done } from "../harness.mjs";
 
 console.log("— play and ended");
 for (const n of [2, 3, 4, 5]) await scenario(async () => {
@@ -13,7 +13,7 @@ for (const n of [2, 3, 4, 5]) await scenario(async () => {
   await done(p);
 });
 await scenario(async () => {
-  const p = await open("m=play", { admin: true });
+  const p = await open("m=play");
   const cell = await p.locator(".cell:not(.on) >> nth=0").getAttribute("data-cell");
   await p.click(`[data-cell="${cell}"]`); await p.waitForTimeout(100);
   const text = byId(cell).text;
@@ -27,9 +27,18 @@ await scenario(async () => {
   check("a marked cell offers to undo the mark", (await p.textContent("#cellMark")).includes("ביטול"));
   await p.click("#cellMark"); await p.waitForTimeout(100);
   check("unmarking removes the journal entry", JSON.stringify(eventOp(await lastBatch(p))) === JSON.stringify(["del", `events/${on}_${ME}`]));
-  await p.click('[data-act="end"]'); await p.waitForTimeout(200);
+  await sheet(p, "admin"); await p.click('[data-act="end"]'); await p.waitForTimeout(200);
   const e = await lastBatch(p);
   check("end game: history (with title and prophets) + ended state, keeping the start time", e[0][1].startsWith("history/") && e[0][2].results.length === P.length && "title" in e[0][2] && e[0][2].prophets.length === P.length && e[1][2].status === "ended" && e[1][2].at?.seconds === PLAY_AT, e);
+  await sheet(p, "admin");
+  check("wiping tools wait in the collapsed danger zone", !(await p.isVisible('[data-act="backRate"]')));
+  await p.click('#adm .danger summary');
+  for (const act of ["backRate", "reset"]) {
+    p.promptAnswer = "לא"; const before = await lastBatch(p);
+    await p.click(`[data-act="${act}"]`); await p.waitForTimeout(150);
+    check(`${act}: without typing the word nothing is wiped`, JSON.stringify(await lastBatch(p)) === JSON.stringify(before) && p.dialogs.at(-1).includes("מחיקה"));
+  }
+  p.promptAnswer = "מחיקה";
   await p.click('[data-act="backRate"]'); await p.waitForTimeout(200);
   const b = await lastBatch(p), journal = eventsFor(SIZE).map(x => `events/${x.item}_${x.player}`);
   check("play → rate wipes cards, marks and the journal", b[0][2].status === "rate" && JSON.stringify(b[0][2].cards) === "{}" && b.length === 1 + P.length + journal.length && journal.every(id => b.some(([op, r]) => op === "del" && r === id)));
@@ -40,23 +49,25 @@ await scenario(async () => {
   const full = await open("m=play");
   check("full card mode: the rule says so, a bingo is a step on the way", (await full.textContent("#rule")).includes("כרטיס מלא") && (await full.textContent("#banner")).includes("ממשיכים"));
   await done(full);
-  const p = await open("m=play&win=line", { admin: true });
+  const p = await open("m=play&win=line");
   check("first line mode: the rule says so", (await p.textContent("#rule")).includes("הבינגו הראשון מנצח"));
   check("…my bingo is the win", (await p.textContent("#banner")).includes("ניצחת") && (await p.textContent("#score li:first-child")).includes(ME) && (await p.textContent("#score")).includes("🏆 בינגו"));
-  check("…and the admin panel shows it", (await p.textContent("#adm")).includes("שורה ראשונה"));
+  await sheet(p, "admin");
+  check("…and the admin tab shows it", (await p.textContent("#adm")).includes("שורה ראשונה"));
   await p.click('[data-act="end"]'); await p.waitForTimeout(200);
   const e = await lastBatch(p);
   check("…and ending the game keeps it", e[1][2].status === "ended" && e[1][2].win === "line" && e[0][2].results[0].p === ME, e);
   await done(p);
 });
 
-// a founder gives one player a new card, from the game settings (the admin panel leads there)
+// a founder gives one player a new card, from the admin tab
 await scenario(async () => {
   const p = await open("m=play", { admin: true });
   const who = ROLE.player;
-  await p.click('[data-act="cards"]'); await p.waitForTimeout(300);
-  check("new card: the admin panel opens the players' cards in the game settings", await p.evaluate(() => cfgDlg.open && cfgCards.open) && await p.locator("#cfgCardList li").count() === P.length);
-  await p.click(`[data-cfg="card"][data-p="${who}"]`); await p.waitForTimeout(200);
+  check("new card: folded away in the admin tab", !(await p.isVisible(`[data-card="${who}"]`)));
+  await p.click('[data-k="cards"] summary');
+  check("…a row per player", await p.locator("[data-card]").count() === P.length);
+  await p.click(`[data-card="${who}"]`); await p.waitForTimeout(200);
   const b = await lastBatch(p), g = b?.find(([, r]) => r === "game/state")?.[2];
   const ev = eventsFor(SIZE).filter(x => x.player === who).map(x => `events/${x.item}_${x.player}`);
   check("…asks first, naming the player", p.dialogs.at(-1).includes(who));
@@ -66,7 +77,7 @@ await scenario(async () => {
     && !b.some(([, r]) => r.startsWith("marks/") && r !== `marks/${who}`), b);
   await done(p);
   const ad = await open(`m=play&cfg=full&claim=${ROLE.admin}`, { me: ROLE.admin, admin: true });
-  check("new card: only founders get the button (an extra admin doesn't)", await ad.isVisible('[data-act="end"]') && !(await ad.locator('[data-act="cards"]').count()));
+  check("new card: only founders have it (an extra admin doesn't)", await ad.isVisible('[data-act="end"]') && !(await ad.locator('[data-k="cards"]').count()));
   await done(ad);
 });
 await scenario(async () => {
@@ -78,7 +89,7 @@ await scenario(async () => {
   await done(p);
 });
 await scenario(async () => {
-  const p = await open("m=ended", { admin: true });
+  const p = await open("m=ended");
   check("ended: winner banner", (await p.textContent("#winner")).includes("🏆"));
   await p.click("[data-cell] >> nth=0");
   check("ended: a cell still opens with its text, but can't be marked", await p.evaluate(() => cellDlg.open) && !(await p.isVisible("#cellMark")));
@@ -86,6 +97,7 @@ await scenario(async () => {
   check("history listed", await p.locator("#hist li").count() === HISTORY.length);
   const top = Math.max(...HISTORY[0].prophets.map(x => x.n)), hist = await p.textContent("#hist");
   check("history names the family prophets", HISTORY[0].prophets.filter(x => x.n === top).every(x => hist.includes(x.p)) && HISTORY[0].prophets.filter(x => x.n < top).every(x => !hist.includes(`${x.p} (`)), hist);
+  await sheet(p, "admin");
   check("new game button", await p.locator('[data-act="new"]').count() === 1);
   await done(p);
 });

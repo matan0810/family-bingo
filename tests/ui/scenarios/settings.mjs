@@ -1,14 +1,14 @@
 // UI checks: settings, dialogs, emoji, logo
 import { PLAYERS as P, ROLE } from "../../fixtures.mjs";
 import { EMOJIS } from "../../source.mjs";
-import { check, ME, open, writes, scenario, done } from "../harness.mjs";
+import { check, ME, open, writes, sheet, closeSheet, scenario, done } from "../harness.mjs";
 
 console.log("— settings, dialogs, emoji, logo");
 await scenario(async () => {
   const p = await open("m=entry");
   await p.click("#who");
   check("settings open from the header", await p.evaluate(() => setDlg.open));
-  check("settings items (founder)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "🛠️ הפעלת מצב מתכלל", "👑 הגדרות משחק", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
+  check("settings items (my tab)", JSON.stringify(await p.locator("#setMenu button:visible").allTextContents()) === JSON.stringify(["🎨 שינוי אימוג׳י", "❓ איך משחקים?", "🔄 החלפת שחקן", "🚪 התנתקות"]), await p.locator("#setMenu button:visible").allTextContents());
   await p.mouse.click(5, 5);
   check("tapping outside closes a dialog", !(await p.evaluate(() => setDlg.open)));
   const noX = await p.evaluate(() => [...document.querySelectorAll("dialog")].filter(d => !d.querySelector(".dlg-head .x[data-close]")).map(d => d.id));
@@ -32,23 +32,38 @@ await scenario(async () => {
   check("'יאללה' returns too", await p.isVisible("#add"));
   await done(p);
 });
+// one settings sheet: a tab per role, and nothing about running the game on the page itself
+const tabs = p => p.locator("#setTabs [data-tab]:visible").evaluateAll(b => b.map(x => x.dataset.tab));
 await scenario(async () => {
   const p = await open("m=entry", { once: true });
-  check("no admin panel by default", !(await p.locator(".admin").count()));
-  await p.click("#who"); await p.click('[data-set="admin"]'); await p.waitForTimeout(200);
-  check("settings turns admin mode on", await p.isVisible(".admin"));
+  check("no admin panel on the page", !(await p.locator("#app [data-act=rate], #app .stepper").count()));
+  await sheet(p);
+  check("founder: my tab, running the game, game settings", JSON.stringify(await tabs(p)) === JSON.stringify(["me", "admin", "game"]));
+  await sheet(p, "admin");
+  check("the admin tab shows only its own pane", await p.isVisible("#adm .stepper") && !(await p.isVisible("#setMenu")) && !(await p.isVisible("#cfgTitle")));
+  await closeSheet(p);
   await p.reload(); await p.waitForTimeout(600);
-  check("admin mode is remembered on this device", await p.isVisible(".admin"));
-  await p.click("#who");
-  check("settings shows it is on", (await p.textContent("#adminItem")).includes("פועל"));
-  await p.click('[data-set="admin"]'); await p.waitForTimeout(200);
-  check("…and turns it off", !(await p.locator(".admin").count()));
+  await p.click("#who"); await p.waitForTimeout(150);
+  check("the last tab is remembered on this device", await p.isVisible("#adm .stepper"));
+  await sheet(p, "game");
+  await p.fill("#cfgTitle", "x");
+  p.refuse = true; await p.click("#setDlg .dlg-head .x"); await p.waitForTimeout(100);
+  check("closing with unsaved game settings asks first, and can stay", await p.evaluate(() => setDlg.open));
+  await sheet(p, "me");
+  p.refuse = true; await p.click('[data-set="howto"]'); await p.waitForTimeout(100);
+  check("…also when leaving through my tab", await p.evaluate(() => setDlg.open) && !(await p.evaluate(() => howDlg.open)));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=entry&cfg=full", { me: ROLE.admin });
+  await sheet(p);
+  check("extra admin: my tab and running the game, no game settings", JSON.stringify(await tabs(p)) === JSON.stringify(["me", "admin"]));
   await done(p);
 });
 await scenario(async () => {
   const p = await open("m=entry", { me: ROLE.player });
-  await p.click("#who");
-  check("non-admins have no admin item", !(await p.isVisible("#adminItem")));
+  await sheet(p);
+  check("a player: just the menu, no tabs", await p.isVisible("#setMenu") && !(await p.isVisible("#setTabs")) && !(await p.isVisible("#adm")));
   await done(p);
 });
 await scenario(async () => {

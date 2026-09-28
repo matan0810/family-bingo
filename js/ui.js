@@ -23,6 +23,9 @@ export const countChips = n => S.players.map(p => html`<span style="${col(p)}">$
 export const medal = place => MEDAL[place - 1] ?? `${place}.`;
 export const when = t => t?.seconds ? new Date(t.seconds * 1000).toLocaleString("he-IL", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "עכשיו";
 
+// destructive actions: typing the word makes it a deliberate act (a stray tap on OK is not enough)
+export const typed = (what, word = "מחיקה") => prompt(`${what}\n\nכדי לאשר, מקלידים: ${word}`)?.trim() === word;
+
 // ---- toast ----
 let toastTimer;
 export function toast(msg) {

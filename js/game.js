@@ -4,39 +4,44 @@ import { WINS } from "./config.js";
 import { S, size, win, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText } from "./state.js";
 import { makeCards, cardStats, endStats, lines } from "./logic.js";
 import { ref, batch, safe, writeGame, clearMarks, newItemRef, serverTimestamp } from "./data.js";
-import { $, html, who, whoEmo, whoName } from "./ui.js";
+import { $, html, who, whoEmo, whoName, typed } from "./ui.js";
 
-// ---- phases ----
+// ---- phases: each returns whether it went ahead (the settings sheet closes then) ----
 export function startRating() {
   const again = S.ratings.length > 0;
-  if (confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?"))
-    writeGame({ status: "rate", cards: {}, at: serverTimestamp() });
+  return confirm(again ? "לחזור לשלב הדירוג? הניחושים יינעלו שוב, והדירוגים שכבר ניתנו נשמרים." : "לנעול את הניחושים ולעבור לשלב הדירוג?")
+    && writeGame({ status: "rate", cards: {}, at: serverTimestamp() });
 }
 export function backToEntry() {
-  if (confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.")) writeGame({ status: "entry", cards: {} });
+  return confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.") && writeGame({ status: "entry", cards: {} });
 }
 // writes the game state and empties everyone's marks and the journal, in one batch
-async function withClearMarks(state) {
+function withClearMarks(state) {
   const b = batch();
   b.set(ref("game", "state"), state);
   clearMarks(b);
-  await safe(b.commit());
+  return safe(b.commit());
 }
-export async function backToRating() {
-  if (confirm("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו! הדירוגים נשמרים.")) await withClearMarks({ status: "rate", cards: {}, at: serverTimestamp() });
+// these two throw away the cards and everyone's marks, so they take the typed word
+export function backToRating() {
+  return typed("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו, והתוצאות לא יישמרו. הדירוגים נשמרים.") && withClearMarks({ status: "rate", cards: {}, at: serverTimestamp() });
 }
-export async function reset(ask) {
-  if (confirm(ask)) await withClearMarks({ status: "entry", cards: {} });
+export function resetGame() {
+  return typed("לאפס את המשחק בלי לשמור?\n⚠️ הכרטיסים והסימונים של כולם יימחקו, והתוצאות לא יישמרו. הניחושים והדירוגים נשמרים.") && withClearMarks({ status: "entry", cards: {} });
 }
-export async function generate() {
+// after the game (the results are in the history already)
+export function newGame() {
+  return confirm("להתחיל משחק חדש? הניחושים והדירוגים נשמרים.") && withClearMarks({ status: "entry", cards: {} });
+}
+export function generate() {
   if (S.game.status !== "rate") return; // cards are generated only after the rating phase
   const n = S.sizeSel || size(), N = n * n, how = S.winSel || win();
   const short = S.players.filter(p => poolFor(p).length < N);
   if (short.length) return alert(`חסרים ניחושים לכרטיס של: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?\nמנצח: ${WINS[how]}`)) return;
-  await withClearMarks({ status: "play", cards: newCards(N), size: n, win: how, at: serverTimestamp() });
+  return withClearMarks({ status: "play", cards: newCards(N), size: n, win: how, at: serverTimestamp() });
 }
-export async function endGame() {
+export function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
   const board = size(), b = batch();
   b.set(newItemRef("history"), { at: serverTimestamp(), size: board, title: S.config.title,
@@ -44,14 +49,14 @@ export async function endGame() {
     prophets: summary().prophets.map(({ p, n }) => ({ p, n })) });
   // at stays the start of play: the journal and the awards count from it
   b.set(ref("game", "state"), { status: "ended", cards: S.game.cards, size: board, win: win(), at: S.game.at ?? serverTimestamp() });
-  await safe(b.commit());
+  return safe(b.commit());
 }
 
 // ---- cards ----
 const newCards = (N, players = S.players) => makeCards({ players, items: activeItems(), N, shared: tuned("shared"), mix: tuned("mix"), weight });
 
 // a founder gives one player a new card mid-game (e.g. too hard, or too many cells about one person); that player's marks restart
-export async function newCard(p) {
+export function newCard(p) {
   const N = size() ** 2, old = S.game.cards?.[p];
   if (S.game.status !== "play" || !old) return;
   if (poolFor(p).length < N) return alert(`אין מספיק ניחושים לכרטיס חדש של ${p} (צריך ${N})`);

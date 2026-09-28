@@ -1,15 +1,15 @@
 // UI checks: removing a player (founders, danger zone)
 import { PLAYERS as P, ROLE, FOUNDERS, EXTRA_PLAYER, TITLE, TITLE2, SETTINGS, ITEMS, aboutOf, rateableFor } from "../../fixtures.mjs";
-import { check, ME, without, open, writes, batchOps, scenario, done } from "../harness.mjs";
+import { check, ME, without, open, writes, batchOps, sheet, scenario, done } from "../harness.mjs";
 
 console.log("— removing a player (founders, danger zone)");
 await scenario(async () => {
   const p = await open("m=entry&cfg=full");
   const cfgWrites = async () => (await writes(p)).filter(w => w[0] === "config/settings");
   const gone = ROLE.admin; // an extra admin who wrote predictions and has predictions about them
-  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  await sheet(p, "game");
   check("removing lives in the collapsed danger zone", !(await p.isVisible("[data-cfg=del]")));
-  await p.click(".danger summary");
+  await p.click("#cfgBox .danger summary");
   const options = await p.locator("#cfgDel option").evaluateAll(o => o.map(x => x.value).filter(Boolean));
   check("founders can't be removed", JSON.stringify(options) === JSON.stringify(SETTINGS.full.players.filter(x => !FOUNDERS.includes(x))), options);
   await p.click("[data-cfg=del]");
@@ -33,7 +33,7 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=entry&cfg=removed");
-  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  await sheet(p, "game");
   check("a removed player with data can be brought back", await p.isVisible(`#cfgFormer [data-cfg=back][data-p="${ROLE.removed}"]`));
   await p.click(`[data-cfg=back][data-p="${ROLE.removed}"]`);
   await p.click("#cfgSave"); await p.waitForTimeout(300);
@@ -43,20 +43,8 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=rate&cfg=full");
-  await p.click("#who"); await p.click('[data-set="cfg"]'); await p.waitForTimeout(300);
+  await sheet(p, "game");
   check("no removing after the writing phase", await p.locator("[data-cfg=del]").isDisabled());
-  await done(p);
-});
-await scenario(async () => {
-  const p = await open("m=entry&cfg=full", { me: ROLE.admin });
-  await p.click("#who");
-  check("extra admin: admin mode, but no game settings", await p.isVisible("#adminItem") && !(await p.isVisible("#cfgItem")));
-  await done(p);
-});
-await scenario(async () => {
-  const p = await open("m=entry", { me: ROLE.player });
-  await p.click("#who");
-  check("regular player: no game settings", !(await p.isVisible("#cfgItem")));
   await done(p);
 });
 await scenario(async () => {

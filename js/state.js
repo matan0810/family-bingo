@@ -15,8 +15,6 @@ export const S = {
   memberName: null,
   claiming: false,
   welcomed: !!stored("bingo-welcome", "1"), // welcome screen seen
-  // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
-  adminOpen: new URLSearchParams(location.search).has("admin") || !!stored("bingo-admin", ""),
 
   // shared game data (Firestore); the shapes are in tests/types/app.d.ts
   /** @type {Config} config/settings */
@@ -55,7 +53,6 @@ export const setMe = name => {
 // ---- who is who ----
 export const isFounderName = p => S.config.founders.includes(p);
 export const isAdminName = p => isFounderName(p) || S.config.admins.includes(p);
-export const isAdmin = () => S.adminOpen && isAdminName(S.me);
 // the admins (founders included) are the raters
 export const raters = () => S.players.filter(isAdminName);
 export const isRater = () => isAdminName(S.me);

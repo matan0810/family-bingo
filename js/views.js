@@ -2,16 +2,14 @@
 // typed draft and the chosen chips); otherwise the fill*() functions update the lists in place.
 // All taps inside #app go through one delegated handler over the taps table (bind).
 import { PHASE, GENERAL, MINI } from "./config.js";
-import { S, emo, colorOf, appTitle, isAdmin, isRater, raters, rateable, myStars, itemsById, shownText, size, win, ranking, myCard, myMarks } from "./state.js";
+import { S, emo, colorOf, appTitle, isRater, raters, rateable, myStars, itemsById, shownText, size, win, ranking, myCard, myMarks } from "./state.js";
 import { subjectOf, aboutOf, secs, bingoCells, isBlackout } from "./logic.js";
-import { live, need, migrate, addItem, delItem, rate, safe, remove, join } from "./data.js";
+import { live, need, migrate, addItem, delItem, rate, safe, join } from "./data.js";
 import { $, $$, html, col, av, generalAv, who, whoName, whoEmo, whoCol, whoAv, countChips, medal, toast, confetti } from "./ui.js";
 import { claim, checkMyName, recordName } from "./account.js";
-import { startRating, backToEntry, backToRating, generate, endGame, reset, openCell, showNudge } from "./game.js";
+import { openCell, showNudge } from "./game.js";
 import { openEdit, acceptSuggestion, rejectSuggestion, cleanSuggestions } from "./wording.js";
-import { fillCfg, openCards } from "./settings.js";
-import { openLooks, openHow } from "./dialogs.js";
-import { adminBox, fillAdmin } from "./admin.js";
+import { openLooks, openHow, fillSheet } from "./dialogs.js";
 import { summaryView, fillSummary, fillHistory } from "./summary.js";
 
 export function render() {
@@ -41,8 +39,7 @@ export function render() {
   if (!me || !on) return;
   ({ entry: fillEntry, rate: fillRate, play: fillPlay, ended: fillEnded })[stage]();
   fillHistory();
-  if (isAdmin()) fillAdmin();
-  if ($("#cfgDlg").open) fillCfg();
+  fillSheet();
   showNudge();
 }
 
@@ -85,7 +82,7 @@ const pickView = () => html`<h2>מי משחק? 👋</h2><div class="names">${S.p
 
 const lookBtn = () => html`<button class="av" data-look style="${col(S.me)}" aria-label="בחירת אימוג׳י">${emo(S.me)}</button>`;
 const hello = () => html`<div class="panel hello">${lookBtn()}<span class="t">היי ${S.me}! 👋</span></div>`;
-const tail = () => html`<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>${adminBox()}
+const tail = () => html`<section id="histBox" hidden><h2>📚 היסטוריה</h2><ul id="hist"></ul></section>
   <p class="howto"><button class="ghost" data-act="howto">❓ איך משחקים?</button></p>`;
 
 const chipsFor = name => S.players.filter(p => p !== S.me).map(p =>
@@ -228,11 +225,7 @@ function fillEnded() {
 }
 
 // ---- taps inside #app ----
-const act = {
-  start: leaveWelcome, howto: openHow,
-  rate: startRating, back: backToEntry, backRate: backToRating, gen: generate, end: endGame, cards: openCards,
-  reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.")
-};
+const act = { start: leaveWelcome, howto: openHow };
 // data-* attribute → what a tap on it does (the value of the attribute, and the element)
 /** @type {[string, (value: string, el: HTMLElement) => void][]} */
 const taps = [
@@ -244,12 +237,8 @@ const taps = [
   ["accept", acceptSuggestion],
   ["reject", rejectSuggestion],
   ["cell", openCell],
-  ["free", v => { if (confirm(`לשחרר את השם ${v}?`)) remove("players", v).then(ok => ok && toast(`🔓 השם ${v} פנוי`)); }],
   // tapping the current star lowers it by one
   ["rate", (v, t) => { const k = +t.dataset.k; rate(v, myStars()[v] === k && k > 0 ? k - 1 : k); }],
-  ["size", v => { S.sizeSel = +v; render(); }],
-  ["win", v => { S.winSel = v === "line" ? "line" : "full"; render(); }],
-  ["tune", v => { const [k, x] = v.split(":"); S.tune[k] = +x; render(); }],
   ["act", v => act[v]?.()],
 ];
 const tapSelector = taps.map(([k]) => `[data-${k}]`).join(",");

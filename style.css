@@ -96,9 +96,6 @@ li.empty{justify-content:center;color:var(--muted);padding:24px}
 .star.on{color:var(--sun);border-color:var(--sun);background:color-mix(in srgb,var(--sun) 15%,var(--card))}
 .star:first-child:not(.on){filter:grayscale(1);opacity:.45}
 .step{font-weight:700;margin-top:12px}
-.free{margin-top:14px;font-size:14px}
-.free summary{cursor:pointer;color:var(--muted);width:fit-content}
-.free .chips{margin-bottom:0}
 .stepper{display:flex;gap:4px;margin:4px 0 8px;font-size:13px;font-weight:700}
 .stepper span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:5px 2px;border-radius:99px;background:var(--line);color:var(--muted);white-space:nowrap}
 .stepper .done{background:color-mix(in srgb,#22c55e 22%,var(--card));color:var(--ink)}
@@ -122,12 +119,6 @@ button.ghost.pick.on{border-color:var(--c,var(--me));color:var(--ink);background
 .grid[data-n="5"] .cell .tag{background:none;border:0;font-size:.95em}
 .grid[data-n="4"] .cell.on::after,.grid[data-n="5"] .cell.on::after{width:17px;height:17px;font-size:10px;bottom:-5px;inset-inline-end:-5px}
 /* admin panel */
-.admin{border:2px dashed var(--muted);border-radius:22px;padding:4px 16px 16px;margin-top:32px;background:color-mix(in srgb,var(--card) 60%,transparent)}
-.admin h2{margin-top:14px}
-.admin hr{border:0;border-top:2px dashed var(--line);margin:16px 0 4px}
-.admin .row{flex-wrap:wrap}
-.tune{margin:10px 0;border:2px solid var(--line);border-radius:14px;padding:6px 12px}
-.tune summary{cursor:pointer;font-weight:700;padding:10px 0}
 
 /* dialogs: a sticky header with the title and ✕, and a sticky save row where there is one */
 dialog{border:0;border-radius:24px;background:var(--card);color:var(--ink);padding:0;width:min(380px,calc(100% - 32px));max-height:90vh;overflow:auto;box-shadow:var(--shadow)}
@@ -144,6 +135,32 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 #cellMark.ghost{width:100%}
 .menu{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 .menu button{text-align:start;font-size:17px;padding:12px 14px}
+.menu hr{width:100%;border:0;border-top:1px solid var(--line);margin:6px 0}
+/* the settings sheet: one tab per role, a steady height so switching tabs doesn't jump */
+#setDlg{width:min(440px,calc(100% - 24px))}
+#setDlg.tabbed{height:min(86vh,760px);max-height:none}
+#setDlg .dlg-head{flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.tabs{flex:1 1 100%;display:flex;gap:4px;padding:4px;border-radius:14px;background:color-mix(in srgb,var(--ink) 7%,var(--card))}
+.tabs button{flex:1;min-width:0;min-height:44px;padding:6px 4px;border-radius:10px;background:none;box-shadow:none;color:var(--muted);font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs button:active{transform:none}
+.tabs button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.pane{padding-top:4px}
+.pane[hidden],.tabs[hidden]{display:none}
+/* the admin tab: the one next step stands out, the rest folds away */
+.next{margin:12px 0;padding:4px 14px 14px;border-radius:18px;border:2px solid color-mix(in srgb,var(--me) 35%,var(--line));background:color-mix(in srgb,var(--me) 7%,var(--card))}
+.next .row button{flex:1}
+.label{margin:12px 0 4px;font-size:14px;font-weight:700;color:var(--muted)}
+.fold{margin:10px 0;border:2px solid var(--line);border-radius:14px;padding:0 12px}
+.fold summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;gap:6px}
+.fold[open]{padding-bottom:10px}
+.fold summary,.danger summary{list-style:none}
+.fold summary::-webkit-details-marker,.danger summary::-webkit-details-marker{display:none}
+.fold summary::after,.danger summary::after{content:"‹";margin-inline-start:auto;font-size:20px;color:var(--muted);transition:transform .2s}
+.fold[open] summary::after,.danger[open] summary::after{transform:rotate(-90deg)}
+button.ghost.small{font-size:14px;padding:6px 12px;min-height:40px}
+ul.plain{padding:0;margin:0}
+ul.plain li{align-items:center;padding:6px 10px;margin-bottom:6px;animation:none}
+ul.plain .name{flex:1;min-width:0}
 .steps{list-style:none;padding:0;margin:0 0 14px}
 .steps li{align-items:center;gap:12px;box-shadow:none}
 .steps .se{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:12px;font-size:22px;background:color-mix(in srgb,var(--sun) 28%,var(--card))}
@@ -153,12 +170,8 @@ dialog h3{font-size:16px;margin:18px 0 6px}
 .emojis button:disabled{opacity:.25;cursor:not-allowed}
 /* game settings */
 .fixed{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:14px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 18%,var(--card));font-size:15px;font-weight:500}
-.cards{margin-top:18px;border:2px solid var(--line);border-radius:14px;padding:6px 12px}
-.cards summary{cursor:pointer;font-weight:700;padding:6px 0}
-.cards li{margin-bottom:6px;padding:6px 10px}
-.cards .name{flex:1;min-width:0}
-.danger{margin-top:22px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
-.danger summary{cursor:pointer;color:var(--muted);font-size:14px}
+.danger{margin:22px 0 10px;border:2px dashed color-mix(in srgb,var(--hot) 45%,var(--line));border-radius:14px;padding:6px 12px}
+.danger summary{cursor:pointer;color:var(--muted);font-size:14px;min-height:44px;display:flex;align-items:center}
 .danger[open] summary{color:var(--hot);font-weight:700}
 .danger .row{flex-wrap:wrap}
 .danger select.field{flex:1 1 100%;min-height:44px}
