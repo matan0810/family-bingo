@@ -9,6 +9,7 @@
 //   claim=<name>              this device (ME_UID) also holds <name>
 //   member=0                  device has not entered the family code yet
 //   deny=1                    every setDoc fails with permission-denied (e.g. wrong code)
+//   oldrules=1                the rules from before the win choice: a batch writing game/state.win is refused
 //   oldtext=1                 MIGRATED still holds its text (the first version's format) -> migration
 //   nohist=1                  no history
 //   sugg=1                    SUGGESTION waits for its author
@@ -70,6 +71,7 @@ export const deleteDoc = async r => {
 export const addDoc = async (coll, d) => { const r = doc(coll); await setDoc(r, d); return r; };
 export const writeBatch = () => { const ops = []; return { set(r, d) { ops.push(["set", String(r), d]); }, delete(r) { ops.push(["del", String(r)]); }, commit: async () => {
   window.B = (window.B || []).concat([ops]);
+  if (q.get("oldrules") && ops.some(([op, r, d]) => op === "set" && r === "game/state" && "win" in d)) throw { code: "permission-denied" };
   ops.forEach(([op, r, d]) => { const [c, id] = r.split("/"); if (c === "players" && op === "set") { PL[id] = d.uid; log("claims", id); } });
   if (ops.some(([, r]) => r.startsWith("players/"))) emitPl();
 } }; };

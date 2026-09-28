@@ -32,7 +32,7 @@ await scenario(async () => {
   check("generate 4×4: 16 cells per card, marks reset", g[0][2].status === "play" && g[0][2].size === 4 && P.every(pl => g[0][2].cards[pl].length === 16) && g.length === 1 + P.length);
   check("…and the sheet closes on the new phase", !(await p.evaluate(() => setDlg.open)));
   await sheet(p, "admin");
-  check("the win condition starts as a full card", g[0][2].win === "full" && await p.locator('[data-win="full"].on').count() === 1);
+  check("the win condition starts as a full card, written as no field (works under the older rules too)", !("win" in g[0][2]) && await p.locator('[data-win="full"].on').count() === 1);
   await p.click('[data-win="line"]');
   check("choosing the first line explains it", await p.locator('[data-win="line"].on').count() === 1 && (await p.textContent("#adm")).includes("בינגו קלאסי"));
   await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
@@ -74,6 +74,14 @@ await scenario(async () => {
   check("the panel stays open after a choice", await p.isVisible("[data-tune]"));
   const cards = Object.values((await lastBatch(p))[0][2].cards);
   check("…and cards stay full", cards.every(c => c.length === N));
+  await done(p);
+});
+await scenario(async () => {
+  const p = await open("m=rate&oldrules=1", { admin: true });
+  await p.click('[data-win="line"]'); await p.click('[data-act="gen"]'); await p.waitForTimeout(300);
+  check("first line under the older rules: refused, and the toast says why", (await p.textContent("#toast")).includes("החוקים החדשים"));
+  await sheet(p, "admin"); await p.click('[data-win="full"]'); await p.click('[data-act="gen"]'); await p.waitForTimeout(300);
+  check("…while a full card still works", (await lastBatch(p))[0][2].status === "play" && !(await p.textContent("#toast")).includes("⚠️ שגיאה"));
   await done(p);
 });
 await scenario(async () => {

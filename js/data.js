@@ -9,7 +9,7 @@ import { render } from "./views.js";
 import { nudge } from "./game.js";
 
 // wraps a write: reports failure with a toast, resolves to true/false
-export const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "permission-denied" ? "⚠️ אין הרשאה" : "⚠️ שגיאה"); return false; });
+export const safe = (p, denied = "⚠️ אין הרשאה") => p.then(() => true, e => { console.error(e); toast(e.code === "permission-denied" ? denied : "⚠️ שגיאה"); return false; });
 /** @param {...string} path the collection, then the document id (a document path) */
 export const ref = (...path) => doc(db, path[0], ...path.slice(1));
 export const batch = () => writeBatch(db);

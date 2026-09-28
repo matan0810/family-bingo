@@ -16,12 +16,15 @@ export function backToEntry() {
   return confirm("לחזור לשלב הניחושים? אפשר יהיה שוב להוסיף ולמחוק ניחושים. הדירוגים שכבר ניתנו נשמרים.") && writeGame({ status: "entry", cards: {} });
 }
 // writes the game state and empties everyone's marks and the journal, in one batch
-function withClearMarks(state) {
+function withClearMarks(state, denied) {
   const b = batch();
   b.set(ref("game", "state"), state);
   clearMarks(b);
-  return safe(b.commit());
+  return safe(b.commit(), denied);
 }
+// a full card (the default) is stored as no field at all, so it works under rules from before the choice existed
+const winField = w => w === "line" ? { win: "line" } : {};
+const needsRules = "⚠️ אין הרשאה. \"שורה ראשונה\" צריכה את החוקים החדשים ב־Firebase (כרטיס מלא עובד גם בלעדיהם)";
 // these two throw away the cards and everyone's marks, so they take the typed word
 export function backToRating() {
   return typed("לחזור לשלב הדירוג?\n⚠️ הכרטיסים והסימונים של כולם יימחקו, והתוצאות לא יישמרו. הדירוגים נשמרים.") && withClearMarks({ status: "rate", cards: {}, at: serverTimestamp() });
@@ -39,7 +42,7 @@ export function generate() {
   const short = S.players.filter(p => poolFor(p).length < N);
   if (short.length) return alert(`חסרים ניחושים לכרטיס של: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
   if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?\nמנצח: ${WINS[how]}`)) return;
-  return withClearMarks({ status: "play", cards: newCards(N), size: n, win: how, at: serverTimestamp() });
+  return withClearMarks({ status: "play", cards: newCards(N), size: n, ...winField(how), at: serverTimestamp() }, how === "line" ? needsRules : undefined);
 }
 export function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
@@ -48,7 +51,7 @@ export function endGame() {
     results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })),
     prophets: summary().prophets.map(({ p, n }) => ({ p, n })) });
   // at stays the start of play: the journal and the awards count from it
-  b.set(ref("game", "state"), { status: "ended", cards: S.game.cards, size: board, win: win(), at: S.game.at ?? serverTimestamp() });
+  b.set(ref("game", "state"), { status: "ended", cards: S.game.cards, size: board, ...winField(win()), at: S.game.at ?? serverTimestamp() });
   return safe(b.commit());
 }
 
