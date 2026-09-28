@@ -17,7 +17,7 @@
 //   noauth=1                  anonymous sign-in is off in the console
 //   lag=1                     the phase is still a pending local write: texts are refused until the server confirms it
 //                             (a second game snapshot, 800ms later)
-//   nudge=1                   after load, ROLE.other marks nudgeFor(size), which is also on the founder's card
+//   nudge=1                   window.nudgeNow(): ROLE.other marks nudgeFor(size), which is also on the founder's card
 // Writes are recorded for assertions: window.W (setDoc), window.B (batches), window.FS (Firestore options),
 // sessionStorage.claims / .del (survive the reload after logout).
 import { PLAYERS, ROLE, ITEMS, MIGRATED, SETTINGS, CODE, ME_UID, CLAIMS, SIZE, BINGO_AT, RATINGS, SUGGESTION, HISTORY, PLAY_AT, cardFor, marksFor, eventsFor, nudgeFor } from "../fixtures.mjs";
@@ -88,7 +88,8 @@ export const onSnapshot = (ref, cb) => setTimeout(() => {
     case "items": return docs(items);
     case "marks":
       docs(marksDocs());
-      if (q.get("nudge")) setTimeout(() => docs(marksDocs({ [ROLE.other]: [nudgeFor(n)] })), 800);
+      // the test fires it when it is ready (a timer raced the page load on slower machines)
+      if (q.get("nudge")) window.nudgeNow = () => docs(marksDocs({ [ROLE.other]: [nudgeFor(n)] }));
       return;
     case "events": return docs(asDocs(events));
     case "ratings": return docs(asDocs(RATINGS.map(r => ({ id: `${r.item}_${r.player}`, ...r }))));

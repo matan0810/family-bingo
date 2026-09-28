@@ -6,7 +6,7 @@ console.log("— \"also on your card\" and the end-of-game summary");
 await scenario(async () => {
   const p = await open("m=play&nudge=1");
   check("no nudge on load", !(await p.isVisible("#nudge")));
-  await p.waitForTimeout(900);
+  await p.evaluate(() => nudgeNow()); await p.waitForTimeout(200);
   const id = nudgeFor(SIZE), box = await p.isVisible("#nudge") ? await p.textContent("#nudge") : "";
   check("another player marks a cell I have: a nudge with who and what", box.includes(ROLE.other) && box.includes(byId(id).text), box);
   await p.click('[data-nudge="yes"]'); await p.waitForTimeout(100);
@@ -16,14 +16,14 @@ await scenario(async () => {
 });
 await scenario(async () => {
   const p = await open("m=play&nudge=1");
-  await p.waitForTimeout(900);
+  await p.evaluate(() => nudgeNow()); await p.waitForTimeout(200);
   await p.click('[data-nudge="no"]'); await p.waitForTimeout(100);
   check("'not now' closes it without marking", !(await p.isVisible("#nudge")) && !(await batchOps(p)).some(([, r]) => r.startsWith("marks/")));
   await done(p);
 });
 await scenario(async () => {
   const p = await open("m=ended&nudge=1");
-  await p.waitForTimeout(900);
+  await p.evaluate(() => nudgeNow()); await p.waitForTimeout(200);
   check("no nudges once the game has ended", !(await p.isVisible("#nudge")));
   // what the summary should say, from the fixtures
   const marked = marksFor(SIZE), onCards = [...new Set(P.flatMap(x => cardFor(x, SIZE)))];
