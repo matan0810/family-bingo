@@ -1,11 +1,12 @@
 // Game settings (founders only): title, players, extra admins and the family code, edited as a draft and written
-// by "💾 שמירת שינויים". Rare and destructive tools sit in the collapsed danger zone: backup, restore,
-// removing a player, the new-trip wipe and the history wipe.
+// by "💾 שמירת שינויים". Below it, tools that act at once: a new card for one player (during the game), and in the
+// collapsed danger zone backup, restore, removing a player, the new-trip wipe and the history wipe.
 import { COLOR, MAX_PLAYERS } from "./config.js";
-import { S, emo, textOf } from "./state.js";
+import { S, emo, textOf, size } from "./state.js";
 import { aboutOf, without, formerPlayers } from "./logic.js";
 import { ref, batch, safe, saveConfig, saveCode, readSecret, getText, remove, clearMarks, newItemRef, serverTimestamp } from "./data.js";
 import { $, html, who, col, toast } from "./ui.js";
+import { newCard } from "./game.js";
 
 let draft = null;
 // admins are kept in player order, so turning one off and on again is not a change
@@ -18,7 +19,7 @@ export const leaveCfg = () => !dirty() || confirm("לצאת בלי לשמור א
 export async function openCfg() {
   draft = draftOf();
   $("#cfgTitle").value = draft.title; $("#cfgCode").value = $("#cfgNew").value = "";
-  $("#cfgBox .danger").open = false; $("#cfgDel").value = "";
+  $("#cfgBox .danger").open = $("#cfgCards").open = false; $("#cfgDel").value = "";
   fillCfg();
   $("#cfgCodeNote").textContent = "טוען…";
   $("#cfgDlg").showModal();
@@ -42,6 +43,20 @@ export function fillCfg() {
   $("#cfgFounders").textContent = d.founders.map(p => `${emo(p)} ${p}`).join(", ");
   $("#cfgAdmins").innerHTML = html`${d.players.filter(p => !d.founders.includes(p)).map(adminSwitch)}`;
   $("#cfgSave").disabled = !dirty();
+  fillCards();
+}
+// opened from the admin panel: straight to the players' cards
+export function openCards() {
+  openCfg();
+  $("#cfgCards").open = true;
+  $("#cfgCards").scrollIntoView({ block: "start" });
+}
+
+function fillCards() {
+  const play = S.game.status === "play", N = size() ** 2, has = S.players.filter(p => S.game.cards?.[p]);
+  $("#cfgCardsNote").textContent = play ? "כרטיס קשה מדי, או יותר מדי משבצות על אדם אחד? נותנים לשחקן כרטיס חדש. זה קורה מיד, בלי שמירה, והסימונים של השחקן מתאפסים. הכרטיסים של השאר לא משתנים."
+    : "בזמן המשחק אפשר לתת כאן לשחקן כרטיס חדש.";
+  $("#cfgCardList").innerHTML = play ? html`${has.map(p => html`<li style="${col(p)}"><span class="name">${who(p)} <small class="muted">${S.marks[p]?.marked?.length || 0}/${N}</small></span><button class="ghost" data-cfg="card" data-p="${p}">🔄 כרטיס חדש</button></li>`)}` : "";
 }
 
 function addPlayer(name) {
@@ -56,6 +71,7 @@ const actions = {
   back: p => { addPlayer(p); },
   admin: p => { draft.admins = draft.players.filter(x => x === p ? !draft.admins.includes(p) : draft.admins.includes(x)); },
   save: saveCfg, del: () => removePlayer($("#cfgDel").value),
+  card: p => newCard(p).then(ok => ok && toast(`🎲 ל־${p} יש כרטיס חדש`)),
   backup: downloadBackup, restore: () => $("#cfgFile").click(), wipe: wipeTrip, wipeHist: wipeHistory,
 };
 // actions that change the draft redraw it; the others (save, backup, …) do their own thing

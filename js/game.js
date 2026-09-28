@@ -1,6 +1,7 @@
 // The game: moving between phases (admins; every step asks first), generating cards, marking cells,
 // "also on your card" nudges and the numbers behind the end-of-game summary.
-import { S, size, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText } from "./state.js";
+import { WINS } from "./config.js";
+import { S, size, win, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText } from "./state.js";
 import { makeCards, cardStats, endStats, lines } from "./logic.js";
 import { ref, batch, safe, writeGame, clearMarks, newItemRef, serverTimestamp } from "./data.js";
 import { $, html, who, whoEmo, whoName } from "./ui.js";
@@ -29,11 +30,11 @@ export async function reset(ask) {
 }
 export async function generate() {
   if (S.game.status !== "rate") return; // cards are generated only after the rating phase
-  const n = S.sizeSel || size(), N = n * n;
+  const n = S.sizeSel || size(), N = n * n, how = S.winSel || win();
   const short = S.players.filter(p => poolFor(p).length < N);
   if (short.length) return alert(`חסרים ניחושים לכרטיס של: ${short.join(", ")} (צריך לפחות ${N} לכל אחד בלוח ${n}×${n})`);
-  if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?`)) return;
-  await withClearMarks({ status: "play", cards: newCards(N), size: n, at: serverTimestamp() });
+  if (!confirm(`ליצור כרטיסים ${n}×${n} ולהתחיל את המשחק?\nמנצח: ${WINS[how]}`)) return;
+  await withClearMarks({ status: "play", cards: newCards(N), size: n, win: how, at: serverTimestamp() });
 }
 export async function endGame() {
   if (!confirm("לסיים את המשחק ולשמור את התוצאות בהיסטוריה?")) return;
@@ -42,12 +43,28 @@ export async function endGame() {
     results: ranking().map(({ p, place, n, bingo, blackout }) => ({ p, place, n, bingo, blackout })),
     prophets: summary().prophets.map(({ p, n }) => ({ p, n })) });
   // at stays the start of play: the journal and the awards count from it
-  b.set(ref("game", "state"), { status: "ended", cards: S.game.cards, size: board, at: S.game.at ?? serverTimestamp() });
+  b.set(ref("game", "state"), { status: "ended", cards: S.game.cards, size: board, win: win(), at: S.game.at ?? serverTimestamp() });
   await safe(b.commit());
 }
 
 // ---- cards ----
-const newCards = N => makeCards({ players: S.players, items: activeItems(), N, shared: tuned("shared"), mix: tuned("mix"), weight });
+const newCards = (N, players = S.players) => makeCards({ players, items: activeItems(), N, shared: tuned("shared"), mix: tuned("mix"), weight });
+
+// a founder gives one player a new card mid-game (e.g. too hard, or too many cells about one person); that player's marks restart
+export async function newCard(p) {
+  const N = size() ** 2, old = S.game.cards?.[p];
+  if (S.game.status !== "play" || !old) return;
+  if (poolFor(p).length < N) return alert(`אין מספיק ניחושים לכרטיס חדש של ${p} (צריך ${N})`);
+  const n = S.marks[p]?.marked?.length || 0;
+  if (!confirm(`לתת ל־${p} כרטיס חדש?${n ? `\n⚠️ ${n} הסימונים של ${p} יימחקו.` : ""}\nהכרטיסים של השאר לא משתנים.`)) return;
+  // a few tries for a card that differs from the old one as much as possible
+  const card = Array.from({ length: 6 }, () => newCards(N, [p])[p]).sort((a, b) => a.filter(id => old.includes(id)).length - b.filter(id => old.includes(id)).length)[0];
+  const b = batch();
+  b.set(ref("game", "state"), { ...S.game, cards: { ...S.game.cards, [p]: card } });
+  b.set(ref("marks", p), { marked: [], bingo: false, blackout: false, bingoAt: null, blackoutAt: null });
+  Object.entries(S.events).filter(([, e]) => e.player === p).forEach(([id]) => b.delete(ref("events", id)));
+  return safe(b.commit());
+}
 // preview of the current tuning, averaged over a few dry runs (only when every card can be filled)
 export function tuneStats(N) {
   if (!S.tuneOpen || S.players.some(p => poolFor(p).length < N)) return "";

@@ -46,6 +46,8 @@
   <h3>🔐 קוד משפחתי</h3><p class="muted" id="cfgCodeNote"></p>
   <input class="field" id="cfgCode" maxlength="40" autocomplete="off" placeholder="קוד חדש (ריק = בלי שינוי)">
   <div class="row save"><button id="cfgSave" data-cfg="save" disabled>💾 שמירת שינויים</button></div>
+  <details class="cards" id="cfgCards"><summary>🎲 כרטיסי השחקנים</summary>
+    <p class="muted" id="cfgCardsNote"></p><ul class="score" id="cfgCardList"></ul></details>
   <details class="danger"><summary>⚠️ אזור מסוכן</summary>
     <p class="muted"><b>💾 גיבוי</b> מוריד קובץ עם כל מה שהטלפון הזה רשאי לראות. <b>♻️ שחזור</b> מחזיר מקובץ גיבוי את ההגדרות, הקוד, שלב המשחק והכרטיסים, הסימונים, האימוג׳ים וההיסטוריה.</p>
     <div class="row"><button class="ghost" data-cfg="backup">💾 הורדת גיבוי</button><button class="ghost" data-cfg="restore">♻️ שחזור מגיבוי</button><input type="file" id="cfgFile" accept="application/json,.json" hidden></div>

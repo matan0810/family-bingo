@@ -43,13 +43,15 @@ export function withPlaces(rows, cmp) {
   rows.forEach((r, k) => r.place = k && !cmp(rows[k - 1], r) ? rows[k - 1].place : k + 1);
   return rows;
 }
-// places: full card first (earliest wins), then more marks, then bingo (earliest first)
+// places when a full card wins: full card first (earliest wins), then more marks, then bingo (earliest first)
 export const byPlace = (a, b) => (b.blackout - a.blackout) || (a.blackout && a.ft - b.ft) || (b.n - a.n) || (b.bingo - a.bingo) || (a.bingo && a.bt - b.bt) || 0;
-// rows for the scoreboard, from marks/{player}
-export const scoreRows = (players, marks) => withPlaces(players.map(p => {
+// when the first line wins: bingo first (earliest wins), then more marks
+export const byLine = (a, b) => (b.bingo - a.bingo) || (a.bingo && a.bt - b.bt) || (b.n - a.n) || 0;
+// rows for the scoreboard, from marks/{player}; win = game/state.win
+export const scoreRows = (players, marks, win = "full") => withPlaces(players.map(p => {
   const m = marks[p] || {};
   return { p, n: (m.marked || []).length, bingo: !!m.bingo, blackout: !!m.blackout, bt: secs(m.bingoAt), ft: secs(m.blackoutAt) };
-}), byPlace);
+}), win === "line" ? byLine : byPlace);
 
 // ---- ratings and card selection ----
 // average stars of a prediction (0..3), or null when nobody rated it

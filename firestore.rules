@@ -137,10 +137,11 @@ service cloud.firestore {
     match /game/{docId} {
       allow read: if isMember();
       allow write: if docId == 'state' && isAdmin()
-        && d().keys().hasOnly(['status', 'cards', 'size', 'raters', 'raterUids', 'at'])
+        && d().keys().hasOnly(['status', 'cards', 'size', 'win', 'raters', 'raterUids', 'at'])
         && d().status in ['entry', 'rate', 'play', 'ended']
         && d().cards is map && d().cards.keys().hasOnly(players())
         && (!('size' in d()) || d().size in [2, 3, 4, 5])
+        && (!('win' in d()) || d().win in ['full', 'line'])
         && (!('raters' in d()) || (d().raters is list && d().raters.hasOnly(players())));
     }
 

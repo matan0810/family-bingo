@@ -30,6 +30,11 @@ await scenario(async () => {
   await p.click('[data-size="4"]'); await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
   const g = await lastBatch(p);
   check("generate 4×4: 16 cells per card, marks reset", g[0][2].status === "play" && g[0][2].size === 4 && P.every(pl => g[0][2].cards[pl].length === 16) && g.length === 1 + P.length);
+  check("the win condition starts as a full card", g[0][2].win === "full" && await p.locator('[data-win="full"].on').count() === 1);
+  await p.click('[data-win="line"]');
+  check("choosing the first line explains it", await p.locator('[data-win="line"].on').count() === 1 && (await p.textContent("#adm")).includes("בינגו קלאסי"));
+  await p.click('[data-act="gen"]'); await p.waitForTimeout(200);
+  check("…and the cards are generated with it", (await lastBatch(p))[0][2].win === "line" && p.dialogs.at(-1).includes("שורה"));
   check("cards never contain predictions about their owner", Object.entries(g[0][2].cards).every(([pl, ids]) => ids.every(id => !aboutOf(byId(id)).includes(pl))));
   const cards = Object.entries(g[0][2].cards), N = 16;
   check("no prediction twice on a card", cards.every(([, ids]) => new Set(ids).size === ids.length));

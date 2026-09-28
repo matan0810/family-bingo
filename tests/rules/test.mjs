@@ -184,8 +184,9 @@ const size = SIZES[0];
 await t('bad size', no(state(f1, { status: 'play', size: Math.max(...SIZES) + 1 })));
 await t('bad status', no(state(f1, { status: 'weird' })));
 await t('cards only for players', no(state(f1, { status: 'play', cards: { [UNKNOWN]: [] } })));
+await t('bad win condition', no(state(f1, { status: 'play', win: 'first' })));
 const gen = writeBatch(f1);
-gen.set(doc(f1, 'game', 'state'), { status: 'play', cards: { [AD]: [general.id] }, size, raters: [AD, F1], at: serverTimestamp() });
+gen.set(doc(f1, 'game', 'state'), { status: 'play', cards: { [AD]: [general.id] }, size, win: 'line', raters: [AD, F1], at: serverTimestamp() });
 PLAYERS.forEach(p => gen.set(doc(f1, 'marks', p), { ...noMarks, bingoAt: null, blackoutAt: null }));
 await t('generate cards (batch)', ok(gen.commit()));
 await t('mark own card', ok(setDoc(doc(ad, 'marks', AD), { marked: ['a'], bingo: true, blackout: false, bingoAt: serverTimestamp(), blackoutAt: null })));
@@ -203,6 +204,12 @@ await t('journal: others cannot delete my entry', no(deleteDoc(doc(ot, 'events',
 await t('journal: unmark deletes my entry', ok(deleteDoc(doc(ad, 'events', `${general.id}_${AD}`))));
 await ev(ad, general.id, AD);
 await t('mark someone else', no(setDoc(doc(ot, 'marks', F1), { marked: [], bingo: true, blackout: true })));
+// a founder gives one player a new card: the game state, that player's marks and journal, in one batch
+const newCard = d => { const b = writeBatch(d); b.set(doc(d, 'game', 'state'), { status: 'play', cards: { [AD]: [group.id] }, size, win: 'line', at: serverTimestamp() }); b.set(doc(d, 'marks', AD), { ...noMarks, bingoAt: null, blackoutAt: null }); b.delete(doc(d, 'events', `${general.id}_${AD}`)); return b.commit(); };
+await t('new card for a player: not by a non-admin', no(newCard(ot)));
+await t('new card for a player: a founder (batch)', ok(newCard(f1)));
+await setDoc(doc(f1, 'game', 'state'), { status: 'play', cards: { [AD]: [general.id] }, size, at: serverTimestamp() });
+await ev(ad, general.id, AD);
 await t('everyone reads a general event', ok(getDoc(doc(ad, 'texts', general.id))));
 await t('the involved cannot read it', no(getDoc(doc(f1, 'texts', group.id))));
 await t('others read it', ok(getDoc(doc(f2, 'texts', group.id))));

@@ -1,5 +1,5 @@
 // UI checks: play and ended
-import { PLAYERS as P, SIZE, BINGO_AT, PLAY_AT, HISTORY, byId, marksFor, eventsFor } from "../../fixtures.mjs";
+import { PLAYERS as P, ROLE, SIZE, aboutOf, cardFor, BINGO_AT, PLAY_AT, HISTORY, byId, marksFor, eventsFor } from "../../fixtures.mjs";
 import { check, ME, open, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done } from "../harness.mjs";
 
 console.log("— play and ended");
@@ -34,6 +34,40 @@ await scenario(async () => {
   const b = await lastBatch(p), journal = eventsFor(SIZE).map(x => `events/${x.item}_${x.player}`);
   check("play → rate wipes cards, marks and the journal", b[0][2].status === "rate" && JSON.stringify(b[0][2].cards) === "{}" && b.length === 1 + P.length + journal.length && journal.every(id => b.some(([op, r]) => op === "del" && r === id)));
   await done(p);
+});
+// the win condition: a full card (default) or the first line
+await scenario(async () => {
+  const full = await open("m=play");
+  check("full card mode: the rule says so, a bingo is a step on the way", (await full.textContent("#rule")).includes("כרטיס מלא") && (await full.textContent("#banner")).includes("ממשיכים"));
+  await done(full);
+  const p = await open("m=play&win=line", { admin: true });
+  check("first line mode: the rule says so", (await p.textContent("#rule")).includes("הבינגו הראשון מנצח"));
+  check("…my bingo is the win", (await p.textContent("#banner")).includes("ניצחת") && (await p.textContent("#score li:first-child")).includes(ME) && (await p.textContent("#score")).includes("🏆 בינגו"));
+  check("…and the admin panel shows it", (await p.textContent("#adm")).includes("שורה ראשונה"));
+  await p.click('[data-act="end"]'); await p.waitForTimeout(200);
+  const e = await lastBatch(p);
+  check("…and ending the game keeps it", e[1][2].status === "ended" && e[1][2].win === "line" && e[0][2].results[0].p === ME, e);
+  await done(p);
+});
+
+// a founder gives one player a new card, from the game settings (the admin panel leads there)
+await scenario(async () => {
+  const p = await open("m=play", { admin: true });
+  const who = ROLE.player;
+  await p.click('[data-act="cards"]'); await p.waitForTimeout(300);
+  check("new card: the admin panel opens the players' cards in the game settings", await p.evaluate(() => cfgDlg.open && cfgCards.open) && await p.locator("#cfgCardList li").count() === P.length);
+  await p.click(`[data-cfg="card"][data-p="${who}"]`); await p.waitForTimeout(200);
+  const b = await lastBatch(p), g = b?.find(([, r]) => r === "game/state")?.[2];
+  const ev = eventsFor(SIZE).filter(x => x.player === who).map(x => `events/${x.item}_${x.player}`);
+  check("…asks first, naming the player", p.dialogs.at(-1).includes(who));
+  check("…a new card for that player only, the same size, never about them", g && g.status === "play" && g.cards[who].length === SIZE * SIZE && g.cards[who].every(id => !aboutOf(byId(id)).includes(who))
+    && P.filter(x => x !== who).every(x => JSON.stringify(g.cards[x]) === JSON.stringify(cardFor(x, SIZE))), g);
+  check("…their marks and journal restart, in the same batch", b.some(([op, r, d]) => op === "set" && r === `marks/${who}` && !d.marked.length && !d.bingo) && ev.every(id => b.some(([op, r]) => op === "del" && r === id))
+    && !b.some(([, r]) => r.startsWith("marks/") && r !== `marks/${who}`), b);
+  await done(p);
+  const ad = await open(`m=play&cfg=full&claim=${ROLE.admin}`, { me: ROLE.admin, admin: true });
+  check("new card: only founders get the button (an extra admin doesn't)", await ad.isVisible('[data-act="end"]') && !(await ad.locator('[data-act="cards"]').count()));
+  await done(ad);
 });
 await scenario(async () => {
   const p = await open("m=play&pending=1");

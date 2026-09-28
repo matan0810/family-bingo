@@ -40,6 +40,8 @@ export const S = {
   shown: null,
   /** @type {number | null} the admin's board size before generating cards */
   sizeSel: null,
+  /** @type {"full" | "line" | null} the admin's win condition before generating cards */
+  winSel: null,
   tune: { shared: 1, stars: 1, mix: 1 }, tuneOpen: false,
 
   get players() { return this.config.players; },
@@ -77,6 +79,7 @@ export const weight = i => weightOf(i, S.ratings, tuned("stars"));
 
 // ---- the game ----
 export const size = () => S.game.size || Math.round(Math.sqrt(S.game.cards?.[S.me]?.length || 9)) || 3;
-export const ranking = () => scoreRows(S.players.filter(p => S.game.cards?.[p]), S.marks);
+export const win = () => S.game.win || "full";
+export const ranking = () => scoreRows(S.players.filter(p => S.game.cards?.[p]), S.marks, win());
 export const myCard = () => S.game.cards?.[S.me] || [];
 export const myMarks = () => new Set(S.marks[S.me]?.marked || []);

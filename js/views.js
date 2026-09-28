@@ -2,14 +2,14 @@
 // typed draft and the chosen chips); otherwise the fill*() functions update the lists in place.
 // All taps inside #app go through one delegated handler over the taps table (bind).
 import { PHASE, GENERAL, MINI } from "./config.js";
-import { S, emo, colorOf, appTitle, isAdmin, isRater, raters, rateable, myStars, itemsById, shownText, size, ranking, myCard, myMarks } from "./state.js";
+import { S, emo, colorOf, appTitle, isAdmin, isRater, raters, rateable, myStars, itemsById, shownText, size, win, ranking, myCard, myMarks } from "./state.js";
 import { subjectOf, aboutOf, secs, bingoCells, isBlackout } from "./logic.js";
 import { live, need, migrate, addItem, delItem, rate, safe, remove, join } from "./data.js";
 import { $, $$, html, col, av, generalAv, who, whoName, whoEmo, whoCol, whoAv, countChips, medal, toast, confetti } from "./ui.js";
 import { claim, checkMyName, recordName } from "./account.js";
 import { startRating, backToEntry, backToRating, generate, endGame, reset, openCell, showNudge } from "./game.js";
 import { openEdit, acceptSuggestion, rejectSuggestion, cleanSuggestions } from "./wording.js";
-import { fillCfg } from "./settings.js";
+import { fillCfg, openCards } from "./settings.js";
 import { openLooks, openHow } from "./dialogs.js";
 import { adminBox, fillAdmin } from "./admin.js";
 import { summaryView, fillSummary, fillHistory } from "./summary.js";
@@ -118,7 +118,7 @@ const rateView = () => html`${hello()}
 const playView = () => html`
   <div class="panel status"><div class="ring" id="ring"><span id="cnt"></span></div>
     <div><div class="display" style="font-size:22px">הכרטיס של ${S.me} ${lookBtn()}</div>
-    <div class="muted">שורה, עמודה או אלכסון = בינגו. כרטיס מלא = ניצחון 🏆</div></div></div>
+    <div class="muted" id="rule"></div></div></div>
   <div id="banner"></div>
   <div class="grid" id="card"></div>
   <h2>🏁 טבלת המשחק</h2><ul class="score" id="score"></ul>
@@ -202,7 +202,9 @@ function fillCard() {
 function fillScore() {
   $("#score").innerHTML = html`${ranking().map(r => {
     const N = S.game.cards[r.p].length;
-    return scoreRow(r, r.n / N, `${r.n}/${N}`, r.blackout ? html`<span class="win">🏆 מלא</span>` : r.bingo && html`<span class="win">🎉 בינגו</span>`);
+    const badge = win() === "line" ? r.bingo && html`<span class="win">🏆 בינגו</span>`
+      : r.blackout ? html`<span class="win">🏆 מלא</span>` : r.bingo && html`<span class="win">🎉 בינגו</span>`;
+    return scoreRow(r, r.n / N, `${r.n}/${N}`, badge);
   })}`;
 }
 
@@ -210,7 +212,10 @@ function fillPlay() {
   const { on, hot, full, N } = fillCard();
   $("#ring").style.setProperty("--p", N ? on.size / N * 100 : 0);
   $("#cnt").textContent = `${on.size}/${N}`;
-  $("#banner").innerHTML = full ? html`<div class="banner">🏆 כרטיס מלא! אלופים! 🏆</div>` : hot.size ? html`<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
+  const line = win() === "line", place = ranking().find(r => r.p === S.me)?.place;
+  $("#rule").textContent = line ? "שורה, עמודה או אלכסון = בינגו. הבינגו הראשון מנצח 🏆" : "שורה, עמודה או אלכסון = בינגו. כרטיס מלא = ניצחון 🏆";
+  $("#banner").innerHTML = line ? (hot.size ? html`<div class="banner">${place === 1 ? "🏆 בינגו! ניצחת! 🏆" : `🎉 בינגו! מקום ${place}`}</div>` : "")
+    : full ? html`<div class="banner">🏆 כרטיס מלא! אלופים! 🏆</div>` : hot.size ? html`<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
   fillScore();
 }
 
@@ -225,7 +230,7 @@ function fillEnded() {
 // ---- taps inside #app ----
 const act = {
   start: leaveWelcome, howto: openHow,
-  rate: startRating, back: backToEntry, backRate: backToRating, gen: generate, end: endGame,
+  rate: startRating, back: backToEntry, backRate: backToRating, gen: generate, end: endGame, cards: openCards,
   reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.")
 };
 // data-* attribute → what a tap on it does (the value of the attribute, and the element)
@@ -243,6 +248,7 @@ const taps = [
   // tapping the current star lowers it by one
   ["rate", (v, t) => { const k = +t.dataset.k; rate(v, myStars()[v] === k && k > 0 ? k - 1 : k); }],
   ["size", v => { S.sizeSel = +v; render(); }],
+  ["win", v => { S.winSel = v === "line" ? "line" : "full"; render(); }],
   ["tune", v => { const [k, x] = v.split(":"); S.tune[k] = +x; render(); }],
   ["act", v => act[v]?.()],
 ];

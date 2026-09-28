@@ -3,6 +3,7 @@
 // Fixtures are chosen by URL hash params:
 //   m=entry|rate|play|ended   game phase (default entry)
 //   size=2..5                 board size in play/ended (default SIZE)
+//   win=line                  play/ended: the first line wins (game/state.win); otherwise no win field (= full card)
 //   cfg=base|full|removed     which SETTINGS to serve (default base); full also has a family code set
 //   cfg=none                  no game settings yet: the app seeds them from its LEGACY values
 //   claim=<name>              this device (ME_UID) also holds <name>
@@ -31,6 +32,7 @@ const state = {
   play: { status: "play", cards, size: n, at: { seconds: PLAY_AT } },
   ended: { status: "ended", cards, size: n, at: { seconds: PLAY_AT } }
 }[mode];
+if (q.get("win") && state.cards[ROLE.founder]) state.win = q.get("win");
 const marked = marksFor(n), playing = ["play", "ended"].includes(mode);
 const marksDocs = (extra = {}) => PLAYERS.map(p => ({ id: p, data: () => ({ marked: [...marked[p], ...(extra[p] || [])], bingo: p === ROLE.founder, blackout: false,
   ...(p === ROLE.founder ? { bingoAt: q.get("pending") ? null : { seconds: BINGO_AT } } : {}) }) }));

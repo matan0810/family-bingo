@@ -2,7 +2,7 @@
 // Every write goes through safe(); multi-document changes use one writeBatch.
 import { LEGACY } from "./config.js";
 import { db, auth, onAuthStateChanged, signInAnonymously, collection, doc, setDoc, getDoc, deleteDoc, addDoc, onSnapshot, serverTimestamp, writeBatch, query, where } from "./firebase.js";
-import { S, emo } from "./state.js";
+import { S, emo, win } from "./state.js";
 import { aboutOf, secs } from "./logic.js";
 import { $, html, toast, confetti } from "./ui.js";
 import { render } from "./views.js";
@@ -39,7 +39,7 @@ export const live = () => S.member && got.size >= SOURCES;
 function ready(k) { got.add(k); if (got.size >= SOURCES) render(); }
 const docsOf = s => s.docs.map(d => ({ id: d.id, ...d.data() }));
 const lastMarks = {}; // per player at the last snapshot, to announce only new bingos and new marks
-let lastStatus = null, seeded = false;
+let lastStatus = null, lastCard = "", seeded = false;
 
 function listen() {
   onSnapshot(collection(db, "items"), s => { S.items = docsOf(s); ready("items"); }, fatal);
@@ -49,7 +49,10 @@ function listen() {
     // moved to the rating phase, when the server was still in the writing phase), which show as 🔒
     if (!s.metadata?.hasPendingWrites) retryTexts();
     if (lastStatus === "play" && S.game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
-    lastStatus = S.game.status;
+    // a founder gave me a new card in the middle of the game
+    const card = String(S.game.cards?.[S.me] || "");
+    if (lastStatus === "play" && S.game.status === "play" && lastCard && card && card !== lastCard) toast("🎲 קיבלת כרטיס חדש!");
+    lastStatus = S.game.status; lastCard = card;
     ready("game");
   }, fatal);
   onSnapshot(collection(db, "players"), s => { S.claims = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
@@ -58,7 +61,10 @@ function listen() {
     for (const [p, m] of Object.entries(S.marks)) {
       const was = lastMarks[p];
       if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
-      else if (was && !was.bingo && m.bingo) { toast(`${emo(p)} ${p}: בינגו! 🎉`); confetti(p === S.me ? 140 : 70); }
+      else if (was && !was.bingo && m.bingo) {
+        const wins = win() === "line"; // the first line wins: a bingo is a win
+        toast(`${emo(p)} ${p}: בינגו! ${wins ? "🏆" : "🎉"}`); confetti(wins ? 260 : p === S.me ? 140 : 70);
+      }
       if (was && p !== S.me) (m.marked || []).filter(id => !was.marked.includes(id)).forEach(id => nudge(p, id));
       lastMarks[p] = { bingo: m.bingo, blackout: m.blackout, marked: m.marked || [] };
     }

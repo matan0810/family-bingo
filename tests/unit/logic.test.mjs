@@ -57,7 +57,7 @@ test("bingoCells and isBlackout", () => {
   }
 });
 
-test("places: full card first (earliest), then more marks, then bingo (earliest); ties share", () => {
+test("places: full card first (earliest), then more marks, then bingo (earliest); ties share; first line wins mode", () => {
   const [a, b, c, d, e, f] = PLAYERS;
   const marks = {
     [a]: { marked: ["x"], bingo: false },
@@ -69,6 +69,9 @@ test("places: full card first (earliest), then more marks, then bingo (earliest)
   };
   const rows = L.scoreRows(PLAYERS, marks);
   assert.deepEqual(rows.map(r => [r.p, r.place]), [[c, 1], [b, 2], [e, 3], [d, 4], [a, 5], [f, 5]]);
+  assert.deepEqual(L.scoreRows(PLAYERS, marks, "full").map(r => r.p), rows.map(r => r.p));
+  // the first line wins: bingo first (earliest), then more marks; a full card counts only through its bingo
+  assert.deepEqual(L.scoreRows(PLAYERS, marks, "line").map(r => [r.p, r.place]), [[e, 1], [b, 2], [d, 3], [c, 4], [a, 5], [f, 5]]);
 });
 
 test("stars and weights: unrated counts as 1.5 stars, ratings are clamped to 0..3", () => {

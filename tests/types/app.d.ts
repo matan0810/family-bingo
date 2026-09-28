@@ -11,7 +11,7 @@ type Config = { title: string; players: string[]; founders: string[]; admins: st
 type Item = { id: string; about: string[] | string; author: string; weight?: number; at?: Stamp; text?: string };
 
 /** game/state */
-type Game = { status: "entry" | "rate" | "play" | "ended"; cards: Record<string, string[]>; size?: number; at?: Stamp };
+type Game = { status: "entry" | "rate" | "play" | "ended"; cards: Record<string, string[]>; size?: number; win?: "full" | "line"; at?: Stamp };
 
 /** marks/{player} */
 type Marks = { marked: string[]; bingo: boolean; blackout: boolean; bingoAt?: Stamp; blackoutAt?: Stamp };

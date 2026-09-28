@@ -26,6 +26,8 @@ export const COLOR = Object.fromEntries(EMOJIS);
 export const GENERAL = "#0ea5e9"; // color of general events (🌍)
 
 export const SIZES = [2, 3, 4, 5];
+// how a game is won (game/state.win; absent = full, as before the choice existed)
+export const WINS = { full: "🏆 כרטיס מלא", line: "🎉 שורה ראשונה" };
 export const MEDAL = ["🥇", "🥈", "🥉"];
 export const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב הדירוג", play: "🚗 המשחק רץ!", ended: "🏁 המשחק נגמר" };
 export const STAGES = { entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" };
@@ -45,6 +47,6 @@ export const STEPS = [
   ["⭐", "מדרגים", "המתכללים נותנים כוכבים, והניחושים הכי שווים עולים לכרטיסים"],
   ["🎲", "מקבלים כרטיס", "כרטיס בינגו אישי לכל אחד, בלי ניחושים עליו עצמו"],
   ["✅", "מסמנים בטיול", "קרה משהו מהכרטיס? לוחצים על המשבצת ואז \"זה קרה!\". שורה, עמודה או אלכסון = בינגו 🎉"],
-  ["🏆", "מנצחים", "כרטיס מלא = ניצחון! המתכלל מסיים את המשחק, והתוצאות נשמרות בהיסטוריה"]
+  ["🏆", "מנצחים", "המתכלל בוחר מראש: מי שממלא ראשון את כל הכרטיס, או מי שעושה ראשון בינגו. בסוף המתכלל מסיים, והתוצאות נשמרות בהיסטוריה"]
 ];
 export const MINI = ["🚗", "☕", "📸", "😴", "🍕", "🎵", "🗺️", "🍦", "🏖️"]; // the welcome screen's little card

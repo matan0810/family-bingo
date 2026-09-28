@@ -1,7 +1,7 @@
 // The admin panel (admin mode): where the game is, moving between phases, the board size and card tuning,
 // how many predictions there are, and releasing a stuck name.
-import { SIZES, TUNE, STAGES } from "./config.js";
-import { S, isAdmin, raters, poolFor, activeItems, size } from "./state.js";
+import { SIZES, TUNE, STAGES, WINS } from "./config.js";
+import { S, isAdmin, isFounderName, raters, poolFor, activeItems, size, win } from "./state.js";
 import { enough } from "./logic.js";
 import { $, html, who, countChips } from "./ui.js";
 import { tuneStats } from "./game.js";
@@ -14,12 +14,15 @@ export const adminBox = () => isAdmin() && html`<section class="admin"><h2>🛠�
 export function fillAdmin() {
   const st = S.game.status;
   S.sizeSel ??= S.game.size || 3;
+  S.winSel ??= win();
   const N = S.sizeSel * S.sizeSel;
   const tuning = Object.entries(TUNE).map(([k, [label, opts]]) =>
     html`<p class="muted">${label}:</p><div class="chips">${opts.map(([name], x) => html`<button class="ghost pick${x === S.tune[k] ? " on" : ""}" data-tune="${k}:${x}">${name}</button>`)}</div>`);
   const sizes = html`<p class="muted">גודל הלוח:</p><div class="chips">${SIZES.map(n => html`<button class="ghost pick${n === S.sizeSel ? " on" : ""}" data-size="${n}">${n}×${n}</button>`)}</div>
     <p class="muted">ניחושים זמינים לכרטיס של כל אחד (צריך ${N}):</p>
     <div class="counts">${countChips(p => poolFor(p).length)}</div>
+    <p class="muted">איך מנצחים:</p><div class="chips">${Object.entries(WINS).map(([k, name]) => html`<button class="ghost pick${k === S.winSel ? " on" : ""}" data-win="${k}">${name}</button>`)}</div>
+    <p class="muted">${S.winSel === "line" ? "בינגו קלאסי: מי שממלא ראשון שורה, עמודה או אלכסון, מנצח. משחק קצר." : "מי שממלא ראשון את כל הכרטיס מנצח. בינגו (שורה) הוא בונוס בדרך. מתאים לטיול ארוך."}</p>
     <details class="tune"${S.tuneOpen ? html` open` : ""}><summary>🎛️ כוונון הכרטיסים</summary>${tuning}<p class="muted" id="tuneStats">${tuneStats(N)}</p></details>`;
   // enough predictions for each board size, from the smallest pool any card can draw from
   const least = Math.min(...S.players.map(p => poolFor(p).length));
@@ -35,7 +38,8 @@ export function fillAdmin() {
       <div class="row"><button data-act="rate">${S.ratings.length ? "⭐ חזרה לשלב הדירוג" : "⭐ נעילה ומעבר לדירוג"}</button></div>`,
     rate: () => html`${ratersNote}<div class="row"><button class="ghost" data-act="back">↩️ חזרה לשלב הניחושים</button></div>
       <hr><div class="step">כשהדירוג הסתיים: יצירת כרטיסים</div>${counts}${sizes}<div class="row"><button data-act="gen">🎲 יצירת כרטיסים והתחלה</button></div>`,
-    play: () => html`<p class="muted">המשחק רץ (${size()}×${size()}). המשחק נגמר רק כשלוחצים כאן.</p>
+    play: () => html`<p class="muted">המשחק רץ (${size()}×${size()}, מנצח: ${WINS[win()]}). המשחק נגמר רק כשלוחצים כאן.</p>
+      ${isFounderName(S.me) && html`<div class="row"><button class="ghost" data-act="cards">🎲 כרטיס חדש לשחקן</button></div>`}
       <div class="row"><button data-act="end">🏁 סיום המשחק ושמירה</button></div>
       <div class="row"><button class="ghost" data-act="backRate">↩️ חזרה לשלב הדירוג</button><button class="ghost" data-act="reset">איפוס בלי שמירה</button></div>`,
     ended: () => html`<p class="muted">התוצאות נשמרו בהיסטוריה.</p><div class="row"><button data-act="new">🔄 משחק חדש</button></div>`
