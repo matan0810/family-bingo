@@ -31,6 +31,7 @@ export const PHASE = { entry: "🔮 שלב הניחושים", rate: "⭐ שלב 
 export const STAGES = { entry: "ניחושים", rate: "דירוג", play: "משחק", ended: "סיום" };
 
 // card tuning the admin picks before generating (index into each list; the middle one is the default)
+/** @type {Record<"shared" | "stars" | "mix", [string, [string, any][]]>} */
 export const TUNE = {
   shared: ["🔀 הצלבות בין כרטיסים", [["מעט", { f: .2, h: 2 }], ["בינוני", { f: .4, h: 1.5 }], ["הרבה", { f: .6, h: 1.2 }]]],
   stars: ["⭐ כמה הכוכבים קובעים", [["מעט", 1], ["רגיל", 2], ["הרבה", 3]]],

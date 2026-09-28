@@ -124,15 +124,12 @@ async function restore(file) {
   if (bk?.app !== "family-bingo" || !bk.settings?.players?.length) return alert("זה לא קובץ גיבוי של הבינגו");
   if (!confirm(`לשחזר מהגיבוי של ${new Date(bk.at).toLocaleString("he-IL")}?\nיוחזרו: הגדרות המשחק, הקוד, שלב המשחק והכרטיסים, הסימונים והאימוג׳ים${S.pastGames.length ? "" : ", וההיסטוריה (עם תאריך של היום)"}.\nניחושים ודירוגים לא ניתן לשחזר מכאן (החוקים לא מאפשרים לכתוב בשם אחרים), אבל הם שמורים בקובץ.`)) return;
   const s = bk.settings, pl = s.players, founders = S.config.founders; // the founders stay as they are now
-  const writes = [
-    [["config", "settings"], { title: s.title || "", players: [...new Set([...pl, ...founders])], founders, admins: (s.admins || []).filter(p => pl.includes(p)) }],
-    ...(bk.secret?.code ? [[["config", "secret"], { code: bk.secret.code }]] : []),
-    ...(bk.game?.status ? [[["game", "state"], { status: bk.game.status, cards: bk.game.cards || {}, ...(bk.game.size ? { size: bk.game.size } : {}) }]] : []),
-    ...Object.entries(bk.marks || {}).filter(([p]) => pl.includes(p)).map(([p, m]) => [["marks", p], { marked: m.marked || [], bingo: !!m.bingo, blackout: !!m.blackout, bingoAt: m.bingo ? serverTimestamp() : null, blackoutAt: m.blackout ? serverTimestamp() : null }]),
-    ...Object.entries(bk.looks || {}).filter(([p, e]) => pl.includes(p) && COLOR[e]).map(([p, e]) => [["looks", p], { e }])
-  ];
   const b = batch();
-  writes.forEach(([path, v]) => b.set(ref(...path), v));
+  b.set(ref("config", "settings"), { title: s.title || "", players: [...new Set([...pl, ...founders])], founders, admins: (s.admins || []).filter(p => pl.includes(p)) });
+  if (bk.secret?.code) b.set(ref("config", "secret"), { code: bk.secret.code });
+  if (bk.game?.status) b.set(ref("game", "state"), { status: bk.game.status, cards: bk.game.cards || {}, ...(bk.game.size ? { size: bk.game.size } : {}) });
+  Object.entries(bk.marks || {}).filter(([p]) => pl.includes(p)).forEach(([p, m]) => b.set(ref("marks", p), { marked: m.marked || [], bingo: !!m.bingo, blackout: !!m.blackout, bingoAt: m.bingo ? serverTimestamp() : null, blackoutAt: m.blackout ? serverTimestamp() : null }));
+  Object.entries(bk.looks || {}).filter(([p, e]) => pl.includes(p) && COLOR[e]).forEach(([p, e]) => b.set(ref("looks", p), { e }));
   if (!S.pastGames.length) (bk.history || []).forEach(h => b.set(newItemRef("history"), { at: serverTimestamp(), size: h.size, title: h.title || "", results: h.results || [] }));
   if (await safe(b.commit())) { refresh(); toast("♻️ שוחזר מהגיבוי"); }
 }

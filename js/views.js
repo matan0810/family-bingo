@@ -135,9 +135,11 @@ const views = { welcome: welcomeView, load: () => html`<p class="muted">טוען
 
 // ---- rows shared by the lists ----
 // a prediction: who it is about, its text, and whatever comes after the text / after the row
+/** @param {Item} i @param {unknown} [rest] @param {unknown} [after] */
 export const predRow = (i, rest = "", after = "") =>
   html`<li class="pred" style="${whoCol(i)}">${whoAv(i)}<span class="t"><span class="who">${whoName(i)}</span> · ${shownText(i)}${rest}</span>${after}</li>`;
 // a player with a place (if any), a bar (0..1) and a number
+/** @param {{ p: string, place?: number }} r @param {number} bar @param {unknown} n @param {unknown} [extra] */
 export const scoreRow = (r, bar, n, extra = "") =>
   html`<li style="${col(r.p)}">${r.place && html`<span class="place">${medal(r.place)}</span>`}${av(r.p)}<span class="name">${r.p}</span><span class="bar"><i style="width:${bar * 100}%"></i></span><span class="n">${n}</span>${extra}</li>`;
 
@@ -186,10 +188,10 @@ function fillCard(interactive) {
   card.dataset.n = n; card.style.gridTemplateColumns = `repeat(${n},1fr)`;
   card.classList.toggle("full", full);
   card.innerHTML = html`${ids.map((id, k) => {
-    const i = byId[id] || { text: "(נמחק)", gone: true };
+    const i = byId[id]; // missing if its prediction was deleted
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && S.shown && !S.shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
     const tap = interactive && html` role="button" tabindex="0" aria-pressed="${String(on.has(id))}" data-cell="${id}"`;
-    return html`<div class="cell${cls}"${tap} data-stamp="${emo(S.me)}"><span class="txt">${shownText(i)}</span>${!i.gone && html`<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${whoName(i)}</b></span>`}</div>`;
+    return html`<div class="cell${cls}"${tap} data-stamp="${emo(S.me)}"><span class="txt">${i ? shownText(i) : "(נמחק)"}</span>${i && html`<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${whoName(i)}</b></span>`}</div>`;
   })}`;
   S.shown = on;
   need(ids.filter(id => byId[id] && !byId[id].text));
@@ -226,6 +228,7 @@ const act = {
   reset: () => reset("לאפס את המשחק בלי לשמור? הניחושים נשמרים."), new: () => reset("להתחיל משחק חדש? הניחושים נשמרים.")
 };
 // data-* attribute → what a tap on it does (the value of the attribute, and the element)
+/** @type {[string, (value: string, el: HTMLElement) => void][]} */
 const taps = [
   ["look", () => openLooks()],
   ["me", (v, t) => { if (!t.classList.contains("taken") || confirm(`השם ${v} כבר תפוס בטלפון אחר.\nזה אתם? השם יעבור לטלפון הזה, והטלפון השני יחזור למסך בחירת השם.`)) claim(v); }],

@@ -6,25 +6,40 @@ const stored = (k, fallback) => { try { return localStorage.getItem(k); } catch 
 
 export const S = {
   // this device
-  me: stored("bingo-me", null),           // the player name this device plays as
-  uid: null, member: false,                // anonymous sign-in, and whether it entered the family code
-  memberName: null,                        // the name recorded in members/{uid} (the rules identify players by it)
+  /** @type {string | null} the player name this device plays as */
+  me: stored("bingo-me", null),
+  /** @type {string | null} anonymous sign-in */
+  uid: null,
+  member: false,                           // whether this device entered the family code
+  /** @type {string | null} the name recorded in members/{uid} (the rules identify players by it) */
+  memberName: null,
   claiming: false,
   welcomed: !!stored("bingo-welcome", "1"), // welcome screen seen
   // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
   adminOpen: new URLSearchParams(location.search).has("admin") || !!stored("bingo-admin", ""),
 
-  // shared game data (Firestore)
-  config: LEGACY,                          // config/settings: title, players, founders, admins
-  items: [], game: { status: "entry", cards: {} }, marks: {}, looks: {}, ratings: [], pastGames: [], events: {},
-  claims: {},                              // players/{name} = {uid}: which device holds each name
-  sugIn: [], sugOut: [],                   // wording suggestions for my predictions / that I sent
-  texts: {},                               // item id -> text, fetched one by one (undefined = loading, null = not readable)
+  // shared game data (Firestore); the shapes are in tests/types/app.d.ts
+  /** @type {Config} config/settings */
+  config: LEGACY,
+  /** @type {Item[]} */ items: [],
+  /** @type {Game} */ game: { status: "entry", cards: {} },
+  /** @type {Record<string, Marks>} */ marks: {},
+  /** @type {Record<string, string>} player -> chosen emoji */ looks: {},
+  /** @type {Rating[]} */ ratings: [],
+  /** @type {PastGame[]} */ pastGames: [],
+  /** @type {Record<string, MarkEvent>} */ events: {},
+  /** @type {Record<string, string>} players/{name} = {uid}: which device holds each name */ claims: {},
+  /** @type {Suggestion[]} wording suggestions for my predictions */ sugIn: [],
+  /** @type {Suggestion[]} wording suggestions I sent */ sugOut: [],
+  /** @type {Record<string, string | null | undefined>} item id -> text, fetched one by one (undefined = loading, null = not readable) */
+  texts: {},
 
   // screen
   view: "",                                // key of the view on screen; "" forces a rebuild
-  shown: null,                             // marked ids at the last card render, to animate only new stamps
-  sizeSel: null,                           // the admin's board size before generating cards
+  /** @type {Set<string> | null} marked ids at the last card render, to animate only new stamps */
+  shown: null,
+  /** @type {number | null} the admin's board size before generating cards */
+  sizeSel: null,
   tune: { shared: 1, stars: 1, mix: 1 }, tuneOpen: false,
 
   get players() { return this.config.players; },

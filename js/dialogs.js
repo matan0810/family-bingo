@@ -11,7 +11,7 @@ import { openCfg, leaveCfg } from "./settings.js";
 // ---- install as an app (PWA): Android shows the browser prompt, iPhone gets instructions ----
 let installEvt = null;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+const standalone = () => matchMedia("(display-mode: standalone)").matches || /** @type {any} */ (navigator).standalone; // iPhone
 const showInstall = () => $$(".install").forEach(b => b.hidden = standalone() || !(installEvt || isIOS));
 async function install() {
   if (!installEvt) return alert("באייפון: בספארי לוחצים על כפתור השיתוף ⬆️ ואז על \"הוספה למסך הבית\" ➕");

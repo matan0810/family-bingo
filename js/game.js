@@ -58,7 +58,7 @@ export function tuneStats(N) {
 // ---- marking: marks/{me} and its journal entry events/{item}_{me}, in one batch ----
 export async function toggle(id) {
   if (S.game.status !== "play") return;
-  const ids = myCard(), m = S.marks[S.me] || {}, on = myMarks();
+  const ids = myCard(), m = S.marks[S.me] || /** @type {Partial<Marks>} */ ({}), on = myMarks();
   on.has(id) ? on.delete(id) : on.add(id);
   navigator.vibrate?.(25);
   const bingo = lines(size()).some(l => l.every(k => on.has(ids[k]))), blackout = ids.every(x => on.has(x));

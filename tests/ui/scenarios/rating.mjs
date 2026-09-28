@@ -68,3 +68,11 @@ await scenario(async () => {
   check("…and cards stay full", cards.every(c => c.length === N));
   await done(p);
 });
+await scenario(async () => {
+  const p = await open("m=rate&lag=1");
+  check("a text refused before the server has the new phase shows 🔒 at first", (await p.textContent("#rate")).includes("🔒"));
+  await p.waitForTimeout(900);
+  const shown = await p.textContent("#rate");
+  check("…and is read again once the server confirms the phase", !shown.includes("🔒") && rateableFor(ME).every(i => shown.includes(i.text)), shown.slice(0, 200));
+  await done(p);
+});

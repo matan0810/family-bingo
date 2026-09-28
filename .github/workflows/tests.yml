@@ -1,4 +1,4 @@
-# Runs all three test suites on every push and pull request (see tests/ and CLAUDE.md "Verifying changes").
+# Runs the type check and all three test suites on every push and pull request (see tests/ and CLAUDE.md "Verifying changes").
 name: tests
 on: [push, pull_request]
 jobs:
@@ -20,6 +20,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: syntax
         run: for f in ../js/*.js ../sw.js; do node --check "$f"; done
+      - run: npm run test:types
       - run: npm run test:unit
       - run: npm run test:rules
       - run: npm run test:ui

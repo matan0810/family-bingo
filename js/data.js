@@ -10,7 +10,8 @@ import { nudge } from "./game.js";
 
 // wraps a write: reports failure with a toast, resolves to true/false
 export const safe = p => p.then(() => true, e => { console.error(e); toast(e.code === "permission-denied" ? "⚠️ אין הרשאה" : "⚠️ שגיאה"); return false; });
-export const ref = (...path) => doc(db, ...path);
+/** @param {...string} path the collection, then the document id (a document path) */
+export const ref = (...path) => doc(db, path[0], ...path.slice(1));
 export const batch = () => writeBatch(db);
 export { serverTimestamp };
 
@@ -43,14 +44,17 @@ let lastStatus = null, seeded = false;
 function listen() {
   onSnapshot(collection(db, "items"), s => { S.items = docsOf(s); ready("items"); }, fatal);
   onSnapshot(ref("game", "state"), s => {
-    S.game = s.data() || { status: "entry", cards: {} };
+    S.game = /** @type {Game} */ (s.data()) || { status: "entry", cards: {} };
+    // the server has the phase now: read again the texts it refused before (e.g. asked for right after this device
+    // moved to the rating phase, when the server was still in the writing phase), which show as 🔒
+    if (!s.metadata?.hasPendingWrites) retryTexts();
     if (lastStatus === "play" && S.game.status === "ended") { toast("🏁 המשחק נגמר!"); confetti(200); }
     lastStatus = S.game.status;
     ready("game");
   }, fatal);
   onSnapshot(collection(db, "players"), s => { S.claims = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
   onSnapshot(collection(db, "marks"), s => {
-    S.marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
+    S.marks = Object.fromEntries(s.docs.map(d => [d.id, /** @type {Marks} */ (d.data())]));
     for (const [p, m] of Object.entries(S.marks)) {
       const was = lastMarks[p];
       if (was && !was.blackout && m.blackout) { toast(`${emo(p)} ${p}: כרטיס מלא! 🏆`); confetti(260); }
@@ -61,9 +65,9 @@ function listen() {
     ready("marks");
   }, fatal);
   // not fatal: under older rules the game still runs, only without a journal
-  onSnapshot(collection(db, "events"), s => { S.events = Object.fromEntries(s.docs.map(d => [d.id, d.data()])); ready("events"); }, e => { console.warn("events", e); ready("events"); });
+  onSnapshot(collection(db, "events"), s => { S.events = Object.fromEntries(s.docs.map(d => [d.id, /** @type {MarkEvent} */ (d.data())])); ready("events"); }, e => { console.warn("events", e); ready("events"); });
   onSnapshot(collection(db, "looks"), s => { S.looks = Object.fromEntries(s.docs.map(d => [d.id, d.data().e])); ready("looks"); }, fatal);
-  onSnapshot(collection(db, "ratings"), s => { S.ratings = s.docs.map(d => d.data()); ready("ratings"); }, fatal);
+  onSnapshot(collection(db, "ratings"), s => { S.ratings = s.docs.map(d => /** @type {Rating} */ (d.data())); ready("ratings"); }, fatal);
   onSnapshot(collection(db, "history"), s => { S.pastGames = docsOf(s).sort((a, b) => secs(b.at) - secs(a.at)); ready("history"); }, fatal);
   // game settings; if they don't exist yet (first run after the upgrade), create them from LEGACY
   const setConfig = c => {
@@ -87,6 +91,9 @@ export function need(ids) {
   Promise.all(miss.map(id => getDoc(ref("texts", id)).then(s => S.texts[id] = s.data()?.text ?? null, () => S.texts[id] = null))).then(render);
 }
 export const getText = id => getDoc(ref("texts", id));
+// forget the texts that couldn't be read, so the next render asks for them again
+const retryTexts = () => Object.keys(S.texts).forEach(id => { if (S.texts[id] === null) delete S.texts[id]; });
+addEventListener("online", () => { retryTexts(); render(); });
 
 // ---- predictions ----
 export function addItem(about, text) {

@@ -13,6 +13,8 @@
 //   sugg=1                    SUGGESTION waits for its author
 //   pending=1                 the founder's bingo time is still pending (made offline): it reads as null
 //   noauth=1                  anonymous sign-in is off in the console
+//   lag=1                     the phase is still a pending local write: texts are refused until the server confirms it
+//                             (a second game snapshot, 800ms later)
 //   nudge=1                   after load, ROLE.other marks nudgeFor(size), which is also on the founder's card
 // Writes are recorded for assertions: window.W (setDoc), window.B (batches), window.FS (Firestore options),
 // sessionStorage.claims / .del (survive the reload after logout).
@@ -35,6 +37,7 @@ const marksDocs = (extra = {}) => PLAYERS.map(p => ({ id: p, data: () => ({ mark
 const events = playing ? eventsFor(n).map(e => ({ id: `${e.item}_${e.player}`, ...e })) : [];
 const config = SETTINGS[cfg];
 const sugIn = q.get("sugg") ? [SUGGESTION] : [];
+let lagging = !!q.get("lag");
 const asDocs = list => list.map(({ id, ...d }) => ({ id, data: () => d }));
 
 // players/{name} is live, so claims and releases come back through the snapshot like in Firestore
@@ -71,7 +74,7 @@ export const writeBatch = () => { const ops = []; return { set(r, d) { ops.push(
 export const getDoc = async r => {
   r = String(r);
   if (r.startsWith("members/")) return { exists: () => q.get("member") !== "0" && !sessionStorage.signedOut, data: () => ({ code: CODE }) };
-  if (r.startsWith("texts/")) return { data: () => ({ text: TX[r.slice(6)] }) };
+  if (r.startsWith("texts/")) { if (lagging) throw { code: "permission-denied" }; return { data: () => ({ text: TX[r.slice(6)] }) }; }
   if (r === "config/secret") return { exists: () => cfg === "full", data: () => ({ code: CODE }) };
   return { exists: () => false, data: () => undefined };
 };
@@ -91,7 +94,10 @@ export const onSnapshot = (ref, cb) => setTimeout(() => {
     case "config/settings": return cb({ data: () => config });
     case "suggestions?toUid": return docs(asDocs(sugIn));
     case "suggestions?fromUid": return docs([]);
-    default: return cb({ data: () => state }); // game/state
+    default: // game/state
+      if (!q.get("lag")) return cb({ data: () => state, metadata: { hasPendingWrites: false } });
+      cb({ data: () => state, metadata: { hasPendingWrites: true } });
+      return setTimeout(() => { lagging = false; cb({ data: () => state, metadata: { hasPendingWrites: false } }); }, 800);
   }
 });
 export const getAuth = () => ({});
