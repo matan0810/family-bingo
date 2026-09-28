@@ -98,7 +98,7 @@ Old-format items that still have `text` in the item are migrated by their author
   4. Tell him the order: code first, then rules, if the old rules would block the new code.
 - XSS: all HTML is built with the `html` tagged template (`js/html.js`), which escapes every interpolated value (text, attributes, `data-*` IDs); only nested `html` results go in unescaped. Never assign a plain template string to `innerHTML`. A unit test checks the escaping, and a UI check renders a prediction whose text is HTML.
 - Accepted limitations: bingo and blackout are computed on the client (honor system), and admins are trusted.
-- `legacy` mode (Anonymous Auth disabled, so no code or name claims) is still in the code as a fallback. Auth is enabled in production.
+- Anonymous Auth must stay enabled in the Firebase console: without it the app shows a connection error (the old no-auth fallback was removed).
 
 ### Future feature: stronger security (not built yet)
 
@@ -173,7 +173,7 @@ Tests live in `tests/` (run from there, after `npm install`):
 
 - The UI runner uses `/opt/pw-browsers/chromium` (or `CHROMIUM_PATH`) when present, and falls back to a global Playwright install.
 - **No hardcoded test data.** Names, roles, titles, codes, predictions, ratings and history live only in `tests/fixtures.mjs` (made-up names, not the family), which the browser mock and both suites import. Values the app owns (`LEGACY`, `EMOJIS`, `SIZES`, `APP_NAME` from `js/config.js`, the fallback code and the limits in the rules) are read from the source by `tests/source.mjs`. Every expectation (counts, who sees what) is computed from these, never typed in. Don't write test counts in the docs either.
-- `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `cfg=base|full|removed|none`, `claim=`, `member=0`, `deny=1`, `legacy=1`, `nohist=1`, `sugg=1`, `pending=1`, `nudge=1`). In play/ended, marks and journal entries come from `marksFor`/`eventsFor`. With `cfg=none` the app seeds settings from `LEGACY`. `OLD_ITEMS` use the old single-name format, and `NEW_ITEMS` the list format (general and group). Extend the fixtures and the mock when the app reads or writes something new.
+- `ui/mock.js` fixtures are chosen by URL hash params (`m=`, `size=`, `cfg=base|full|removed|none`, `claim=`, `member=0`, `deny=1`, `oldtext=1`, `nohist=1`, `sugg=1`, `pending=1`, `nudge=1`, `noauth=1`). In play/ended, marks and journal entries come from `marksFor`/`eventsFor`. With `cfg=none` the app seeds settings from `LEGACY`. `OLD_ITEMS` use the old single-name format, and `NEW_ITEMS` the list format (general and group). Extend the fixtures and the mock when the app reads or writes something new.
 - **Add or adjust checks for every behavior you change**: unit tests for logic in `unit/`, UI checks in the matching `ui/scenarios/` file (a new area gets a new file, listed in `run.mjs`), and allow and deny cases in `rules/test.mjs` for every rule you touch.
 
 CI (GitHub Actions) runs the syntax check and all three suites on every push; check the run after pushing (the GitHub MCP `actions_list`), and never merge a red branch into `master`.

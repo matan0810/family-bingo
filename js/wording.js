@@ -38,7 +38,6 @@ export const rejectSuggestion = id => remove("suggestions", id);
 
 const cleaned = new Set();
 export function cleanSuggestions() {
-  if (S.legacy) return;
   [...S.sugIn, ...S.sugOut].filter(x => !cleaned.has(x.id) && (S.game.status !== "rate" || !S.items.some(i => i.id === x.item))).forEach(x => {
     cleaned.add(x.id);
     removeQuietly("suggestions", x.id);

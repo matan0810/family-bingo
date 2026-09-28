@@ -49,7 +49,7 @@ function openSettings() {
   const ai = $("#adminItem");
   ai.hidden = !isAdminName(S.me);
   ai.textContent = S.adminOpen ? "🛠️ מצב מתכלל: פועל ✓ (לכיבוי)" : "🛠️ הפעלת מצב מתכלל";
-  $("#cfgItem").hidden = S.legacy || !isFounderName(S.me);
+  $("#cfgItem").hidden = !isFounderName(S.me);
   showInstall();
   $("#setDlg").showModal();
 }

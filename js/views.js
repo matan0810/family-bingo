@@ -79,7 +79,7 @@ const codeView = () => html`<h2>🔐 קוד משפחתי</h2>
   <p class="muted" id="err" role="alert"></p></form>`;
 
 const pickView = () => html`<h2>מי משחק? 👋</h2><div class="names">${S.players.map((p, k) => {
-  const taken = !S.legacy && S.claims[p] && S.claims[p] !== S.uid;
+  const taken = S.claims[p] && S.claims[p] !== S.uid;
   return html`<button data-me="${p}" class="${taken ? "taken" : ""}" style="${col(p)};animation-delay:${k * 60}ms"><span class="e">${emo(p)}</span>${p}${taken && html`<small>תפוס · זה אתם?</small>`}</button>`;
 })}</div>`;
 
@@ -144,7 +144,7 @@ export const scoreRow = (r, bar, n, extra = "") =>
 // ---- filling the lists ----
 function fillEntry() {
   $("#counts").innerHTML = html`${countChips(p => S.items.filter(i => subjectOf(i) === p).length)}<span style="--c:${GENERAL}">${generalAv}כללי <b>${S.items.filter(i => !aboutOf(i).length).length}</b></span>`;
-  if (!S.legacy) migrate();
+  migrate();
   fillMine(true);
 }
 

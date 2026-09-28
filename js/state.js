@@ -13,9 +13,6 @@ export const S = {
   welcomed: !!stored("bingo-welcome", "1"), // welcome screen seen
   // admin mode is toggled in settings and remembered per device (?admin in the URL also turns it on)
   adminOpen: new URLSearchParams(location.search).has("admin") || !!stored("bingo-admin", ""),
-  // Anonymous Auth not enabled in the console: run without the family code and name claims
-  // (works only while the Firestore rules are still open)
-  legacy: false,
 
   // shared game data (Firestore)
   config: LEGACY,                          // config/settings: title, players, founders, admins

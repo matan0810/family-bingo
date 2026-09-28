@@ -19,10 +19,7 @@ function fatal(e) { console.error(e); $("#app").innerHTML = html`<p class="panel
 // ---- auth: anonymous user + one-time family code (checked by the Firestore rules) ----
 export function startAuth() {
   onAuthStateChanged(auth, async u => {
-    if (!u) return signInAnonymously(auth).catch(e => {
-      console.warn("Auth unavailable, running without code:", e.code);
-      Object.assign(S, { legacy: true, uid: "legacy", member: true }); listen();
-    });
+    if (!u) return signInAnonymously(auth).catch(fatal);
     if (S.uid) return; // listeners already set up
     S.uid = u.uid;
     try { const m = await getDoc(ref("members", S.uid)); S.member = m.exists(); S.memberName = m.data()?.name ?? null; } catch (e) { return fatal(e); }
@@ -51,8 +48,7 @@ function listen() {
     lastStatus = S.game.status;
     ready("game");
   }, fatal);
-  if (S.legacy) got.add("players");
-  else onSnapshot(collection(db, "players"), s => { S.claims = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
+  onSnapshot(collection(db, "players"), s => { S.claims = Object.fromEntries(s.docs.map(d => [d.id, d.data().uid])); ready("players"); }, fatal);
   onSnapshot(collection(db, "marks"), s => {
     S.marks = Object.fromEntries(s.docs.map(d => [d.id, d.data()]));
     for (const [p, m] of Object.entries(S.marks)) {
@@ -76,13 +72,11 @@ function listen() {
     ready("config");
   };
   onSnapshot(ref("config", "settings"), s => {
-    if (!s.data() && !S.legacy && !seeded) { seeded = true; setDoc(ref("config", "settings"), LEGACY).catch(e => console.warn("seed settings", e)); }
+    if (!s.data() && !seeded) { seeded = true; setDoc(ref("config", "settings"), LEGACY).catch(e => console.warn("seed settings", e)); }
     setConfig(s.data());
   }, e => { console.warn("settings", e); setConfig(null); });
-  if (!S.legacy) {
-    const mine = (field, key) => onSnapshot(query(collection(db, "suggestions"), where(field, "==", S.uid)), s => { S[key] = docsOf(s); render(); }, e => console.warn("suggestions", e));
-    mine("toUid", "sugIn"); mine("fromUid", "sugOut");
-  }
+  const mine = (field, key) => onSnapshot(query(collection(db, "suggestions"), where(field, "==", S.uid)), s => { S[key] = docsOf(s); render(); }, e => console.warn("suggestions", e));
+  mine("toUid", "sugIn"); mine("fromUid", "sugOut");
 }
 
 // ---- texts: items/{id} holds only who/about; the text is in texts/{id}, fetched one by one as the rules allow ----

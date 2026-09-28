@@ -8,10 +8,11 @@
 //   claim=<name>              this device (ME_UID) also holds <name>
 //   member=0                  device has not entered the family code yet
 //   deny=1                    every setDoc fails with permission-denied (e.g. wrong code)
-//   legacy=1                  MIGRATED still holds its text (the first version's format) -> migration
+//   oldtext=1                 MIGRATED still holds its text (the first version's format) -> migration
 //   nohist=1                  no history
 //   sugg=1                    SUGGESTION waits for its author
 //   pending=1                 the founder's bingo time is still pending (made offline): it reads as null
+//   noauth=1                  anonymous sign-in is off in the console
 //   nudge=1                   after load, ROLE.other marks nudgeFor(size), which is also on the founder's card
 // Writes are recorded for assertions: window.W (setDoc), window.B (batches), window.FS (Firestore options),
 // sessionStorage.claims / .del (survive the reload after logout).
@@ -19,7 +20,7 @@ import { PLAYERS, ROLE, ITEMS, MIGRATED, SETTINGS, CODE, ME_UID, CLAIMS, SIZE, B
 
 const q = new URLSearchParams(location.hash.slice(1));
 const TX = Object.fromEntries(ITEMS.map(i => [i.id, i.text]));
-const items = ITEMS.map(({ id, at, text, ...d }) => ({ id, data: () => ({ weight: 1, at: { seconds: at }, ...d, ...(id === MIGRATED.id && q.get("legacy") ? { text } : {}) }) }));
+const items = ITEMS.map(({ id, at, text, ...d }) => ({ id, data: () => ({ weight: 1, at: { seconds: at }, ...d, ...(id === MIGRATED.id && q.get("oldtext") ? { text } : {}) }) }));
 const n = +(q.get("size") || SIZE), mode = q.get("m") || "entry", cfg = q.get("cfg") || "base";
 const cards = Object.fromEntries(PLAYERS.map(p => [p, cardFor(p, n)]));
 const state = {
@@ -94,6 +95,6 @@ export const onSnapshot = (ref, cb) => setTimeout(() => {
   }
 });
 export const getAuth = () => ({});
-export const signInAnonymously = async () => {};
+export const signInAnonymously = async () => { if (q.get("noauth")) throw { code: "auth/operation-not-allowed" }; };
 export const signOut = async () => { sessionStorage.signedOut = 1; };
-export const onAuthStateChanged = (_, cb) => setTimeout(() => cb({ uid: ME_UID }));
+export const onAuthStateChanged = (_, cb) => setTimeout(() => cb(q.get("noauth") ? null : { uid: ME_UID }));

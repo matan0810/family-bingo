@@ -35,3 +35,8 @@ await scenario(async () => {
   check("stored name owned by another device -> picker", await p.isVisible(".names"));
   await done(p);
 });
+await scenario(async () => {
+  const p = await open("noauth=1", { me: null });
+  check("anonymous sign-in off: a clear error instead of the game", (await p.textContent("#app")).includes("שגיאת חיבור"));
+  await done(p);
+});

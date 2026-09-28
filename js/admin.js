@@ -6,9 +6,9 @@ import { enough } from "./logic.js";
 import { $, html, who, countChips } from "./ui.js";
 import { tuneStats } from "./game.js";
 
-export const adminBox = () => isAdmin() && html`<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div>${!S.legacy && html`
+export const adminBox = () => isAdmin() && html`<section class="admin"><h2>🛠️ מסך מתכלל</h2><div id="adm"></div>
   <details class="free"><summary>🔓 שם תקוע?</summary>
-    <p class="muted">מי שהטלפון הישן שלו לא זמין: משחררים את השם, והוא בוחר אותו מחדש.</p><div class="chips" id="freeList"></div></details>`}</section>`;
+    <p class="muted">מי שהטלפון הישן שלו לא זמין: משחררים את השם, והוא בוחר אותו מחדש.</p><div class="chips" id="freeList"></div></details></section>`;
 
 
 export function fillAdmin() {

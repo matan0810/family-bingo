@@ -4,7 +4,7 @@ import { devices, check, ME, typed, chip, open, batchOps, lastBatch, scenario, d
 
 console.log("— entry phase");
 await scenario(async () => {
-  const p = await open("m=entry&legacy=1");
+  const p = await open("m=entry&oldtext=1");
   check("only my own predictions are listed", await p.locator("#list li").count() === ITEMS.filter(i => i.author === ME).length);
   check("old-format item migrated by its author", (await batchOps(p)).some(([op, r]) => op === "del" && r === `items/${MIGRATED.id}`));
   const chosen = () => p.locator("input[name=about]:checked").count();
