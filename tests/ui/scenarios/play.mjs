@@ -7,6 +7,9 @@ for (const n of [2, 3, 4, 5]) await scenario(async () => {
   const p = await open(`m=play&size=${n}`, { ctx: { viewport: { width: 360, height: 740 } } });
   check(`${n}×${n}: ${n * n} cells, bingo banner, places`, await p.locator(".cell").count() === n * n && await p.isVisible("#banner .banner") && await p.locator(".score .place").count() === P.length);
   check(`${n}×${n}: no horizontal overflow at 360px`, await noOverflow(p));
+  // readable: text of at least 10px, a short text (≤ 30 chars) whole, and rows of one height
+  const look = await p.$$eval(".cell", cs => cs.map(c => { const t = c.querySelector(".txt"); return { f: parseFloat(getComputedStyle(t).fontSize), cut: t.textContent.length <= 30 && t.scrollHeight > t.clientHeight + 1, h: Math.round(c.getBoundingClientRect().height) }; }));
+  check(`${n}×${n}: cell text readable and whole, equal rows`, look.every(c => c.f >= 10 && !c.cut) && new Set(look.map(c => c.h)).size === 1, look);
   await done(p);
 });
 await scenario(async () => {

@@ -192,7 +192,7 @@ function fillCard() {
     const i = byId[id]; // missing if its prediction was deleted
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && S.shown && !S.shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
     const tap = i && html` role="button" tabindex="0" aria-pressed="${String(on.has(id))}" data-cell="${id}"`;
-    return html`<div class="cell${cls}"${tap} data-stamp="${emo(S.me)}"><span class="txt">${i ? shownText(i) : "(נמחק)"}</span>${i && html`<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${whoName(i)}</b></span>`}</div>`;
+    return html`<div class="cell${cls}"${tap}><span class="txt">${i ? shownText(i) : "(נמחק)"}</span>${i && html`<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${whoName(i)}</b></span>`}</div>`;
   })}`;
   S.shown = on;
   need(ids.filter(id => byId[id] && !byId[id].text));
