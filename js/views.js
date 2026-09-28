@@ -7,7 +7,7 @@ import { subjectOf, aboutOf, secs, bingoCells, isBlackout } from "./logic.js";
 import { live, need, migrate, addItem, delItem, rate, safe, remove, join } from "./data.js";
 import { $, $$, html, col, av, generalAv, who, whoName, whoEmo, whoCol, whoAv, countChips, medal, toast, confetti } from "./ui.js";
 import { claim, checkMyName, recordName } from "./account.js";
-import { startRating, backToEntry, backToRating, generate, endGame, reset, toggle, showNudge } from "./game.js";
+import { startRating, backToEntry, backToRating, generate, endGame, reset, openCell, showNudge } from "./game.js";
 import { openEdit, acceptSuggestion, rejectSuggestion, cleanSuggestions } from "./wording.js";
 import { fillCfg } from "./settings.js";
 import { openLooks, openHow } from "./dialogs.js";
@@ -182,7 +182,8 @@ function fillRate() {
   fillMine(false);
 }
 
-function fillCard(interactive) {
+// every cell opens with its full text (and, while playing, the button that marks it)
+function fillCard() {
   const ids = myCard(), n = size(), byId = itemsById(), on = myMarks();
   const hot = bingoCells(ids, on, n), full = isBlackout(ids, on), card = $("#card");
   card.dataset.n = n; card.style.gridTemplateColumns = `repeat(${n},1fr)`;
@@ -190,7 +191,7 @@ function fillCard(interactive) {
   card.innerHTML = html`${ids.map((id, k) => {
     const i = byId[id]; // missing if its prediction was deleted
     const cls = `${on.has(id) ? " on" : ""}${on.has(id) && S.shown && !S.shown.has(id) ? " pop" : ""}${hot.has(k) ? " line" : ""}`;
-    const tap = interactive && html` role="button" tabindex="0" aria-pressed="${String(on.has(id))}" data-cell="${id}"`;
+    const tap = i && html` role="button" tabindex="0" aria-pressed="${String(on.has(id))}" data-cell="${id}"`;
     return html`<div class="cell${cls}"${tap} data-stamp="${emo(S.me)}"><span class="txt">${i ? shownText(i) : "(נמחק)"}</span>${i && html`<span class="tag" style="${whoCol(i)}"><i>${whoEmo(i)}</i><b>${whoName(i)}</b></span>`}</div>`;
   })}`;
   S.shown = on;
@@ -206,7 +207,7 @@ function fillScore() {
 }
 
 function fillPlay() {
-  const { on, hot, full, N } = fillCard(true);
+  const { on, hot, full, N } = fillCard();
   $("#ring").style.setProperty("--p", N ? on.size / N * 100 : 0);
   $("#cnt").textContent = `${on.size}/${N}`;
   $("#banner").innerHTML = full ? html`<div class="banner">🏆 כרטיס מלא! אלופים! 🏆</div>` : hot.size ? html`<div class="banner">🎉 יש לך בינגו! ממשיכים לכרטיס מלא</div>` : "";
@@ -214,7 +215,7 @@ function fillPlay() {
 }
 
 function fillEnded() {
-  fillCard(false);
+  fillCard();
   fillScore();
   const winners = ranking().filter(r => r.place === 1).map(r => who(r.p));
   $("#winner").innerHTML = winners.length ? html`🏆 במקום הראשון: ${winners.map((w, k) => html`${k ? ", " : ""}${w}`)} 🏆` : "🏁 המשחק נגמר";
@@ -237,7 +238,7 @@ const taps = [
   ["suggest", v => openEdit("suggest", v)],
   ["accept", acceptSuggestion],
   ["reject", rejectSuggestion],
-  ["cell", toggle],
+  ["cell", openCell],
   ["free", v => { if (confirm(`לשחרר את השם ${v}?`)) remove("players", v).then(ok => ok && toast(`🔓 השם ${v} פנוי`)); }],
   // tapping the current star lowers it by one
   ["rate", (v, t) => { const k = +t.dataset.k; rate(v, myStars()[v] === k && k > 0 ? k - 1 : k); }],
@@ -255,7 +256,7 @@ function bind() {
     const [k, run] = taps.find(([k]) => t.hasAttribute(`data-${k}`));
     run(t.getAttribute(`data-${k}`), t);
   };
-  app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); toggle(e.target.dataset.cell); } };
+  app.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.cell) { e.preventDefault(); openCell(e.target.dataset.cell); } };
   $("#add")?.addEventListener("submit", async e => {
     e.preventDefault();
     const text = $("#text").value.trim(), subject = $("input[name=about]:checked")?.value;

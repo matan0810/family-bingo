@@ -5,9 +5,9 @@ import { initAdmin } from "./admin.js";
 import { initDialogs } from "./dialogs.js";
 import { initSettings } from "./settings.js";
 import { initWording } from "./wording.js";
-import { initNudge } from "./game.js";
+import { initNudge, initCell } from "./game.js";
 
-initDialogs(); initSettings(); initWording(); initNudge(); initWelcome(); initAdmin();
+initDialogs(); initSettings(); initWording(); initNudge(); initCell(); initWelcome(); initAdmin();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.warn("sw", e));
 render();
 startAuth();

@@ -1,6 +1,6 @@
 // UI checks: play and ended
-import { PLAYERS as P, SIZE, BINGO_AT, PLAY_AT, HISTORY, marksFor, eventsFor } from "../../fixtures.mjs";
-import { check, ME, open, lastBatch, markOp, eventOp, noOverflow, scenario, done } from "../harness.mjs";
+import { PLAYERS as P, SIZE, BINGO_AT, PLAY_AT, HISTORY, byId, marksFor, eventsFor } from "../../fixtures.mjs";
+import { check, ME, open, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done } from "../harness.mjs";
 
 console.log("— play and ended");
 for (const n of [2, 3, 4, 5]) await scenario(async () => {
@@ -13,11 +13,16 @@ await scenario(async () => {
   const p = await open("m=play", { admin: true });
   const cell = await p.locator(".cell:not(.on) >> nth=0").getAttribute("data-cell");
   await p.click(`[data-cell="${cell}"]`); await p.waitForTimeout(100);
+  const text = byId(cell).text;
+  check("tapping a cell only opens it: the full text, and nothing is marked yet", await p.evaluate(() => cellDlg.open) && (await p.textContent("#cellText")) === text && !(await lastBatch(p)), text);
+  await p.click("#cellMark"); await p.waitForTimeout(100);
   const m = await lastBatch(p), [r, d] = markOp(m).slice(1), ev = eventOp(m);
   check("marking keeps the original bingoAt", r === `marks/${ME}` && d.bingo && d.bingoAt?.seconds === BINGO_AT && d.marked.length === SIZE + 1);
   check("…and logs it in the journal, in the same batch", ev?.[0] === "set" && ev[1] === `events/${cell}_${ME}` && JSON.stringify(ev[2]) === JSON.stringify({ item: cell, player: ME, at: "TS" }), ev);
   const on = marksFor(SIZE)[ME][0];
-  await p.click(`[data-cell="${on}"]`); await p.waitForTimeout(100);
+  await p.click(`[data-cell="${on}"]`);
+  check("a marked cell offers to undo the mark", (await p.textContent("#cellMark")).includes("ביטול"));
+  await p.click("#cellMark"); await p.waitForTimeout(100);
   check("unmarking removes the journal entry", JSON.stringify(eventOp(await lastBatch(p))) === JSON.stringify(["del", `events/${on}_${ME}`]));
   await p.click('[data-act="end"]'); await p.waitForTimeout(200);
   const e = await lastBatch(p);
@@ -30,7 +35,7 @@ await scenario(async () => {
 await scenario(async () => {
   const p = await open("m=play&pending=1");
   check("Firestore keeps a local cache on the device (offline)", await p.evaluate(() => !!window.FS?.localCache?.persistent));
-  await p.click(".cell:not(.on) >> nth=0"); await p.waitForTimeout(100);
+  await mark(p, ".cell:not(.on) >> nth=0");
   const [r, d] = markOp(await lastBatch(p)).slice(1);
   check("a bingo whose time is still pending asks for the server time again (not null)", r === `marks/${ME}` && d.bingo && d.bingoAt === "TS", d);
   await done(p);
@@ -38,7 +43,9 @@ await scenario(async () => {
 await scenario(async () => {
   const p = await open("m=ended", { admin: true });
   check("ended: winner banner", (await p.textContent("#winner")).includes("🏆"));
-  check("ended: card is read-only", await p.locator("[data-cell]").count() === 0);
+  await p.click("[data-cell] >> nth=0");
+  check("ended: a cell still opens with its text, but can't be marked", await p.evaluate(() => cellDlg.open) && !(await p.isVisible("#cellMark")));
+  await p.click("#cellDlg .x");
   check("history listed", await p.locator("#hist li").count() === HISTORY.length);
   const top = Math.max(...HISTORY[0].prophets.map(x => x.n)), hist = await p.textContent("#hist");
   check("history names the family prophets", HISTORY[0].prophets.filter(x => x.n === top).every(x => hist.includes(x.p)) && HISTORY[0].prophets.filter(x => x.n < top).every(x => !hist.includes(`${x.p} (`)), hist);

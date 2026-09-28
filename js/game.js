@@ -3,7 +3,7 @@
 import { S, size, poolFor, activeItems, itemsById, ranking, tuned, weight, myCard, myMarks, shownText } from "./state.js";
 import { makeCards, cardStats, endStats, lines } from "./logic.js";
 import { ref, batch, safe, writeGame, clearMarks, newItemRef, serverTimestamp } from "./data.js";
-import { $, html, who } from "./ui.js";
+import { $, html, who, whoEmo, whoName } from "./ui.js";
 
 // ---- phases ----
 export function startRating() {
@@ -71,6 +71,26 @@ export async function toggle(id) {
   });
   on.has(id) ? b.set(ev, { item: id, player: S.me, at: serverTimestamp() }) : b.delete(ev);
   await safe(b.commit());
+}
+
+// ---- a cell: tapping opens it with its full text; marking is a deliberate second tap on "זה קרה!" ----
+let cellOpen = "";
+export function openCell(id) {
+  const i = itemsById()[id];
+  if (!i) return;
+  const on = myMarks().has(id), playing = S.game.status === "play";
+  cellOpen = id;
+  $("#cellWho").innerHTML = html`${whoEmo(i)} ${whoName(i)}`;
+  $("#cellText").textContent = shownText(i);
+  $("#cellNote").textContent = !playing ? "המשחק נגמר, הכרטיס רק לצפייה." : on ? "סימנת שזה קרה." : "קרה? מסמנים. טעיתם? אפשר לבטל אחר כך.";
+  const b = $("#cellMark");
+  b.hidden = !playing;
+  b.textContent = on ? "↩️ ביטול הסימון" : "✅ זה קרה! לסמן";
+  b.classList.toggle("ghost", on);
+  $("#cellDlg").showModal();
+}
+export function initCell() {
+  $("#cellMark").onclick = () => { $("#cellDlg").close(); if (cellOpen) toggle(cellOpen); };
 }
 
 // ---- "also on your card": another player marked a cell I have too; one tap marks it here ----

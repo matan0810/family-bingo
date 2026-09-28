@@ -67,12 +67,14 @@ const picked = async (p, name) => { const ops = await batchOps(p); return ops.so
 const lastBatch = p => p.evaluate(() => (window.B || []).at(-1));
 // a mark is one batch: marks/{me} and its journal entry events/{item}_{me}
 const markOp = b => b?.find(([op, r]) => op === "set" && r.startsWith("marks/")), eventOp = b => b?.find(([, r]) => r.startsWith("events/"));
+// marking = tapping the cell (it opens) and then "זה קרה!" (or "ביטול הסימון")
+const mark = async (p, selector) => { await p.click(selector); await p.click("#cellMark"); await p.waitForTimeout(100); };
 const noOverflow = p => p.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 0);
 // a scenario that throws (e.g. an element never shows up) counts as one failure; the run goes on
 async function scenario(fn) { try { await fn(); } catch (e) { check(`scenario crashed: ${e.message.split("\n")[0]}`, false); } }
 const done = async p => { check(`no page errors`, !p.errors.length, p.errors); await p.context().close(); };
 
-export { browser, root, ORIGIN, devices, check, ME, whoName, general, group, typed, without, chip, open, writes, batchOps, picked, lastBatch, markOp, eventOp, noOverflow, scenario, done };
+export { browser, root, ORIGIN, devices, check, ME, whoName, general, group, typed, without, chip, open, writes, batchOps, picked, lastBatch, markOp, eventOp, mark, noOverflow, scenario, done };
 export async function finish() {
   await browser.close(); server.close();
   console.log(`\n${pass} passed, ${fail} failed`);
